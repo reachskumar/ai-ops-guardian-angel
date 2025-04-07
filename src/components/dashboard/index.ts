@@ -8,6 +8,7 @@ export { default as IncidentPanel } from './IncidentPanel';
 export { default as TrendCards } from './TrendCards';
 export { default as DashboardTabs } from './DashboardTabs';
 export { default as DashboardHeader } from './DashboardHeader';
+export { default as ServerMetricsPanel } from './ServerMetricsPanel';
 export { LazyLoadingSpinner } from './DashboardComponents';
 
 // Export tab components
