@@ -6,12 +6,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CloudProvider, provisionResource } from "@/services/cloudProviderService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+
+// Import our new components
+import {
+  ResourceNameField,
+  ResourceTypeSelector,
+  SizeSelector,
+  RegionSelector,
+  TagsField
+} from "./provisioning";
 
 // Define the schema for the form
 const resourceSchema = z.object({
@@ -51,60 +57,6 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       tags: "",
     },
   });
-
-  // Resource options based on provider and type
-  const getResourceTypes = (provider: CloudProvider, category: string) => {
-    switch (provider) {
-      case "aws":
-        if (category === "compute") return ["EC2", "Lambda"];
-        if (category === "storage") return ["S3", "EBS"];
-        if (category === "database") return ["RDS", "DynamoDB"];
-        if (category === "network") return ["VPC", "ELB"];
-        return [];
-      case "azure":
-        if (category === "compute") return ["Virtual Machine", "Functions"];
-        if (category === "storage") return ["Blob Storage", "Disk Storage"];
-        if (category === "database") return ["SQL Database", "Cosmos DB"];
-        if (category === "network") return ["Virtual Network", "Load Balancer"];
-        return [];
-      case "gcp":
-        if (category === "compute") return ["Compute Engine", "Cloud Functions"];
-        if (category === "storage") return ["Cloud Storage", "Persistent Disk"];
-        if (category === "database") return ["Cloud SQL", "Firestore"];
-        if (category === "network") return ["VPC", "Cloud Load Balancing"];
-        return [];
-      default:
-        return [];
-    }
-  };
-  
-  // Size options based on provider and resource type
-  const getSizeOptions = (provider: CloudProvider, type: string) => {
-    if (type.includes("EC2") || type.includes("Virtual Machine") || type.includes("Compute Engine")) {
-      return ["t2.micro", "t2.small", "t2.medium", "t2.large", "t2.xlarge"];
-    }
-    if (type.includes("RDS") || type.includes("SQL")) {
-      return ["db.t3.micro", "db.t3.small", "db.t3.medium", "db.t3.large"];
-    }
-    if (type.includes("S3") || type.includes("Blob") || type.includes("Storage")) {
-      return ["Standard", "Infrequent Access", "Archive"];
-    }
-    return ["Small", "Medium", "Large"];
-  };
-  
-  // Region options based on provider
-  const getRegionOptions = (provider: CloudProvider) => {
-    switch (provider) {
-      case "aws":
-        return ["us-east-1", "us-west-1", "eu-west-1", "ap-southeast-1"];
-      case "azure":
-        return ["East US", "West US", "North Europe", "Southeast Asia"];
-      case "gcp":
-        return ["us-central1", "us-west1", "europe-west1", "asia-east1"];
-      default:
-        return [];
-    }
-  };
 
   const handleSubmit = async (data: ResourceFormValues) => {
     setIsSubmitting(true);
@@ -182,98 +134,42 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Resource Name</Label>
-                      <Input 
-                        id="name"
-                        placeholder="Enter resource name"
-                        {...form.register("name")}
-                      />
-                      {form.formState.errors.name && (
-                        <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
-                      )}
-                    </div>
+                    <ResourceNameField 
+                      value={form.watch("name")} 
+                      onChange={(e) => form.setValue("name", e.target.value)}
+                      error={form.formState.errors.name?.message}
+                    />
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="type">Resource Type</Label>
-                      <Select 
-                        onValueChange={(value) => form.setValue("type", value)}
-                        defaultValue={form.getValues("type")}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select resource type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getResourceTypes(provider, category).map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {form.formState.errors.type && (
-                        <p className="text-sm text-red-500">{form.formState.errors.type.message}</p>
-                      )}
-                    </div>
+                    <ResourceTypeSelector
+                      provider={provider}
+                      category={category}
+                      value={form.watch("type")}
+                      onChange={(value) => form.setValue("type", value)}
+                      error={form.formState.errors.type?.message}
+                    />
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="size">Size / Tier</Label>
-                      <Select 
-                        onValueChange={(value) => form.setValue("size", value)}
-                        defaultValue={form.getValues("size")}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select size" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getSizeOptions(provider, form.getValues("type")).map((size) => (
-                            <SelectItem key={size} value={size}>
-                              {size}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {form.formState.errors.size && (
-                        <p className="text-sm text-red-500">{form.formState.errors.size.message}</p>
-                      )}
-                    </div>
+                    <SizeSelector
+                      provider={provider}
+                      resourceType={form.watch("type")}
+                      value={form.watch("size")}
+                      onChange={(value) => form.setValue("size", value)}
+                      error={form.formState.errors.size?.message}
+                    />
                     
-                    <div className="space-y-2">
-                      <Label htmlFor="region">Region</Label>
-                      <Select 
-                        onValueChange={(value) => form.setValue("region", value)}
-                        defaultValue={form.getValues("region")}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select region" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getRegionOptions(provider).map((region) => (
-                            <SelectItem key={region} value={region}>
-                              {region}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {form.formState.errors.region && (
-                        <p className="text-sm text-red-500">{form.formState.errors.region.message}</p>
-                      )}
-                    </div>
+                    <RegionSelector
+                      provider={provider}
+                      value={form.watch("region")}
+                      onChange={(value) => form.setValue("region", value)}
+                      error={form.formState.errors.region?.message}
+                    />
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="tags">Tags (key=value,key=value)</Label>
-                    <Input
-                      id="tags"
-                      placeholder="env=prod,project=web,owner=devops"
-                      {...form.register("tags")}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Separate multiple tags with commas, format as key=value
-                    </p>
-                  </div>
+                  <TagsField
+                    value={form.watch("tags") || ""}
+                    onChange={(e) => form.setValue("tags", e.target.value)}
+                  />
                 </div>
                 
                 <CardFooter className="px-0 pt-4">

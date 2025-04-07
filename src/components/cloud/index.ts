@@ -20,3 +20,6 @@ export * from './metrics';
 
 // Export tab components
 export * from './tabs';
+
+// Export provisioning components
+export * from './provisioning';
