@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./providers/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -62,7 +63,7 @@ const App = () => (
               path="/admin"
               element={
                 <AdminRoute>
-                  <NotFound />
+                  <AdminPanel />
                 </AdminRoute>
               }
             />

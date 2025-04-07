@@ -97,7 +97,7 @@ const Header: React.FC = () => {
                 <span>Settings</span>
               </DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/admin')}>
                   <Shield className="mr-2 h-4 w-4" />
                   <span>Admin Panel</span>
                 </DropdownMenuItem>
