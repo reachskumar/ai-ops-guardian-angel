@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,44 +30,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
-        
-        if (currentSession?.user) {
-          // Ensure profile exists, creating it if necessary
-          await ensureProfileExists(currentSession.user);
-          
-          setTimeout(() => {
-            fetchUserProfile(currentSession.user!.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
-        }
-      }
-    );
+  const fetchUserProfile = useCallback(async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      
-      if (currentSession?.user) {
-        await ensureProfileExists(currentSession.user);
-        fetchUserProfile(currentSession.user.id);
-      }
-      setLoading(false);
-    });
+      if (error) throw error;
 
-    return () => subscription.unsubscribe();
+      setProfile(data);
+      setIsAdmin(data?.role === 'admin');
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
   }, []);
 
-  // New function to ensure profile exists
-  const ensureProfileExists = async (user: User) => {
+  // Ensure profile exists for a user
+  const ensureProfileExists = useCallback(async (user: User) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -83,32 +64,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'user' // Default role
       });
     }
-  };
+  }, []);
 
-  const fetchUserProfile = async (userId: string) => {
+  useEffect(() => {
+    // First set up the auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        if (currentSession?.user) {
+          // Use setTimeout to avoid potential recursion issues
+          setTimeout(() => {
+            fetchUserProfile(currentSession.user!.id);
+          }, 0);
+        } else {
+          setProfile(null);
+          setIsAdmin(false);
+        }
+      }
+    );
+
+    // Then check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        
+        if (data.session?.user) {
+          await ensureProfileExists(data.session.user);
+          await fetchUserProfile(data.session.user.id);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    return () => subscription.unsubscribe();
+  }, [ensureProfileExists, fetchUserProfile]);
+
+  const signOut = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-
-      setProfile(data);
-      setIsAdmin(data?.role === 'admin');
+      await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+      setIsAdmin(false);
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      console.error("Sign out error:", error);
     }
-  };
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-    setIsAdmin(false);
-  };
+  }, []);
 
   const value = {
     session,

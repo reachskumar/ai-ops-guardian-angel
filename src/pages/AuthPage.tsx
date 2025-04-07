@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,32 +16,25 @@ const AuthPage: React.FC = () => {
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [session, setSession] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Check for existing session on mount and redirect if found
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        navigate("/");
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        navigate("/", { replace: true });
       }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        navigate("/");
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    };
+    
+    checkSession();
   }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) return;
+    
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -56,10 +49,16 @@ const AuthPage: React.FC = () => {
       });
 
       if (error) throw error;
+      
       toast({
         title: "Account created successfully!",
         description: "Please check your email to verify your account.",
       });
+      
+      // If auto-confirm is enabled, this will contain a session
+      if (data.session) {
+        navigate("/", { replace: true });
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -73,6 +72,8 @@ const AuthPage: React.FC = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) return;
+    
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -81,11 +82,15 @@ const AuthPage: React.FC = () => {
       });
 
       if (error) throw error;
+      
       toast({
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
+      
+      navigate("/", { replace: true });
     } catch (error: any) {
+      console.error("Login error:", error);
       toast({
         title: "Error",
         description: error.message,
@@ -196,4 +201,4 @@ const AuthPage: React.FC = () => {
   );
 };
 
-export default AuthPage;
+export default React.memo(AuthPage);

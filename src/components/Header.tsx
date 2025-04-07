@@ -1,5 +1,5 @@
 
-import React, { memo } from "react";
+import React, { memo, useCallback } from "react";
 import { Bell, Settings, Search, LogOut, User, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,18 +17,22 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 
 // Memoize the Header component to prevent unnecessary re-renders
-const Header: React.FC = memo(() => {
+const Header = memo(() => {
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Memoize handler functions to prevent recreating them on every render
-  const handleSignOut = React.useCallback(async () => {
+  const handleSignOut = useCallback(async () => {
     await signOut();
-    navigate("/auth");
+    navigate("/auth", { replace: true });
   }, [signOut, navigate]);
 
+  const handleNavigate = useCallback((path: string) => () => {
+    navigate(path);
+  }, [navigate]);
+
   // Memoize getInitials function
-  const getInitials = React.useCallback((name: string) => {
+  const getInitials = useCallback((name: string) => {
     if (!name) return "U";
     return name
       .split(" ")
@@ -56,7 +60,7 @@ const Header: React.FC = memo(() => {
           <span className="sr-only">Notifications</span>
         </Button>
 
-        {user && (
+        {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="rounded-full h-8 w-8 p-0">
@@ -91,16 +95,16 @@ const Header: React.FC = memo(() => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <DropdownMenuItem onClick={handleNavigate('/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <DropdownMenuItem onClick={handleNavigate('/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem onClick={() => navigate('/admin')}>
+                <DropdownMenuItem onClick={handleNavigate('/admin')}>
                   <Shield className="mr-2 h-4 w-4" />
                   <span>Admin Panel</span>
                 </DropdownMenuItem>
@@ -112,6 +116,10 @@ const Header: React.FC = memo(() => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : (
+          <Button size="sm" onClick={() => navigate("/auth")}>
+            Login
+          </Button>
         )}
       </div>
     </header>
