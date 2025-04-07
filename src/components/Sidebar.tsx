@@ -27,6 +27,7 @@ import {
   HelpCircle,
   LayoutGrid,
   Users,
+  Box,
 } from "lucide-react";
 
 interface NavLinkProps {
@@ -99,6 +100,9 @@ export const SidebarContents: React.FC<SidebarContentsProps> = ({ className }) =
         <SidebarMenu>
           <NavLink href="/cloud-resources" icon={Cloud}>
             Cloud Resources
+          </NavLink>
+          <NavLink href="/kubernetes" icon={Box}>
+            Kubernetes
           </NavLink>
           <NavLink href="/servers" icon={Server}>
             Servers

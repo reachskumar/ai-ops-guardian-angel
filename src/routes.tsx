@@ -22,6 +22,7 @@ const ServerDetailsPage = lazy(() => import("./pages/ServerDetailsPage"));
 const ServerMonitoringPage = lazy(() => import("./pages/ServerMonitoringPage"));
 const InfrastructureOverviewPage = lazy(() => import("./pages/InfrastructureOverviewPage"));
 const IAMPage = lazy(() => import("./pages/IAMPage"));
+const KubernetesPage = lazy(() => import("./pages/KubernetesPage"));
 
 const AppRoutes: React.FC = () => {
   return (
@@ -104,6 +105,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRole="developer">
             <CloudResourcesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kubernetes"
+        element={
+          <ProtectedRoute requiredRole="developer">
+            <KubernetesPage />
           </ProtectedRoute>
         }
       />
