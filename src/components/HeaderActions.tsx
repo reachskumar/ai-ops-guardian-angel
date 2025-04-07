@@ -15,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { Settings, LogOut, User, Shield, Users } from "lucide-react";
 import NotificationsPopover from "@/components/notifications/NotificationsPopover";
 import { RoleSwitcher } from "./teams";
+import { Team } from "@/services/teamService";
 
 const HeaderActions: React.FC = () => {
   const { user, profile, signOut, isAdmin } = useAuth();
@@ -23,7 +24,14 @@ const HeaderActions: React.FC = () => {
   // Mock teams data - in a real implementation, this would come from the auth provider
   const userTeams = [
     {
-      team: { id: "team1", name: "Engineering" },
+      team: { 
+        id: "team1", 
+        name: "Engineering",
+        description: "Engineering team",
+        created_by: "user1",
+        created_at: "2023-01-01T00:00:00Z",
+        updated_at: "2023-01-01T00:00:00Z"
+      } as Team,
       role: profile?.role || "viewer"
     }
   ];

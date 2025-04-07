@@ -4,10 +4,8 @@ import { Helmet } from "react-helmet-async";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { SearchIcon, UserPlus, Shield, Users, Key, RefreshCw } from "lucide-react";
+import { Users, Shield, Key } from "lucide-react";
+import { IAMSearchBar, UsersTab, RolesTab, ApiKeysTab } from "@/components/iam";
 
 const IAMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("users");
@@ -79,21 +77,12 @@ const IAMPage: React.FC = () => {
         <main className="flex-1 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
             <h1 className="text-2xl font-bold">Identity & Access Management</h1>
-            <div className="flex space-x-2 mt-2 sm:mt-0">
-              <div className="relative">
-                <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search..."
-                  className="pl-8 w-full sm:w-[250px]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline">
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </div>
+            <IAMSearchBar 
+              searchQuery={searchQuery} 
+              setSearchQuery={setSearchQuery}
+              isRefreshing={isRefreshing}
+              handleRefresh={handleRefresh}
+            />
           </div>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -114,174 +103,17 @@ const IAMPage: React.FC = () => {
             
             {/* Users Tab */}
             <TabsContent value="users" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">User Management</h2>
-                <Button size="sm">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
-              </div>
-              
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-4">Name</th>
-                          <th className="text-left p-4">Email</th>
-                          <th className="text-left p-4">Role</th>
-                          <th className="text-left p-4">Last Login</th>
-                          <th className="text-right p-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredUsers.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                              No users found
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredUsers.map((user) => (
-                            <tr key={user.id} className="border-b hover:bg-muted/50">
-                              <td className="p-4">{user.name}</td>
-                              <td className="p-4">{user.email}</td>
-                              <td className="p-4">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  user.role === "Admin" ? "bg-blue-100 text-blue-800" :
-                                  user.role === "Operator" ? "bg-amber-100 text-amber-800" :
-                                  user.role === "Read-only" ? "bg-slate-100 text-slate-800" :
-                                  "bg-green-100 text-green-800"
-                                }`}>
-                                  {user.role}
-                                </span>
-                              </td>
-                              <td className="p-4">{user.lastLogin}</td>
-                              <td className="p-4 text-right">
-                                <Button variant="ghost" size="sm">Edit</Button>
-                                <Button variant="ghost" size="sm" className="text-red-500">Deactivate</Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+              <UsersTab filteredUsers={filteredUsers} />
             </TabsContent>
             
             {/* Roles Tab */}
             <TabsContent value="roles" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Roles & Permissions</h2>
-                <Button size="sm">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Create Role
-                </Button>
-              </div>
-              
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-4">Role Name</th>
-                          <th className="text-left p-4">Description</th>
-                          <th className="text-center p-4">Users</th>
-                          <th className="text-center p-4">Permissions</th>
-                          <th className="text-right p-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredRoles.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                              No roles found
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredRoles.map((role) => (
-                            <tr key={role.id} className="border-b hover:bg-muted/50">
-                              <td className="p-4 font-medium">{role.name}</td>
-                              <td className="p-4">{role.description}</td>
-                              <td className="p-4 text-center">{role.users}</td>
-                              <td className="p-4 text-center">{role.permissions}</td>
-                              <td className="p-4 text-right">
-                                <Button variant="ghost" size="sm">Edit</Button>
-                                <Button variant="ghost" size="sm">Clone</Button>
-                                <Button variant="ghost" size="sm" className="text-red-500">Delete</Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+              <RolesTab filteredRoles={filteredRoles} />
             </TabsContent>
             
             {/* API Keys Tab */}
             <TabsContent value="apikeys" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">API Key Management</h2>
-                <Button size="sm">
-                  <Key className="h-4 w-4 mr-2" />
-                  Generate API Key
-                </Button>
-              </div>
-              
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-4">Key Name</th>
-                          <th className="text-left p-4">Created</th>
-                          <th className="text-left p-4">Expires</th>
-                          <th className="text-left p-4">Status</th>
-                          <th className="text-right p-4">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredApiKeys.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                              No API keys found
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredApiKeys.map((key) => (
-                            <tr key={key.id} className="border-b hover:bg-muted/50">
-                              <td className="p-4 font-medium">{key.name}</td>
-                              <td className="p-4">{key.created}</td>
-                              <td className="p-4">{key.expires}</td>
-                              <td className="p-4">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  key.status === "Active" ? "bg-green-100 text-green-800" :
-                                  key.status === "Expiring soon" ? "bg-amber-100 text-amber-800" :
-                                  "bg-red-100 text-red-800"
-                                }`}>
-                                  {key.status}
-                                </span>
-                              </td>
-                              <td className="p-4 text-right">
-                                <Button variant="ghost" size="sm">View</Button>
-                                <Button variant="ghost" size="sm">Rotate</Button>
-                                <Button variant="ghost" size="sm" className="text-red-500">Revoke</Button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+              <ApiKeysTab filteredApiKeys={filteredApiKeys} />
             </TabsContent>
           </Tabs>
         </main>
