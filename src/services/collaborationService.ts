@@ -1,6 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { UserProfile } from "./authService";
+import { mockInsert, mockSelect, mockUpdate, mockDelete } from "./mockDatabaseService";
 
 export interface Team {
   id: string;
@@ -51,10 +51,8 @@ export const createTeam = async (
   team: Omit<Team, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; teamId?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('teams')
-      .insert(team)
-      .select();
+    // Use mock service
+    const { data, error } = mockInsert('teams', team);
     
     if (error) throw error;
     
@@ -70,9 +68,8 @@ export const createTeam = async (
 
 export const getTeams = async (): Promise<Team[]> => {
   try {
-    const { data, error } = await supabase
-      .from('teams')
-      .select('*');
+    // Use mock service
+    const { data, error } = mockSelect('teams');
     
     if (error) throw error;
     
@@ -184,10 +181,8 @@ export const createWorkItem = async (
   workItem: Omit<WorkItem, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; workItemId?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('work_items')
-      .insert(workItem)
-      .select();
+    // Use mock service
+    const { data, error } = mockInsert('work_items', workItem);
     
     if (error) throw error;
     

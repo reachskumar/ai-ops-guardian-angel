@@ -1,5 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
+import { mockInsert, mockSelect, mockUpdate, mockDelete } from "./mockDatabaseService";
 
 export type CloudProvider = 'aws' | 'azure' | 'gcp';
 
@@ -56,10 +56,8 @@ export const connectCloudProvider = async (
 // Get cloud accounts
 export const getCloudAccounts = async (): Promise<CloudAccount[]> => {
   try {
-    const { data, error } = await supabase
-      .from('cloud_accounts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Use mock service
+    const { data, error } = mockSelect('cloud_accounts');
 
     if (error) throw error;
     
@@ -104,43 +102,26 @@ export const getCloudResources = async (
   }
 ): Promise<{ resources: CloudResource[]; count: number }> => {
   try {
-    const { accountId, provider, type, region, status, limit = 100, offset = 0 } = options || {};
+    const { accountId, type, region, status, limit = 100, offset = 0 } = options || {};
     
-    // Start building the query
-    let query = supabase
-      .from('cloud_resources')
-      .select('*', { count: 'exact' })
-      .range(offset, offset + limit - 1);
+    // Create filters for mock select
+    let filters: Record<string, any> = {};
+    if (accountId) filters.cloud_account_id = accountId;
+    if (type) filters.type = type;
+    if (region) filters.region = region;
+    if (status) filters.status = status;
     
-    // Apply filters
-    if (accountId) {
-      query = query.eq('cloud_account_id', accountId);
-    }
-    
-    if (type) {
-      query = query.eq('type', type);
-    }
-    
-    if (region) {
-      query = query.eq('region', region);
-    }
-    
-    if (status) {
-      query = query.eq('status', status);
-    }
-    
-    if (provider) {
-      query = query.eq('provider', provider);
-    }
-    
-    // Execute query
-    const { data, error, count } = await query;
+    // Use mock service
+    const { data, count, error } = mockSelect('cloud_resources', filters);
     
     if (error) throw error;
     
+    // Apply pagination manually
+    const paginatedData = data.slice(offset, offset + limit);
+    
     return {
-      resources: data as CloudResource[],
-      count: count || 0
+      resources: paginatedData as CloudResource[],
+      count: count
     };
   } catch (error) {
     console.error("Get cloud resources error:", error);

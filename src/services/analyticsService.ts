@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { mockInsert, mockSelect, mockUpdate, mockDelete } from "./mockDatabaseService";
 
 export interface MetricDataPoint {
   timestamp: string;
@@ -83,15 +84,13 @@ export const createDashboard = async (
   dashboard: Omit<Dashboard, 'id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; dashboardId?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('dashboards')
-      .insert(dashboard)
-      .select();
+    // Use mock service instead of Supabase until the table is created
+    const { data, error } = mockInsert('dashboards', dashboard);
     
     if (error) throw error;
     
     return { 
-      success: true,
+      success: true, 
       dashboardId: data?.[0]?.id
     };
   } catch (error: any) {
@@ -110,20 +109,13 @@ export const getDashboards = async (
   try {
     const { userId, includePublic = true } = options || {};
     
-    let query = supabase
-      .from('dashboards')
-      .select('*');
-    
-    if (userId) {
-      query = includePublic 
-        ? query.or(`created_by.eq.${userId},is_public.eq.true`)
-        : query.eq('created_by', userId);
-    } else if (!includePublic) {
-      // If no userId but also not including public, return empty
-      return [];
+    // Use mock service
+    let filters = {};
+    if (userId && !includePublic) {
+      filters = { created_by: userId };
     }
     
-    const { data, error } = await query;
+    const { data, error } = mockSelect('dashboards', filters);
     
     if (error) throw error;
     
@@ -139,25 +131,15 @@ export const getDashboardById = async (
   dashboardId: string
 ): Promise<{ dashboard: Dashboard | null; widgets: DashboardWidget[]; error?: string }> => {
   try {
-    const { data: dashboard, error: dashboardError } = await supabase
-      .from('dashboards')
-      .select('*')
-      .eq('id', dashboardId)
-      .single();
-    
+    // Use mock service for both dashboard and widgets
+    const { data: dashboard, error: dashboardError } = mockSelect('dashboards', { id: dashboardId });
     if (dashboardError) throw dashboardError;
     
-    const { data: widgets, error: widgetsError } = await supabase
-      .from('dashboard_widgets')
-      .select('*')
-      .eq('dashboard_id', dashboardId)
-      .order('position->y', { ascending: true })
-      .order('position->x', { ascending: true });
-    
+    const { data: widgets, error: widgetsError } = mockSelect('dashboard_widgets', { dashboard_id: dashboardId });
     if (widgetsError) throw widgetsError;
     
     return {
-      dashboard: dashboard as Dashboard,
+      dashboard: dashboard[0] as Dashboard || null,
       widgets: widgets as DashboardWidget[]
     };
   } catch (error: any) {
@@ -176,10 +158,8 @@ export const updateDashboardWidget = async (
   updates: Partial<DashboardWidget>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('dashboard_widgets')
-      .update(updates)
-      .eq('id', widgetId);
+    // Use mock service
+    const { error } = mockUpdate('dashboard_widgets', widgetId, updates);
     
     if (error) throw error;
     
@@ -195,10 +175,8 @@ export const createReport = async (
   report: Omit<Report, 'id' | 'created_at'>
 ): Promise<{ success: boolean; reportId?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('reports')
-      .insert(report)
-      .select();
+    // Use mock service
+    const { data, error } = mockInsert('reports', report);
     
     if (error) throw error;
     
@@ -217,15 +195,10 @@ export const getReports = async (
   userId?: string
 ): Promise<Report[]> => {
   try {
-    let query = supabase
-      .from('reports')
-      .select('*');
+    // Use mock service
+    let filters = userId ? { created_by: userId } : {};
     
-    if (userId) {
-      query = query.eq('created_by', userId);
-    }
-    
-    const { data, error } = await query;
+    const { data, error } = mockSelect('reports', filters);
     
     if (error) throw error;
     

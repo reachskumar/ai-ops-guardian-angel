@@ -1,61 +1,50 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { mockInsert, mockSelect, mockUpdate, mockDelete } from "./mockDatabaseService";
+
+export type NotificationType = 'incident' | 'alert' | 'system' | 'resource' | 'user';
 
 export type NotificationPriority = 'critical' | 'high' | 'medium' | 'low' | 'info';
-
-export type NotificationType = 'security' | 'infrastructure' | 'monitoring' | 'incident' | 'system';
 
 export interface Notification {
   id: string;
   user_id: string;
-  title: string;
   message: string;
   type: NotificationType;
   priority: NotificationPriority;
+  related_id?: string; // Reference to the related item (incident, alert, etc.)
+  related_type?: string;
   read: boolean;
   created_at: string;
-  link?: string;
   metadata?: Record<string, any>;
 }
 
-export const getNotifications = async (
-  userId: string, 
-  options?: { 
-    limit?: number; 
-    offset?: number; 
-    onlyUnread?: boolean;
-    type?: NotificationType;
+// Get notifications for a user
+export const getUserNotifications = async (
+  userId: string,
+  options?: {
+    unreadOnly?: boolean;
+    limit?: number;
+    offset?: number;
   }
 ): Promise<{ notifications: Notification[]; count: number }> => {
   try {
-    const { limit = 10, offset = 0, onlyUnread, type } = options || {};
+    const { unreadOnly = false, limit = 20, offset = 0 } = options || {};
     
-    // Start building the query
-    let query = supabase
-      .from('notifications')
-      .select('*', { count: 'exact' })
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    // Create filters
+    const filters: Record<string, any> = { user_id: userId };
+    if (unreadOnly) filters.read = false;
     
-    // Optional filters
-    if (onlyUnread) {
-      query = query.eq('read', false);
-    }
+    // Use mock service instead of Supabase
+    const { data, count, error } = mockSelect('notifications', filters);
     
-    if (type) {
-      query = query.eq('type', type);
-    }
-    
-    // Execute the query
-    const { data, error, count } = await query;
+    // Manually handle pagination
+    const paginatedData = data.slice(offset, offset + limit);
     
     if (error) throw error;
     
-    return { 
-      notifications: data as Notification[], 
-      count: count || 0 
+    return {
+      notifications: paginatedData as Notification[],
+      count: count
     };
   } catch (error) {
     console.error("Get notifications error:", error);
@@ -63,14 +52,13 @@ export const getNotifications = async (
   }
 };
 
+// Create a new notification
 export const createNotification = async (
   notification: Omit<Notification, 'id' | 'created_at'>
 ): Promise<{ success: boolean; notificationId?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert(notification)
-      .select();
+    // Use mock service
+    const { data, error } = mockInsert('notifications', notification);
     
     if (error) throw error;
     
@@ -84,51 +72,51 @@ export const createNotification = async (
   }
 };
 
-export const markNotificationAsRead = async (
+// Mark a notification as read
+export const markAsRead = async (
   notificationId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('id', notificationId);
+    // Use mock service
+    const { error } = mockUpdate('notifications', notificationId, { read: true });
     
     if (error) throw error;
     
     return { success: true };
   } catch (error: any) {
-    console.error("Mark notification as read error:", error);
+    console.error("Mark as read error:", error);
     return { success: false, error: error.message };
   }
 };
 
-export const markAllNotificationsAsRead = async (
+// Mark all notifications as read for a user
+export const markAllAsRead = async (
   userId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ read: true })
-      .eq('user_id', userId)
-      .eq('read', false);
+    // Get all notifications for the user
+    const { data: notifications, error: selectError } = mockSelect('notifications', { user_id: userId });
+    if (selectError) throw selectError;
     
-    if (error) throw error;
+    // Update each notification to mark as read
+    for (const notification of notifications) {
+      await mockUpdate('notifications', notification.id, { read: true });
+    }
     
     return { success: true };
   } catch (error: any) {
-    console.error("Mark all notifications as read error:", error);
+    console.error("Mark all as read error:", error);
     return { success: false, error: error.message };
   }
 };
 
+// Delete a notification
 export const deleteNotification = async (
   notificationId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', notificationId);
+    // Use mock service
+    const { error } = mockDelete('notifications', notificationId);
     
     if (error) throw error;
     
@@ -139,72 +127,42 @@ export const deleteNotification = async (
   }
 };
 
-export const subscribeToPushNotifications = async (
-  userId: string, 
+// Subscribe user to push notifications
+export const subscribePushNotifications = async (
+  userId: string,
   subscription: PushSubscription
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // This would typically send the subscription to your server
-    // to store and use for sending push notifications
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: userId,
-        endpoint: subscription.endpoint,
-        p256dh: btoa(JSON.stringify(subscription.getKey('p256dh'))),
-        auth: btoa(JSON.stringify(subscription.getKey('auth'))),
-      });
+    // Store the subscription in the database
+    const { error } = mockInsert('push_subscriptions', {
+      user_id: userId,
+      endpoint: subscription.endpoint,
+      keys: subscription.keys
+    });
     
     if (error) throw error;
     
     return { success: true };
   } catch (error: any) {
-    console.error("Subscribe to push notifications error:", error);
+    console.error("Subscribe push notifications error:", error);
     return { success: false, error: error.message };
   }
 };
 
-// Helper function to show a notification toast
-export const showNotificationToast = (
-  notification: Pick<Notification, 'title' | 'message' | 'priority'>
-): void => {
-  const variant = 
-    notification.priority === 'critical' ? 'destructive' :
-    notification.priority === 'high' ? 'destructive' :
-    notification.priority === 'medium' ? 'default' :
-    notification.priority === 'low' ? 'default' : 'default';
-
-  toast({
-    title: notification.title,
-    description: notification.message,
-    variant,
-    duration: notification.priority === 'critical' ? 10000 : 5000,
-  });
-};
-
-// Setup real-time notifications
-export const setupNotificationListener = (
-  userId: string, 
-  onNewNotification: (notification: Notification) => void
-): (() => void) => {
-  const channel = supabase
-    .channel(`user-notifications-${userId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`,
-      },
-      (payload) => {
-        const newNotification = payload.new as Notification;
-        onNewNotification(newNotification);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+// Unsubscribe user from push notifications
+export const unsubscribePushNotifications = async (
+  userId: string,
+  endpoint: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // Delete the subscription from the database
+    const { error } = mockDelete('push_subscriptions', endpoint);
+    
+    if (error) throw error;
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Unsubscribe push notifications error:", error);
+    return { success: false, error: error.message };
+  }
 };

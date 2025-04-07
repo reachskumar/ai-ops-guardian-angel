@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AreaChart, BarChart, LineChart, PieChart } from "@/components/ui/chart";
+import { AreaChart, BarChart, LineChart, PieChart } from "@/components/ui/charts";
 
 import { CalendarIcon, Download, RefreshCw } from "lucide-react";
 import { addDays, format, subDays } from "date-fns";
