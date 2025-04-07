@@ -14,13 +14,11 @@ serve(async (req) => {
   }
 
   try {
-    // Get the Azure OpenAI API key and endpoint from environment variables
-    const apiKey = Deno.env.get('AZURE_OPENAI_API_KEY');
-    const endpoint = Deno.env.get('AZURE_OPENAI_ENDPOINT');
-    const deploymentName = Deno.env.get('AZURE_OPENAI_DEPLOYMENT_NAME');
+    // Get the OpenAI API key from environment variables
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
 
-    if (!apiKey || !endpoint || !deploymentName) {
-      throw new Error('Missing required Azure OpenAI configuration');
+    if (!apiKey) {
+      throw new Error('Missing required OpenAI API key');
     }
 
     const { message, history } = await req.json();
@@ -39,27 +37,24 @@ serve(async (req) => {
     For monitoring requests, provide sample commands or queries that would retrieve the requested information.
     For security scans, describe the process and tools that would be used.`;
 
-    // Format chat messages for Azure OpenAI API
+    // Format chat messages for OpenAI API
     const messages = [
       { role: "system", content: systemMessage },
-      ...history.map((msg: any) => ({
+      ...history.map((msg) => ({
         role: msg.type === "user" ? "user" : "assistant",
         content: msg.content,
       })),
       { role: "user", content: message }
     ];
 
-    // API version and deployment/model name
-    const apiVersion = '2023-05-15';
-    const url = `${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=${apiVersion}`;
-
-    const response = await fetch(url, {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'api-key': apiKey,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
+        model: "gpt-4o",
         messages: messages,
         temperature: 0.7,
         max_tokens: 800,
@@ -68,8 +63,8 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Azure OpenAI API error:', errorData);
-      throw new Error(`Azure OpenAI API returned ${response.status}: ${errorData}`);
+      console.error('OpenAI API error:', errorData);
+      throw new Error(`OpenAI API returned ${response.status}: ${errorData}`);
     }
 
     const data = await response.json();
