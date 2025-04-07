@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Activity, RefreshCw } from "lucide-react";
-import { ResourceMetric, getResourceMetrics } from "@/services/cloudProviderService";
+import { ResourceMetric, getResourceMetrics } from "@/services/cloud";
 import { useToast } from "@/hooks/use-toast";
 import { MetricsOverviewPanel, MetricDetailPanel } from "./metrics";
 

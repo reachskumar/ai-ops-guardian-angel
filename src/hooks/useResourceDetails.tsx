@@ -5,7 +5,7 @@ import {
   getResourceMetrics, 
   CloudResource,
   ResourceMetric
-} from '@/services/cloudProviderService';
+} from '@/services/cloud';
 import { useToast } from '@/hooks/use-toast';
 
 export const useResourceDetails = () => {

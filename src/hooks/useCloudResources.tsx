@@ -5,7 +5,7 @@ import {
   getCloudResources,
   CloudResource,
   CloudAccount
-} from '@/services/cloudProviderService';
+} from '@/services/cloud';
 import { useToast } from '@/hooks/use-toast';
 
 export const useCloudResources = () => {

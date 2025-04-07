@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Clock, AlertTriangle } from 'lucide-react';
-import { ResourceMetric } from '@/services/cloudProviderService';
+import { ResourceMetric } from '@/services/cloud';
 import { AreaChart } from '@/components/ui/charts';
 
 interface ResourceMetricsProps {

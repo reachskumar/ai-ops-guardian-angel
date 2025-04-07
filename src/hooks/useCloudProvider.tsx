@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { z } from 'zod';
-import { connectCloudProvider } from '@/services/cloudProviderService';
+import { connectCloudProvider } from '@/services/cloud';
 import { useToast } from '@/hooks/use-toast';
 
 // Define the form schema with Zod

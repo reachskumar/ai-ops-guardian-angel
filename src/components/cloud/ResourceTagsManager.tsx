@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Plus, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { updateResource } from "@/services/cloudProviderService";
+import { updateResource } from "@/services/cloud";
 
 interface Tag {
   key: string;
@@ -30,7 +29,6 @@ const ResourceTagsManager: React.FC<ResourceTagsManagerProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // Convert initial tags object to array on component mount
   useEffect(() => {
     if (initialTags && Object.keys(initialTags).length > 0) {
       const tagsArr = Object.entries(initialTags).map(([key, value]) => ({ key, value }));
@@ -47,7 +45,6 @@ const ResourceTagsManager: React.FC<ResourceTagsManagerProps> = ({
       return;
     }
 
-    // Check if tag with this key already exists
     const tagExists = tags.some(tag => tag.key === newTagKey);
     if (tagExists) {
       toast({
@@ -70,13 +67,11 @@ const ResourceTagsManager: React.FC<ResourceTagsManagerProps> = ({
     setIsSubmitting(true);
     
     try {
-      // Convert tags array to object
       const tagObject: Record<string, string> = {};
       tags.forEach(tag => {
         tagObject[tag.key] = tag.value;
       });
       
-      // Update resource tags
       const result = await updateResource(resourceId, "update-tags", { tags: tagObject });
       
       if (result.success) {

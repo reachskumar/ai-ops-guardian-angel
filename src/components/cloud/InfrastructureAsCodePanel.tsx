@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +17,7 @@ import {
   FileCode,
   RefreshCw
 } from 'lucide-react';
-import { generateIaCTemplate, applyIaCTemplate } from '@/services/cloudProviderService';
+import { generateIaCTemplate, applyIaCTemplate } from '@/services/cloud';
 
 const templateTypes = [
   { id: 'terraform', name: 'Terraform', language: 'hcl' },
@@ -48,7 +47,6 @@ const InfrastructureAsCodePanel = () => {
     setErrorMessage(null);
     
     try {
-      // Call the service to generate the template
       const result = await generateIaCTemplate(type);
       
       if (result.success) {
@@ -86,7 +84,6 @@ const InfrastructureAsCodePanel = () => {
     setErrorMessage(null);
     
     try {
-      // Call the service to apply the template
       const result = await applyIaCTemplate(type, templateContent[type]);
       
       if (result.success) {
@@ -133,7 +130,6 @@ const InfrastructureAsCodePanel = () => {
   const handleTemplateChange = (type: string, content: string) => {
     setTemplateContent(prev => ({ ...prev, [type]: content }));
     
-    // If there was an error, clear it when the user starts typing
     if (templateStatus[type] === 'error') {
       setTemplateStatus(prev => ({ ...prev, [type]: 'idle' }));
       setErrorMessage(null);
