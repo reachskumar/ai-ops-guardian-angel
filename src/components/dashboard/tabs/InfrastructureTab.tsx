@@ -2,7 +2,8 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Server, Database, Network, Cloud } from "lucide-react";
+import { PlusCircle, Server, Database, Network, Cloud, FileCode } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface InfrastructureResource {
   id: string;
@@ -19,6 +20,13 @@ interface InfrastructureTabProps {
 const InfrastructureTab: React.FC<InfrastructureTabProps> = ({
   infrastructureResources,
 }) => {
+  const navigate = useNavigate();
+
+  const handleNavigateToIaC = () => {
+    navigate("/cloud-resources");
+    // We'd ideally also set the active tab to 'iac', but would need to use context or state management
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2">
@@ -93,8 +101,12 @@ const InfrastructureTab: React.FC<InfrastructureTabProps> = ({
         </Card>
         
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-md font-medium">Infrastructure as Code</CardTitle>
+            <Button variant="ghost" size="sm" onClick={handleNavigateToIaC}>
+              <FileCode className="mr-2 h-4 w-4" />
+              Manage
+            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
@@ -117,6 +129,13 @@ const InfrastructureTab: React.FC<InfrastructureTabProps> = ({
                 <span className="text-sm">Ansible</span>
               </div>
               <span className="text-xs text-muted-foreground">Update needed</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
+                <span className="text-sm">Azure ARM</span>
+              </div>
+              <span className="text-xs text-muted-foreground">New</span>
             </div>
           </CardContent>
         </Card>

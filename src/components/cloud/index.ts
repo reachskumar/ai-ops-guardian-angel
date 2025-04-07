@@ -13,3 +13,4 @@ export { default as ResourceTagsManager } from './ResourceTagsManager';
 export { default as CostAnalysisPanel } from './CostAnalysisPanel';
 export { default as ResourceMetricsDashboard } from './ResourceMetricsDashboard';
 export { default as CloudProviderIntegration } from './CloudProviderIntegration';
+export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';

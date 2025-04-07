@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarWithProvider } from '@/components/Sidebar';
-import { RefreshCw, PlusCircle, Tag, Gauge, DollarSign, ChartBar, Cloud } from 'lucide-react';
+import { RefreshCw, PlusCircle, Tag, Gauge, DollarSign, ChartBar, Cloud, FileCode } from 'lucide-react';
 import Header from '@/components/Header';
 
 // Import custom hooks
@@ -23,7 +23,8 @@ import {
   ResourceTagsManager,
   CostAnalysisPanel,
   ResourceMetricsDashboard,
-  CloudProviderIntegration
+  CloudProviderIntegration,
+  InfrastructureAsCodePanel
 } from '@/components/cloud';
 
 const CloudResourcesPage: React.FC = () => {
@@ -120,6 +121,10 @@ const CloudResourcesPage: React.FC = () => {
                 <Tag className="h-4 w-4" />
                 <span>Tags</span>
               </TabsTrigger>
+              <TabsTrigger value="iac" className="flex items-center gap-1">
+                <FileCode className="h-4 w-4" />
+                <span>Infrastructure as Code</span>
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="inventory">
@@ -186,6 +191,10 @@ const CloudResourcesPage: React.FC = () => {
                   </Button>
                 </div>
               )}
+            </TabsContent>
+            
+            <TabsContent value="iac">
+              <InfrastructureAsCodePanel />
             </TabsContent>
           </Tabs>
 
