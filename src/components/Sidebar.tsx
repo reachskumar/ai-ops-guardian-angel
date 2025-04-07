@@ -26,6 +26,7 @@ import {
   CreditCard,
   HelpCircle,
   LayoutGrid,
+  Users,
 } from "lucide-react";
 
 interface NavLinkProps {
@@ -108,7 +109,7 @@ export const SidebarContents: React.FC<SidebarContentsProps> = ({ className }) =
           <NavLink href="/infrastructure" icon={LayoutGrid}>
             Infrastructure
           </NavLink>
-          <NavLink href="/iam" icon={Lock}>
+          <NavLink href="/iam" icon={Users}>
             IAM
           </NavLink>
         </SidebarMenu>

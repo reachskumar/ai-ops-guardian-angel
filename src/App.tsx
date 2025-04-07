@@ -23,6 +23,7 @@ const ServersPage = lazy(() => import("./pages/ServersPage"));
 const ServerDetailsPage = lazy(() => import("./pages/ServerDetailsPage"));
 const ServerMonitoringPage = lazy(() => import("./pages/ServerMonitoringPage"));
 const InfrastructureOverviewPage = lazy(() => import("./pages/InfrastructureOverviewPage"));
+const IAMPage = lazy(() => import("./pages/IAMPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -157,7 +158,7 @@ const App = () => (
                 path="/iam"
                 element={
                   <ProtectedRoute>
-                    <NotFound />
+                    <IAMPage />
                   </ProtectedRoute>
                 }
               />

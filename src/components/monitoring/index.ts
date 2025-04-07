@@ -7,3 +7,4 @@ export { default as ServerHealthIndicator } from './ServerHealthIndicator';
 export { default as ResourceUtilizationChart } from './ResourceUtilizationChart';
 export { default as ServerPerformanceSummary } from './ServerPerformanceSummary';
 export { default as NetworkTrafficMonitor } from './NetworkTrafficMonitor';
+export { default as DetailedMetricsPanel } from './DetailedMetricsPanel';

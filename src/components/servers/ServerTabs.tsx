@@ -1,11 +1,9 @@
 
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import ServerList from "./ServerList";
+import ServerDetailPanel from "./ServerDetailPanel";
 
-interface ServerItem {
+interface ServerData {
   id: string;
   name: string;
   status: string;
@@ -18,53 +16,78 @@ interface ServerItem {
 }
 
 interface ServerTabsProps {
-  servers: ServerItem[];
+  servers: ServerData[];
   searchQuery: string;
 }
 
 const ServerTabs: React.FC<ServerTabsProps> = ({ servers, searchQuery }) => {
+  const [selectedTab, setSelectedTab] = useState<string>("all");
+  
+  const filterServers = () => {
+    let filteredServers = servers.filter(server => 
+      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.ip.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.os.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.region.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    if (selectedTab !== "all") {
+      filteredServers = filteredServers.filter(server => server.status === selectedTab);
+    }
+    
+    return filteredServers;
+  };
+  
+  const getStatusCount = (status: string) => {
+    return servers.filter(server => server.status === status).length;
+  };
+  
+  const runningCount = getStatusCount("running");
+  const stoppedCount = getStatusCount("stopped");
+  const warningCount = getStatusCount("warning");
+  const maintenanceCount = getStatusCount("maintenance");
+  
+  const filteredServers = filterServers();
+
   return (
-    <Tabs defaultValue="servers" className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="servers">Servers</TabsTrigger>
-        <TabsTrigger value="groups">Server Groups</TabsTrigger>
-        <TabsTrigger value="templates">Templates</TabsTrigger>
+    <Tabs defaultValue="all" value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
+      <TabsList className="grid grid-cols-5 md:w-auto">
+        <TabsTrigger value="all">
+          All ({servers.length})
+        </TabsTrigger>
+        <TabsTrigger value="running">
+          Running ({runningCount})
+        </TabsTrigger>
+        <TabsTrigger value="stopped">
+          Stopped ({stoppedCount})
+        </TabsTrigger>
+        <TabsTrigger value="warning">
+          Warning ({warningCount})
+        </TabsTrigger>
+        <TabsTrigger value="maintenance">
+          Maintenance ({maintenanceCount})
+        </TabsTrigger>
       </TabsList>
       
-      <TabsContent value="servers" className="space-y-4">
-        <Card>
-          <CardContent className="p-0">
-            <ServerList servers={servers} searchQuery={searchQuery} />
-          </CardContent>
-        </Card>
-      </TabsContent>
-      
-      <TabsContent value="groups" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Server Groups</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center text-muted-foreground py-8">
-              <p>Create server groups to manage multiple servers together.</p>
-              <Button className="mt-4">Create Server Group</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-      
-      <TabsContent value="templates" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Server Templates</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center text-muted-foreground py-8">
-              <p>Create server templates to quickly deploy standardized configurations.</p>
-              <Button className="mt-4">Create Template</Button>
-            </div>
-          </CardContent>
-        </Card>
+      <TabsContent value={selectedTab} className="mt-6">
+        {filteredServers.length === 0 ? (
+          <div className="text-center p-8 border border-dashed rounded-lg">
+            <h3 className="font-medium text-lg">No servers found</h3>
+            <p className="text-muted-foreground mt-1">
+              {searchQuery 
+                ? `No servers match your search criteria "${searchQuery}"`
+                : "No servers available in this category"
+              }
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredServers.map((server) => (
+              <ServerDetailPanel key={server.id} server={server} />
+            ))}
+          </div>
+        )}
       </TabsContent>
     </Tabs>
   );

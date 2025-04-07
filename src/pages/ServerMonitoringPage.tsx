@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
@@ -16,10 +15,10 @@ import { getResourceMetrics } from "@/services/cloudProviderService";
 import { 
   ServerList, 
   MonitoringOverview,
-  AlertsPanel
+  AlertsPanel,
+  DetailedMetricsPanel
 } from "@/components/monitoring";
 
-// Mock server data
 const servers = [
   { 
     id: "srv-001", 
@@ -89,7 +88,6 @@ const ServerMonitoringPage: React.FC = () => {
     ? servers.find(s => s.id === selectedServerId) 
     : null;
 
-  // Fetch metrics for the selected server
   useEffect(() => {
     if (selectedServerId) {
       fetchServerMetrics(selectedServerId);
@@ -234,55 +232,12 @@ const ServerMonitoringPage: React.FC = () => {
                     {isRefreshing ? (
                       <div className="grid grid-cols-1 gap-4">
                         <LazyLoadingSpinner />
-                        <LazyLoadingSpinner />
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              <Activity className="h-5 w-5 text-primary" />
-                              Performance Metrics
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <MonitoringWidget
-                                title="CPU Usage (Last 24 Hours)"
-                                type="area"
-                                data={Array.from({ length: 24 }, (_, i) => ({
-                                  time: `${i}:00`,
-                                  value: Math.floor(Math.random() * 60) + 20
-                                }))}
-                              />
-                              <MonitoringWidget
-                                title="Memory Usage (Last 24 Hours)"
-                                type="area"
-                                data={Array.from({ length: 24 }, (_, i) => ({
-                                  time: `${i}:00`,
-                                  value: Math.floor(Math.random() * 30) + 50
-                                }))}
-                              />
-                              <MonitoringWidget
-                                title="Disk I/O (Last 24 Hours)"
-                                type="bar"
-                                data={Array.from({ length: 12 }, (_, i) => ({
-                                  name: `${i*2}:00`,
-                                  value: Math.floor(Math.random() * 80) + 10
-                                }))}
-                              />
-                              <MonitoringWidget
-                                title="Network Traffic (Last 24 Hours)"
-                                type="bar"
-                                data={Array.from({ length: 12 }, (_, i) => ({
-                                  name: `${i*2}:00`,
-                                  value: Math.floor(Math.random() * 100) + 5
-                                }))}
-                              />
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
+                      <DetailedMetricsPanel
+                        serverName={selectedServer.name}
+                        serverId={selectedServer.id}
+                      />
                     )}
                   </TabsContent>
                   
