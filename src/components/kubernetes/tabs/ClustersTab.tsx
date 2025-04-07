@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ClusterDetailsDialog } from "../ClusterDetailsDialog";
+import ClusterDetailsDialog from "../ClusterDetailsDialog";
 
 // Mock data for demo
 const mockClusters = [

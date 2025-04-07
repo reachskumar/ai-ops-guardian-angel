@@ -145,12 +145,11 @@ const NodesTab: React.FC = () => {
                   </div>
                   <Progress 
                     value={node.cpuUsage} 
-                    className="h-1.5"
-                    indicatorClassName={
-                      node.cpuUsage > 80 ? "bg-red-500" :
-                      node.cpuUsage > 60 ? "bg-amber-500" :
-                      "bg-green-500"
-                    } 
+                    className={`h-1.5 ${
+                      node.cpuUsage > 80 ? "bg-red-500/20" :
+                      node.cpuUsage > 60 ? "bg-amber-500/20" :
+                      "bg-green-500/20"
+                    }`}
                   />
                 </div>
               </TableCell>
@@ -160,13 +159,12 @@ const NodesTab: React.FC = () => {
                     <span className="text-xs">{node.memoryUsage}%</span>
                   </div>
                   <Progress 
-                    value={node.memoryUsage} 
-                    className="h-1.5"
-                    indicatorClassName={
-                      node.memoryUsage > 80 ? "bg-red-500" :
-                      node.memoryUsage > 60 ? "bg-amber-500" :
-                      "bg-green-500"
-                    } 
+                    value={node.memoryUsage}
+                    className={`h-1.5 ${
+                      node.memoryUsage > 80 ? "bg-red-500/20" :
+                      node.memoryUsage > 60 ? "bg-amber-500/20" :
+                      "bg-green-500/20"
+                    }`}
                   />
                 </div>
               </TableCell>
