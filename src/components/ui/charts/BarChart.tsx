@@ -1,0 +1,61 @@
+
+import React from "react";
+import {
+  Bar,
+  BarChart as RechartsBarChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { ChartContainer, ChartConfig } from "./ChartContainer";
+
+export interface BarChartProps {
+  data: any[];
+  categories: string[];
+  index: string;
+  colors?: string[];
+  valueFormatter?: (value: number) => string;
+  yAxisWidth?: number;
+  className?: string;
+}
+
+export const BarChart = ({
+  data,
+  categories,
+  index,
+  colors = ["blue", "green", "yellow", "purple", "red"],
+  valueFormatter = (value) => String(value),
+  yAxisWidth = 50,
+  className,
+}: BarChartProps) => {
+  const config: ChartConfig = categories.reduce((acc, category, i) => {
+    acc[category] = { color: colors[i % colors.length] };
+    return acc;
+  }, {} as ChartConfig);
+
+  return (
+    <ChartContainer config={config} className={className}>
+      <RechartsBarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey={index} />
+        <YAxis width={yAxisWidth} tickFormatter={valueFormatter} />
+        <Tooltip
+          formatter={(value: number) => [valueFormatter(value)]}
+          labelFormatter={(label) => `${index}: ${label}`}
+        />
+        <Legend />
+        {categories.map((category, i) => (
+          <Bar
+            key={category}
+            dataKey={category}
+            fill={`var(--color-${category}, ${colors[i % colors.length]})`}
+          />
+        ))}
+      </RechartsBarChart>
+    </ChartContainer>
+  );
+};
+
+export default BarChart;
