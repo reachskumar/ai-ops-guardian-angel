@@ -33,13 +33,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
+      async (event, currentSession) => {
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
+          // Ensure profile exists, creating it if necessary
+          await ensureProfileExists(currentSession.user);
+          
           setTimeout(() => {
-            fetchUserProfile(currentSession.user.id);
+            fetchUserProfile(currentSession.user!.id);
           }, 0);
         } else {
           setProfile(null);
@@ -49,11 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
       if (currentSession?.user) {
+        await ensureProfileExists(currentSession.user);
         fetchUserProfile(currentSession.user.id);
       }
       setLoading(false);
@@ -62,19 +66,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
+  // New function to ensure profile exists
+  const ensureProfileExists = async (user: User) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error || !data) {
+      // Create profile if it doesn't exist
+      await supabase.from('profiles').insert({
+        id: user.id,
+        username: user.email?.split('@')[0],
+        full_name: user.user_metadata?.full_name || user.email,
+        role: 'user' // Default role
+      });
+    }
+  };
+
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Use type-safe query with Database types
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        return;
-      }
+      if (error) throw error;
 
       setProfile(data);
       setIsAdmin(data?.role === 'admin');
