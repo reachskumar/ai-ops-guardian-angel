@@ -12,6 +12,7 @@ import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./providers/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,15 @@ const App = () => (
                 <ProtectedRoute>
                   <IncidentsPage />
                 </ProtectedRoute>
+              }
+            />
+            {/* Admin-only routes */}
+            <Route
+              path="/admin"
+              element={
+                <AdminRoute>
+                  <NotFound />
+                </AdminRoute>
               }
             />
             {/* Placeholder routes for navigation items */}

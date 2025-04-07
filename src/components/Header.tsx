@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Bell, Settings, Search, LogOut, User } from "lucide-react";
+import { Bell, Settings, Search, LogOut, User, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,9 +14,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 const Header: React.FC = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -71,9 +72,16 @@ const Header: React.FC = () => {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {profile?.full_name || "User"}
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium leading-none">
+                      {profile?.full_name || "User"}
+                    </p>
+                    {isAdmin && (
+                      <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-800 border-amber-300">
+                        Admin
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user.email}
                   </p>
@@ -88,6 +96,12 @@ const Header: React.FC = () => {
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem>
+                  <Shield className="mr-2 h-4 w-4" />
+                  <span>Admin Panel</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
