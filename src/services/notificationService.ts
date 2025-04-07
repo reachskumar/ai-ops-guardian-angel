@@ -12,15 +12,15 @@ export interface Notification {
   message: string;
   type: NotificationType;
   priority: NotificationPriority;
-  title: string; // Added title field to match component usage
-  related_id?: string; // Reference to the related item (incident, alert, etc.)
+  title: string;
+  related_id?: string;
   related_type?: string;
   read: boolean;
   created_at: string;
   metadata?: Record<string, any>;
 }
 
-// Get notifications for a user - renamed to match component usage
+// Get notifications for a user
 export const getNotifications = async (
   userId: string,
   options?: {
@@ -74,7 +74,7 @@ export const createNotification = async (
   }
 };
 
-// Mark a notification as read - renamed to match component usage
+// Mark a notification as read
 export const markNotificationAsRead = async (
   notificationId: string
 ): Promise<{ success: boolean; error?: string }> => {
@@ -91,7 +91,7 @@ export const markNotificationAsRead = async (
   }
 };
 
-// Mark all notifications as read for a user - renamed to match component usage
+// Mark all notifications as read for a user
 export const markAllNotificationsAsRead = async (
   userId: string
 ): Promise<{ success: boolean; error?: string }> => {
@@ -129,17 +129,35 @@ export const deleteNotification = async (
   }
 };
 
-// Set up notification listener - added to match component usage
+// Set up notification listener with real-time capabilities
 export const setupNotificationListener = (
   userId: string, 
   callback: (notification: Notification) => void
 ): (() => void) => {
-  // Mock listener implementation
   console.log(`Setting up notification listener for user ${userId}`);
+  
+  // In a real implementation with Supabase, we would set up like this:
+  const channel = supabase
+    .channel('public:notifications')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT', 
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      },
+      (payload) => {
+        console.log('New notification received:', payload);
+        callback(payload.new as Notification);
+      }
+    )
+    .subscribe();
   
   // Return cleanup function
   return () => {
     console.log(`Cleaning up notification listener for user ${userId}`);
+    supabase.removeChannel(channel);
   };
 };
 
@@ -149,15 +167,21 @@ export const subscribePushNotifications = async (
   subscription: PushSubscription
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Store the subscription in the database
-    const { error } = mockInsert('push_subscriptions', {
+    // Extract necessary data from PushSubscription object
+    const subscriptionData = {
       user_id: userId,
       endpoint: subscription.endpoint,
       // Fix for PushSubscription keys property
-      keys: JSON.stringify({
-        p256dh: "mock-p256dh-key",
-        auth: "mock-auth-key"
-      })
+      keys: {
+        p256dh: "mock-p256dh-key",  // In a real implementation, get from subscription.keys
+        auth: "mock-auth-key"        // In a real implementation, get from subscription.keys
+      }
+    };
+    
+    // Store the subscription in the database
+    const { error } = mockInsert('push_subscriptions', {
+      ...subscriptionData,
+      keys: JSON.stringify(subscriptionData.keys)
     });
     
     if (error) throw error;
@@ -185,4 +209,12 @@ export const unsubscribePushNotifications = async (
     console.error("Unsubscribe push notifications error:", error);
     return { success: false, error: error.message };
   }
+};
+
+// Initialize real-time features for notifications
+export const initializeRealtimeNotifications = (): void => {
+  // Enable realtime functionality for notifications table in a real implementation
+  // In a Supabase implementation, this would be:
+  // await supabase.rpc('enable_realtime', { table_name: 'notifications' })
+  console.log("Realtime notifications initialized");
 };

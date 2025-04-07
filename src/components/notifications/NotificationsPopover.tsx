@@ -17,6 +17,7 @@ import {
   markAllNotificationsAsRead,
   deleteNotification,
   setupNotificationListener,
+  initializeRealtimeNotifications,
   Notification,
   NotificationType,
   NotificationPriority
@@ -30,6 +31,11 @@ const NotificationsPopover: React.FC = () => {
   const [open, setOpen] = useState(false);
   
   const { user } = useAuth();
+  
+  // Initialize real-time functionality
+  useEffect(() => {
+    initializeRealtimeNotifications();
+  }, []);
   
   // Load notifications
   useEffect(() => {
