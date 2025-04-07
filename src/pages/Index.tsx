@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useMemo } from "react";
 import Header from "@/components/Header";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import AIChat from "@/components/AIChat";
@@ -9,28 +9,38 @@ import SecurityPanel from "@/components/dashboard/SecurityPanel";
 import IncidentPanel from "@/components/dashboard/IncidentPanel";
 import ResourcesPanel from "@/components/dashboard/ResourcesPanel";
 
-// Sample data for charts
-const cpuData = Array.from({ length: 24 }, (_, i) => ({
-  time: `${i}:00`,
-  value: Math.floor(Math.random() * 30) + 40,
-}));
-
-const memoryData = Array.from({ length: 24 }, (_, i) => ({
-  time: `${i}:00`,
-  value: Math.floor(Math.random() * 25) + 60,
-}));
-
-const networkData = Array.from({ length: 5 }, (_, i) => ({
-  name: ["Web", "API", "Auth", "Database", "Cache"][i],
-  value: Math.floor(Math.random() * 400) + 100,
-}));
-
-const storageData = [
-  { name: "Used", value: 320 },
-  { name: "Available", value: 680 },
-];
-
+// Sample data for charts - memoize this data to prevent regeneration on each render
 const Index: React.FC = () => {
+  // Memoize expensive data calculations
+  const cpuData = useMemo(() => 
+    Array.from({ length: 24 }, (_, i) => ({
+      time: `${i}:00`,
+      value: Math.floor(Math.random() * 30) + 40,
+    })),
+    []
+  );
+
+  const memoryData = useMemo(() => 
+    Array.from({ length: 24 }, (_, i) => ({
+      time: `${i}:00`,
+      value: Math.floor(Math.random() * 25) + 60,
+    })),
+    []
+  );
+
+  const networkData = useMemo(() => 
+    Array.from({ length: 5 }, (_, i) => ({
+      name: ["Web", "API", "Auth", "Database", "Cache"][i],
+      value: Math.floor(Math.random() * 400) + 100,
+    })),
+    []
+  );
+
+  const storageData = useMemo(() => [
+    { name: "Used", value: 320 },
+    { name: "Available", value: 680 },
+  ], []);
+
   return (
     <SidebarWithProvider>
       <div className="flex flex-col min-h-screen">

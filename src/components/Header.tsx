@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { memo } from "react";
 import { Bell, Settings, Search, LogOut, User, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,4 +115,5 @@ const Header: React.FC = () => {
   );
 };
 
-export default Header;
+// Use React memo to prevent unnecessary re-renders
+export default memo(Header);
