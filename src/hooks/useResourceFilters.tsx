@@ -42,19 +42,19 @@ export const useResourceFilters = (resources: CloudResource[]) => {
       );
     }
 
-    if (filters.type) {
+    if (filters.type && filters.type !== 'all-types') {
       result = result.filter(resource => 
         resource.type.toLowerCase() === filters.type.toLowerCase()
       );
     }
 
-    if (filters.region) {
+    if (filters.region && filters.region !== 'all-regions') {
       result = result.filter(resource => 
         resource.region === filters.region
       );
     }
 
-    if (filters.status) {
+    if (filters.status && filters.status !== 'all-statuses') {
       result = result.filter(resource => 
         resource.status.toLowerCase() === filters.status.toLowerCase()
       );

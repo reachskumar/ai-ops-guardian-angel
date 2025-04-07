@@ -57,7 +57,7 @@ const ResourceFilters: React.FC<ResourceFiltersProps> = ({
               <SelectValue placeholder="Resource Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all-types">All Types</SelectItem>
               {typeOptions.map((type) => (
                 <SelectItem key={type} value={type.toLowerCase()}>
                   {type}
@@ -74,7 +74,7 @@ const ResourceFilters: React.FC<ResourceFiltersProps> = ({
               <SelectValue placeholder="Region" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Regions</SelectItem>
+              <SelectItem value="all-regions">All Regions</SelectItem>
               {regionOptions.map((region) => (
                 <SelectItem key={region} value={region}>
                   {region}
@@ -91,7 +91,7 @@ const ResourceFilters: React.FC<ResourceFiltersProps> = ({
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all-statuses">All Statuses</SelectItem>
               {statusOptions.map((status) => (
                 <SelectItem key={status} value={status.toLowerCase()}>
                   {status}

@@ -1,94 +1,101 @@
 
-import { ResourceMetric } from "./types";
+import { supabase } from "@/integrations/supabase/client";
+import { CloudResource, ResourceMetric } from "./types";
 
-// Add a new function to get resource metrics
+// Get resource metrics by resource ID
 export const getResourceMetrics = async (
   resourceId: string,
-  metricNames: string[] = ['cpu', 'memory', 'network', 'disk'],
-  timeRange: string = '1h'
+  timeRange: string = '1d',
+  metricNames: string[] = []
 ): Promise<ResourceMetric[]> => {
-  await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
-  
-  const now = new Date();
-  const metrics: ResourceMetric[] = [];
-  
-  for (const metricName of metricNames) {
-    const dataPoints = Array.from({ length: 12 }, (_, i) => {
-      const timestamp = new Date(now.getTime() - ((11 - i) * 5 * 60 * 1000)); // 5 min intervals
-      
-      let value = 0;
-      switch (metricName) {
-        case 'cpu':
-          value = Math.floor(Math.random() * 40) + 30; // 30-70%
-          break;
-        case 'memory':
-          value = Math.floor(Math.random() * 30) + 50; // 50-80%
-          break;
-        case 'network':
-          value = Math.floor(Math.random() * 100) + 20; // 20-120 Mbps
-          break;
-        case 'disk':
-          value = Math.floor(Math.random() * 20) + 10; // 10-30 IOPS
-          break;
-        default:
-          value = Math.floor(Math.random() * 100);
-      }
-      
-      return {
-        timestamp: timestamp.toISOString(),
-        value
-      };
-    });
-    
-    const unit = metricName === 'cpu' || metricName === 'memory' ? 
-                  '%' : 
-                  metricName === 'network' ? 
-                  'Mbps' : 'IOPS';
-    
-    let status = 'normal';
-    const latestValue = dataPoints[dataPoints.length - 1].value;
-    if (metricName === 'cpu' && latestValue > 80) status = 'warning';
-    if (metricName === 'memory' && latestValue > 85) status = 'warning';
-    if (metricName === 'disk' && latestValue > 25) status = 'warning';
-    
-    metrics.push({
-      name: metricName.charAt(0).toUpperCase() + metricName.slice(1),
-      data: dataPoints,
-      unit,
-      status
-    });
-  }
-  
-  return metrics;
-};
-
-// Get cost analysis for cloud resources
-export const getResourceCosts = async (
-  filters: {
-    accountId?: string;
-    resourceIds?: string[];
-    startDate: string;
-    endDate: string;
-    groupBy?: 'day' | 'week' | 'month' | 'service' | 'region';
-  }
-): Promise<{ costs: any[]; totalCost: number; error?: string }> => {
   try {
-    const { data, error } = await supabase.functions.invoke('get-resource-costs', {
-      body: filters
+    const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
+      body: { resourceId, timeRange, metricNames }
     });
 
     if (error) throw error;
     
-    return { 
-      costs: data.costs,
-      totalCost: data.totalCost
-    };
+    return data.metrics;
   } catch (error: any) {
-    console.error("Get resource costs error:", error);
+    console.error("Get resource metrics error:", error);
+    return [];
+  }
+};
+
+// Get aggregated metrics for multiple resources
+export const getAggregatedMetrics = async (
+  resourceIds: string[],
+  metricName: string,
+  timeRange: string = '1d',
+  interval: string = '1h'
+): Promise<{ 
+  data: Array<{ timestamp: string; value: number }>; 
+  error?: string 
+}> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('get-aggregated-metrics', {
+      body: { resourceIds, metricName, timeRange, interval }
+    });
+
+    if (error) throw error;
+    
+    return { data: data.metrics };
+  } catch (error: any) {
+    console.error("Get aggregated metrics error:", error);
     return { 
-      costs: [], 
-      totalCost: 0,
-      error: error.message || 'Failed to get resource costs' 
+      data: [],
+      error: error.message || 'Failed to get aggregated metrics' 
+    };
+  }
+};
+
+// Get resource cost metrics
+export const getResourceCostMetrics = async (
+  resourceId: string,
+  timeRange: string = '30d',
+  interval: string = '1d'
+): Promise<{ 
+  data: Array<{ date: string; cost: number }>; 
+  error?: string 
+}> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('get-resource-cost-metrics', {
+      body: { resourceId, timeRange, interval }
+    });
+
+    if (error) throw error;
+    
+    return { data: data.costs };
+  } catch (error: any) {
+    console.error("Get resource cost metrics error:", error);
+    return { 
+      data: [],
+      error: error.message || 'Failed to get resource cost metrics' 
+    };
+  }
+};
+
+// Get resource alerts/events
+export const getResourceAlerts = async (
+  resourceId: string,
+  timeRange: string = '7d'
+): Promise<{ 
+  alerts: Array<any>; 
+  error?: string 
+}> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('get-resource-alerts', {
+      body: { resourceId, timeRange }
+    });
+
+    if (error) throw error;
+    
+    return { alerts: data.alerts };
+  } catch (error: any) {
+    console.error("Get resource alerts error:", error);
+    return { 
+      alerts: [],
+      error: error.message || 'Failed to get resource alerts' 
     };
   }
 };
