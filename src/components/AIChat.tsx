@@ -4,30 +4,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Send, Bot, User, Loader, Zap, Shield, Bell, Cloud, Users } from "lucide-react";
+import { 
+  Send, 
+  Bot, 
+  User, 
+  Loader, 
+  Cloud, 
+  Shield, 
+  Terminal, 
+  AlertTriangle, 
+  Users 
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendChatMessage, ChatMessage } from "@/services/aiChatService";
 import { useAuth } from "@/providers/AuthProvider";
 
-const MESSAGE_CATEGORIES = {
-  provision: ["create", "provision", "deploy", "launch", "setup", "ec2", "instance", "cluster"],
-  security: ["security", "scan", "vulnerability", "compliance", "cis", "benchmark", "audit"],
-  monitoring: ["monitor", "metrics", "cpu", "memory", "disk", "network", "status", "health"],
-  incident: ["incident", "alert", "error", "failure", "outage", "problem", "ticket", "issue"],
-  iam: ["user", "permission", "role", "access", "iam", "account", "auth", "identity"],
+// DevOps command categories with keywords
+const COMMAND_CATEGORIES = {
+  provision: ["create", "deploy", "launch", "provision", "setup", "configure"],
+  security: ["scan", "vulnerability", "compliance", "secure", "harden"],
+  monitoring: ["monitor", "metrics", "status", "health", "performance"],
+  incident: ["incident", "alert", "error", "problem", "ticket"],
+  iam: ["user", "permission", "access", "role", "identity"]
 };
 
 const AIChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       type: "system",
-      content: "Hello! I'm your AI DevOps assistant. How can I help you today?",
+      content: "Hello! I'm your AI DevOps assistant. How can I help you automate and optimize your infrastructure?",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [categoryHighlight, setCategoryHighlight] = useState<string | null>(null);
+  const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -40,10 +51,10 @@ const AIChat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const detectMessageCategory = (message: string): string | null => {
+  const detectCommandCategory = (message: string): string | null => {
     const lowerMessage = message.toLowerCase();
     
-    for (const [category, keywords] of Object.entries(MESSAGE_CATEGORIES)) {
+    for (const [category, keywords] of Object.entries(COMMAND_CATEGORIES)) {
       if (keywords.some(keyword => lowerMessage.includes(keyword))) {
         return category;
       }
@@ -53,172 +64,131 @@ const AIChat: React.FC = () => {
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !user) return;
 
-    // Detect the category for UI highlighting
-    const category = detectMessageCategory(input);
-    setCategoryHighlight(category);
+    const category = detectCommandCategory(input);
+    setCurrentCategory(category);
     
-    const userMessage = {
-      type: "user" as const,
+    const userMessage: ChatMessage = {
+      type: "user",
       content: input,
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     try {
-      // Get AI response from our service
       const response = await sendChatMessage(
         input, 
-        // Only send the last 10 messages for context
-        messages.slice(-10)
+        messages.slice(-10)  // Send recent context
       );
 
-      const systemMessage = {
-        type: "system" as const,
+      const systemMessage: ChatMessage = {
+        type: "system",
         content: response,
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, systemMessage]);
+      setMessages(prev => [...prev, systemMessage]);
       
-      // Show a toast notification 
       toast({
-        title: "AI Response Received",
-        description: "Your request has been processed",
+        title: "DevOps AI Response",
+        description: "Received insights from your AI assistant",
       });
     } catch (error) {
-      console.error("Error getting AI response:", error);
+      console.error("Chat error:", error);
       
-      const errorMessage = {
-        type: "system" as const,
-        content: "Sorry, I encountered an error processing your request. Please try again later.",
+      const errorMessage: ChatMessage = {
+        type: "system",
+        content: "Sorry, I couldn't process your request. Please try again.",
         timestamp: new Date(),
       };
       
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMessage]);
       
       toast({
-        title: "Error",
+        title: "Communication Error",
         description: "Failed to get AI response",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
-      setCategoryHighlight(null);
+      setCurrentCategory(null);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+  const getCommandIcon = (category: string | null) => {
+    switch (category) {
+      case 'provision': return <Cloud className="mr-2 h-4 w-4" />;
+      case 'security': return <Shield className="mr-2 h-4 w-4" />;
+      case 'monitoring': return <Terminal className="mr-2 h-4 w-4" />;
+      case 'incident': return <AlertTriangle className="mr-2 h-4 w-4" />;
+      case 'iam': return <Users className="mr-2 h-4 w-4" />;
+      default: return <Bot className="mr-2 h-4 w-4" />;
     }
-  };
-
-  // Get the icon for the message based on content analysis
-  const getMessageIcon = (message: ChatMessage) => {
-    if (message.type === "user") return <User size={16} />;
-    
-    const content = message.content.toLowerCase();
-    
-    if (content.includes("provision") || content.includes("create") || content.includes("deploy")) {
-      return <Cloud size={16} />;
-    } else if (content.includes("security") || content.includes("vulnerability") || content.includes("compliance")) {
-      return <Shield size={16} />;
-    } else if (content.includes("incident") || content.includes("alert") || content.includes("error")) {
-      return <Bell size={16} />;
-    } else if (content.includes("user") || content.includes("permission") || content.includes("role")) {
-      return <Users size={16} />;
-    } else if (content.includes("monitor") || content.includes("metric") || content.includes("status")) {
-      return <Zap size={16} />;
-    }
-    
-    return <Bot size={16} />;
   };
 
   return (
-    <Card className="h-full border border-border bg-card flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${
-                msg.type === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <div
-                className={`flex items-start gap-2 max-w-[80%] ${
-                  msg.type === "user"
-                    ? "flex-row-reverse"
-                    : "flex-row"
-                }`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    msg.type === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground"
-                  }`}
-                >
-                  {msg.type === "user" ? <User size={16} /> : getMessageIcon(msg)}
-                </div>
-                <div
-                  className={`rounded-lg px-4 py-2 ${
-                    msg.type === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground"
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  <p className="text-xs opacity-60 mt-1">
-                    {msg.timestamp.toLocaleTimeString()}
-                  </p>
-                </div>
+    <Card className="h-full flex flex-col border border-border">
+      <ScrollArea className="flex-1 p-4 space-y-4">
+        {messages.map((msg, index) => (
+          <div 
+            key={index} 
+            className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
+          >
+            <div className="max-w-[80%] flex items-start gap-2">
+              <div className={`
+                w-8 h-8 rounded-full flex items-center justify-center 
+                ${msg.type === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}
+              `}>
+                {msg.type === 'user' ? <User size={16} /> : <Bot size={16} />}
+              </div>
+              <div className={`
+                rounded-lg p-3 
+                ${msg.type === 'user' 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-secondary text-secondary-foreground'}
+              `}>
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <small className="text-xs opacity-60 mt-1">
+                  {msg.timestamp.toLocaleTimeString()}
+                </small>
               </div>
             </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex items-start gap-2 max-w-[80%]">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground">
-                  <Bot size={16} />
-                </div>
-                <div className="rounded-lg px-4 py-2 bg-secondary text-secondary-foreground">
-                  <div className="flex space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-background animate-bounce" style={{ animationDelay: "0ms" }}></div>
-                    <div className="w-2 h-2 rounded-full bg-background animate-bounce" style={{ animationDelay: "300ms" }}></div>
-                    <div className="w-2 h-2 rounded-full bg-background animate-bounce" style={{ animationDelay: "600ms" }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
       </ScrollArea>
-      <CardFooter className="border-t border-border p-4">
+      
+      <CardFooter className="border-t p-4">
         <form 
-          className="flex w-full gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             handleSend();
-          }}
+          }} 
+          className="flex w-full space-x-2"
         >
-          <Input
-            placeholder="Type a command or ask a question..."
+          <Input 
+            placeholder="Enter your DevOps command or query..." 
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            className="flex-1"
             disabled={isLoading || !user}
+            className="flex-1"
           />
-          <Button type="submit" disabled={isLoading || !input.trim() || !user}>
-            {isLoading ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
+          <Button 
+            type="submit" 
+            disabled={isLoading || !input.trim() || !user}
+          >
+            {isLoading ? (
+              <Loader className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                {getCommandIcon(currentCategory)}
+                <Send className="h-4 w-4" />
+              </>
+            )}
           </Button>
         </form>
       </CardFooter>
