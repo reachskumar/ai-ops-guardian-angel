@@ -8,6 +8,7 @@ import AdminRoute from "./components/AdminRoute";
 const Index = lazy(() => import("./pages/Index"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
+const SecurityHardeningPage = lazy(() => import("./pages/SecurityHardeningPage"));
 const IncidentsPage = lazy(() => import("./pages/IncidentsPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -47,6 +48,14 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute requiredRole="operator">
             <SecurityPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/security/hardening"
+        element={
+          <ProtectedRoute requiredRole="operator">
+            <SecurityHardeningPage />
           </ProtectedRoute>
         }
       />
