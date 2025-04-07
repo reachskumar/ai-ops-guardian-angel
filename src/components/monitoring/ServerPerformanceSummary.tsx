@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Cpu, HardDrive, Memory, Network } from "lucide-react";
+import { Cpu, HardDrive, MemoryStick, Network } from "lucide-react";
 import { ServerHealthIndicator } from "@/components/monitoring";
 
 interface ServerMetrics {
@@ -56,7 +56,7 @@ const ServerPerformanceSummary: React.FC<ServerPerformanceSummaryProps> = ({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center">
-            <Memory className="h-4 w-4 mr-2 text-green-500" />
+            <MemoryStick className="h-4 w-4 mr-2 text-green-500" />
             Memory Usage
           </CardTitle>
         </CardHeader>
