@@ -1,8 +1,9 @@
 
-import React, { useMemo, lazy, Suspense } from "react";
+import React, { useMemo, lazy, Suspense, useCallback } from "react";
 import Header from "@/components/Header";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import StatusOverview from "@/components/dashboard/StatusOverview";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Use lazy loading for components that aren't immediately visible
 const AIChat = lazy(() => import("@/components/AIChat"));
@@ -11,50 +12,42 @@ const SecurityPanel = lazy(() => import("@/components/dashboard/SecurityPanel"))
 const IncidentPanel = lazy(() => import("@/components/dashboard/IncidentPanel"));
 const ResourcesPanel = lazy(() => import("@/components/dashboard/ResourcesPanel"));
 
-// Loading spinner for lazy-loaded components
+// Optimized loading spinner with skeleton UI
 const LazyLoadingSpinner = () => (
-  <div className="flex items-center justify-center w-full h-40">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  <div className="w-full">
+    <Skeleton className="h-[180px] w-full rounded-md" />
   </div>
 );
 
-// Sample data for charts - memoize this data to prevent regeneration on each render
+// Pre-generate static data
+const staticCpuData = Array.from({ length: 24 }, (_, i) => ({
+  time: `${i}:00`,
+  value: Math.floor(Math.random() * 30) + 40,
+}));
+
+const staticMemoryData = Array.from({ length: 24 }, (_, i) => ({
+  time: `${i}:00`,
+  value: Math.floor(Math.random() * 25) + 60,
+}));
+
+const staticNetworkData = ["Web", "API", "Auth", "Database", "Cache"].map(
+  (name, i) => ({
+    name,
+    value: Math.floor(Math.random() * 400) + 100,
+  })
+);
+
+const staticStorageData = [
+  { name: "Used", value: 320 },
+  { name: "Available", value: 680 },
+];
+
 const Index: React.FC = () => {
-  // Pre-generate data using more efficient methods
-  const cpuData = useMemo(() => {
-    const data = [];
-    for (let i = 0; i < 24; i++) {
-      data.push({
-        time: `${i}:00`,
-        value: Math.floor(Math.random() * 30) + 40,
-      });
-    }
-    return data;
-  }, []);
-
-  const memoryData = useMemo(() => {
-    const data = [];
-    for (let i = 0; i < 24; i++) {
-      data.push({
-        time: `${i}:00`,
-        value: Math.floor(Math.random() * 25) + 60,
-      });
-    }
-    return data;
-  }, []);
-
-  const networkData = useMemo(() => 
-    ["Web", "API", "Auth", "Database", "Cache"].map((name, i) => ({
-      name,
-      value: Math.floor(Math.random() * 400) + 100,
-    })),
-    []
-  );
-
-  const storageData = useMemo(() => [
-    { name: "Used", value: 320 },
-    { name: "Available", value: 680 },
-  ], []);
+  // Use static data instead of generating on each render
+  const cpuData = staticCpuData;
+  const memoryData = staticMemoryData;
+  const networkData = staticNetworkData;
+  const storageData = staticStorageData;
 
   return (
     <SidebarWithProvider>
@@ -79,6 +72,8 @@ const Index: React.FC = () => {
                     type="area"
                     data={cpuData}
                   />
+                </Suspense>
+                <Suspense fallback={<LazyLoadingSpinner />}>
                   <MonitoringWidget
                     title="Memory Usage (Last 24 Hours)"
                     type="area"
@@ -89,6 +84,8 @@ const Index: React.FC = () => {
               <div className="space-y-6">
                 <Suspense fallback={<LazyLoadingSpinner />}>
                   <ResourcesPanel />
+                </Suspense>
+                <Suspense fallback={<LazyLoadingSpinner />}>
                   <MonitoringWidget
                     title="Network Traffic (Mbps)"
                     type="bar"

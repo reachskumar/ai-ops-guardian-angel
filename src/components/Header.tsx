@@ -16,16 +16,19 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 
-const Header: React.FC = () => {
+// Memoize the Header component to prevent unnecessary re-renders
+const Header: React.FC = memo(() => {
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
-  const handleSignOut = async () => {
+  // Memoize handler functions to prevent recreating them on every render
+  const handleSignOut = React.useCallback(async () => {
     await signOut();
     navigate("/auth");
-  };
+  }, [signOut, navigate]);
 
-  const getInitials = (name: string) => {
+  // Memoize getInitials function
+  const getInitials = React.useCallback((name: string) => {
     if (!name) return "U";
     return name
       .split(" ")
@@ -33,7 +36,7 @@ const Header: React.FC = () => {
       .join("")
       .toUpperCase()
       .substring(0, 2);
-  };
+  }, []);
 
   return (
     <header className="border-b border-border bg-card px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-30">
@@ -88,11 +91,11 @@ const Header: React.FC = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
@@ -113,7 +116,9 @@ const Header: React.FC = () => {
       </div>
     </header>
   );
-};
+});
 
-// Use React memo to prevent unnecessary re-renders
-export default memo(Header);
+// Set displayName for debugging purposes
+Header.displayName = "Header";
+
+export default Header;
