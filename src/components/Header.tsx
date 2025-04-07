@@ -53,14 +53,14 @@ const Header: React.FC = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem className="flex flex-col items-start py-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="warning" className="h-2 w-2 rounded-full p-0" />
+                    <Badge variant="outline" className="h-2 w-2 rounded-full p-0 bg-warning" />
                     <span className="font-medium">Security Scan Complete</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">3 medium vulnerabilities found - 15 min ago</p>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="flex flex-col items-start py-2">
                   <div className="flex items-center gap-2">
-                    <Badge variant="default" className="h-2 w-2 rounded-full p-0 bg-success" />
+                    <Badge variant="outline" className="h-2 w-2 rounded-full p-0 bg-success" />
                     <span className="font-medium">Deployment Successful</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">Frontend v2.1.4 - 30 min ago</p>
