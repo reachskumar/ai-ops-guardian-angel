@@ -6,10 +6,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTabs,
-  DialogTabsList,
-  DialogTabsContent,
-  DialogTabsTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -20,7 +16,6 @@ import {
   Activity,
   Server,
   BarChart,
-  Clock,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ResourceMetrics from './ResourceMetrics';
