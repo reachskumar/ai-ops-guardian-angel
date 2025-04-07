@@ -15,16 +15,13 @@ import { useCloudProvider } from '@/hooks/useCloudProvider';
 // Import components
 import { 
   ConnectedAccounts,
-  ResourceInventory,
   ResourceDetailsModal,
   ConnectProviderDialog,
-  ResourceFilters,
-  ResourceProvisioningForm,
-  ResourceTagsManager,
-  CostAnalysisPanel,
-  ResourceMetricsDashboard,
-  CloudProviderIntegration,
-  InfrastructureAsCodePanel
+  InventoryTab,
+  MetricsTab,
+  CostAnalysisTab,
+  TagsTab,
+  IaCTab
 } from '@/components/cloud';
 
 const CloudResourcesPage: React.FC = () => {
@@ -128,73 +125,41 @@ const CloudResourcesPage: React.FC = () => {
             </TabsList>
             
             <TabsContent value="inventory">
-              {/* Resource Filters Component */}
-              <ResourceFilters
+              <InventoryTab 
                 filters={filters}
-                onFilterChange={handleFilterChange}
-                onClearFilters={clearFilters}
+                filteredResources={filteredResources}
                 typeOptions={typeOptions}
                 regionOptions={regionOptions}
                 statusOptions={statusOptions}
-              />
-
-              {/* Resource Inventory Component */}
-              <ResourceInventory 
-                resources={filteredResources} 
-                loading={loading} 
-                onViewDetails={handleViewDetails}
-                filters={filters}
-                onFilterRemove={handleFilterRemove}
+                loading={loading}
+                handleFilterChange={handleFilterChange}
+                handleFilterRemove={handleFilterRemove}
+                clearFilters={clearFilters}
+                handleViewDetails={handleViewDetails}
               />
             </TabsContent>
             
             <TabsContent value="metrics">
-              {selectedResource ? (
-                <ResourceMetricsDashboard 
-                  resourceId={selectedResource.id}
-                  resourceType={selectedResource.type}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg">
-                  <ChartBar className="h-12 w-12 text-muted-foreground opacity-50 mb-4" />
-                  <h3 className="text-lg font-medium">No Resource Selected</h3>
-                  <p className="text-muted-foreground mt-1 mb-4 text-center max-w-md">
-                    Select a resource from the Inventory tab to view detailed metrics and performance information
-                  </p>
-                  <Button variant="outline" onClick={() => setActiveTab("inventory")}>
-                    Go to Inventory
-                  </Button>
-                </div>
-              )}
+              <MetricsTab 
+                selectedResource={selectedResource}
+                setActiveTab={setActiveTab}
+              />
             </TabsContent>
             
             <TabsContent value="costs">
-              <CostAnalysisPanel />
+              <CostAnalysisTab />
             </TabsContent>
             
             <TabsContent value="tags">
-              {selectedResource ? (
-                <ResourceTagsManager 
-                  resourceId={selectedResource.id}
-                  initialTags={selectedResource.tags || {}}
-                  onUpdate={fetchResources}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg">
-                  <Tag className="h-12 w-12 text-muted-foreground opacity-50 mb-4" />
-                  <h3 className="text-lg font-medium">No Resource Selected</h3>
-                  <p className="text-muted-foreground mt-1 mb-4 text-center max-w-md">
-                    Select a resource from the Inventory tab to manage its tags
-                  </p>
-                  <Button variant="outline" onClick={() => setActiveTab("inventory")}>
-                    Go to Inventory
-                  </Button>
-                </div>
-              )}
+              <TagsTab 
+                selectedResource={selectedResource}
+                setActiveTab={setActiveTab}
+                fetchResources={fetchResources}
+              />
             </TabsContent>
             
             <TabsContent value="iac">
-              <InfrastructureAsCodePanel />
+              <IaCTab />
             </TabsContent>
           </Tabs>
 
