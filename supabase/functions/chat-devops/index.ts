@@ -21,10 +21,10 @@ serve(async (req) => {
       throw new Error('Missing required OpenAI API key');
     }
 
-    const { message, history, context } = await req.json();
+    const { message, history, context, userRole, infrastructureContext, securityScans, monitoringData, activeIncidents } = await req.json();
     
-    // Enhanced system prompt with comprehensive DevOps capabilities
-    const systemMessage = `You are an advanced AI DevOps assistant with expertise in cloud infrastructure, security, monitoring, and incident management.
+    // Enhanced system prompt with comprehensive DevOps capabilities and context awareness
+    let systemMessage = `You are an advanced AI DevOps assistant with expertise in cloud infrastructure, security, monitoring, and incident management.
 
 Capabilities:
 
@@ -52,17 +52,52 @@ Capabilities:
    - Suggest root cause analysis methodologies
    - Recommend post-mortem and continuous improvement processes
 
+5. User & Authentication Management:
+   - Assist with authentication configuration and best practices
+   - Provide guidance on role-based access control implementations
+   - Help with user management strategies and automation
+
+6. Reporting & Analytics:
+   - Design monitoring dashboards and visualization strategies
+   - Help interpret metrics and generate insights
+   - Assist with creating custom reports for different stakeholders
+
+7. Team Collaboration:
+   - Recommend DevOps collaboration tools and practices
+   - Assist with documentation strategies
+   - Provide guidelines for effective communication during incidents
+
 Key Guidelines:
 - Provide step-by-step, implementable solutions tailored to the user's environment
 - Explain technical concepts clearly with practical examples
 - Prioritize security, reliability, and operational excellence
 - Consider cost optimization and performance efficiency in recommendations
-- Include relevant command examples and code snippets when appropriate
+- Include relevant command examples and code snippets when appropriate`;
 
-Context Awareness:
-- Consider the user's infrastructure details when provided
-- Reference previous conversation history for continuity
-- Adapt recommendations based on the user's technical proficiency`;
+    // Add context awareness based on user role
+    if (userRole) {
+      systemMessage += `\n\nUser Role Context: The user's role is ${userRole}. Tailor your responses accordingly.`;
+    }
+
+    // Add infrastructure context if available
+    if (infrastructureContext) {
+      systemMessage += `\n\nInfrastructure Context: ${JSON.stringify(infrastructureContext)}`;
+    }
+
+    // Add security scan results if available
+    if (securityScans) {
+      systemMessage += `\n\nRecent Security Scans: ${JSON.stringify(securityScans)}`;
+    }
+
+    // Add monitoring data if available
+    if (monitoringData) {
+      systemMessage += `\n\nCurrent Monitoring Data: ${JSON.stringify(monitoringData)}`;
+    }
+
+    // Add active incidents if available
+    if (activeIncidents) {
+      systemMessage += `\n\nActive Incidents: ${JSON.stringify(activeIncidents)}`;
+    }
 
     // Format chat messages for OpenAI API
     const messages = [
@@ -74,7 +109,7 @@ Context Awareness:
       { role: "user", content: message }
     ];
 
-    // Include context if provided
+    // Include additional context if provided
     if (context) {
       messages.unshift({ 
         role: "system", 
@@ -92,7 +127,7 @@ Context Awareness:
         model: "gpt-4o",
         messages: messages,
         temperature: 0.7,
-        max_tokens: 1000, // Increased token limit for more detailed responses
+        max_tokens: 2000, // Increased token limit for more detailed responses
       }),
     });
 
