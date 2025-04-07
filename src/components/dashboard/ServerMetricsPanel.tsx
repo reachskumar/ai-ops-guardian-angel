@@ -93,11 +93,10 @@ const ServerMetricsPanel: React.FC<ServerMetricsPanelProps> = ({
               <div className="flex items-center gap-2">
                 <Progress 
                   value={(metric.value / metric.max) * 100} 
-                  className="h-2"
-                  indicatorClassName={
-                    metric.status === "critical" ? "bg-red-500" : 
-                    metric.status === "warning" ? "bg-amber-500" : 
-                    "bg-green-500"
+                  className={
+                    metric.status === "critical" ? "h-2 bg-secondary [&>div]:bg-red-500" : 
+                    metric.status === "warning" ? "h-2 bg-secondary [&>div]:bg-amber-500" : 
+                    "h-2 bg-secondary [&>div]:bg-green-500"
                   }
                 />
                 <span className="text-xs text-muted-foreground">{Math.round((metric.value / metric.max) * 100)}%</span>
