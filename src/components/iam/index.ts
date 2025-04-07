@@ -6,3 +6,6 @@ export { default as IAMSearchBar } from "./IAMSearchBar";
 
 // Export user-related components
 export * from "./user";
+
+// Export role-related components
+export * from "./role";
