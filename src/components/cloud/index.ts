@@ -15,5 +15,8 @@ export { default as ResourceMetricsDashboard } from './ResourceMetricsDashboard'
 export { default as CloudProviderIntegration } from './CloudProviderIntegration';
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
 
+// Export metrics components
+export * from './metrics';
+
 // Export tab components
 export * from './tabs';
