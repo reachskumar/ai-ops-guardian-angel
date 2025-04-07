@@ -4,8 +4,10 @@ import {
   getCloudAccounts, 
   getCloudResources, 
   getResourceDetails,
+  connectCloudProvider,
   CloudResource, 
-  CloudAccount 
+  CloudAccount,
+  CloudProvider 
 } from '@/services/cloudProviderService';
 import { 
   Card, 
@@ -31,7 +33,9 @@ import {
   Activity,
   Calendar,
   Tag,
-  DollarSign
+  DollarSign,
+  PlusCircle,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -39,13 +43,35 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
 } from '@/components/ui/dialog';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from '@/components/ui/tooltip';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 const CloudResourcesPage: React.FC = () => {
   const [resources, setResources] = useState<CloudResource[]>([]);
@@ -57,8 +83,34 @@ const CloudResourcesPage: React.FC = () => {
     metrics: []
   });
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [connectDialogOpen, setConnectDialogOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const { toast } = useToast();
 
+  // Define the form schema with Zod
+  const formSchema = z.object({
+    provider: z.enum(['aws', 'azure', 'gcp'] as const),
+    name: z.string().min(3, "Name must be at least 3 characters"),
+    credentials: z.record(z.string())
+  });
+
+  // Create form
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      provider: 'aws',
+      name: '',
+      credentials: {}
+    }
+  });
+
+  // Reset the form when the provider changes
+  const watchProvider = form.watch('provider');
+  useEffect(() => {
+    form.setValue('credentials', {});
+  }, [watchProvider, form]);
+
+  // Fetch resources and accounts
   const fetchResources = async () => {
     setLoading(true);
     try {
@@ -100,6 +152,39 @@ const CloudResourcesPage: React.FC = () => {
     }
   };
 
+  // Handle connecting a new cloud provider
+  const handleConnectProvider = async (data: z.infer<typeof formSchema>) => {
+    setConnecting(true);
+    try {
+      const result = await connectCloudProvider(
+        data.provider,
+        data.credentials,
+        data.name
+      );
+      
+      if (result.success) {
+        toast({
+          title: "Provider Connected",
+          description: `Successfully connected to ${data.name}`,
+        });
+        setConnectDialogOpen(false);
+        form.reset();
+        // Refresh the accounts list
+        fetchResources();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect to cloud provider",
+        variant: "destructive"
+      });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   const renderResourceIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'ec2': return <Server className="h-4 w-4" />;
@@ -109,18 +194,47 @@ const CloudResourcesPage: React.FC = () => {
     }
   };
 
+  // Get credential fields based on the selected provider
+  const getCredentialFields = (provider: CloudProvider) => {
+    switch (provider) {
+      case 'aws':
+        return [
+          { name: 'accessKeyId', label: 'Access Key ID', type: 'text' },
+          { name: 'secretAccessKey', label: 'Secret Access Key', type: 'password' }
+        ];
+      case 'azure':
+        return [
+          { name: 'tenantId', label: 'Tenant ID', type: 'text' },
+          { name: 'clientId', label: 'Client ID', type: 'text' },
+          { name: 'clientSecret', label: 'Client Secret', type: 'password' }
+        ];
+      case 'gcp':
+        return [
+          { name: 'serviceAccountKey', label: 'Service Account Key (JSON)', type: 'textarea' }
+        ];
+      default:
+        return [];
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Cloud Resources</h1>
-        <Button 
-          variant="outline" 
-          onClick={fetchResources}
-          disabled={loading}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" /> 
-          Refresh Resources
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            onClick={fetchResources}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
+            Refresh Resources
+          </Button>
+          <Button onClick={() => setConnectDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> 
+            Connect Provider
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -128,25 +242,40 @@ const CloudResourcesPage: React.FC = () => {
           <CardTitle>Connected Accounts</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {accounts.map(account => (
-              <div 
-                key={account.id} 
-                className="border rounded-md p-4 flex justify-between items-center"
+          {accounts.length === 0 ? (
+            <div className="text-center py-8">
+              <Cloud className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+              <p className="mt-2 text-muted-foreground">No cloud accounts connected yet.</p>
+              <Button 
+                variant="outline" 
+                onClick={() => setConnectDialogOpen(true)}
+                className="mt-4"
               >
-                <div>
-                  <h3 className="font-semibold">{account.name}</h3>
-                  <Badge 
-                    variant={
-                      account.status === 'connected' ? 'default' : 'destructive'
-                    }
-                  >
-                    {account.status}
-                  </Badge>
+                <PlusCircle className="mr-2 h-4 w-4" /> 
+                Connect Provider
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {accounts.map(account => (
+                <div 
+                  key={account.id} 
+                  className="border rounded-md p-4 flex justify-between items-center"
+                >
+                  <div>
+                    <h3 className="font-semibold">{account.name}</h3>
+                    <Badge 
+                      variant={
+                        account.status === 'connected' ? 'default' : 'destructive'
+                      }
+                    >
+                      {account.status}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -155,49 +284,63 @@ const CloudResourcesPage: React.FC = () => {
           <CardTitle>Resource Inventory</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Region</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {resources.map(resource => (
-                <TableRow key={resource.id}>
-                  <TableCell className="flex items-center gap-2">
-                    {renderResourceIcon(resource.type)}
-                    {resource.name}
-                  </TableCell>
-                  <TableCell>{resource.type}</TableCell>
-                  <TableCell>{resource.region}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={
-                        resource.status === 'healthy' 
-                          ? 'default' 
-                          : 'destructive'
-                      }
-                    >
-                      {resource.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => handleViewDetails(resource)}
-                    >
-                      <Eye className="mr-2 h-4 w-4" /> Details
-                    </Button>
-                  </TableCell>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : resources.length === 0 ? (
+            <div className="text-center py-8">
+              <Server className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+              <p className="mt-2 text-muted-foreground">No resources found.</p>
+              <p className="text-sm text-muted-foreground">
+                Resources will appear once you connect a cloud provider.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Region</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {resources.map(resource => (
+                  <TableRow key={resource.id}>
+                    <TableCell className="flex items-center gap-2">
+                      {renderResourceIcon(resource.type)}
+                      {resource.name}
+                    </TableCell>
+                    <TableCell>{resource.type}</TableCell>
+                    <TableCell>{resource.region}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={
+                          resource.status === 'healthy' 
+                            ? 'default' 
+                            : 'destructive'
+                        }
+                      >
+                        {resource.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => handleViewDetails(resource)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" /> Details
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -319,6 +462,100 @@ const CloudResourcesPage: React.FC = () => {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Connect Provider Dialog */}
+      <Dialog open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect Cloud Provider</DialogTitle>
+            <DialogDescription>
+              Enter your cloud provider credentials to connect your account.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleConnectProvider)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="My Production AWS" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      A friendly name to identify this account
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="provider"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cloud Provider</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a cloud provider" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="aws">Amazon Web Services (AWS)</SelectItem>
+                        <SelectItem value="azure">Microsoft Azure</SelectItem>
+                        <SelectItem value="gcp">Google Cloud Platform (GCP)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Select your cloud service provider
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Dynamic credential fields based on the selected provider */}
+              {getCredentialFields(form.getValues('provider')).map((field) => (
+                <FormItem key={field.name}>
+                  <FormLabel>{field.label}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type={field.type}
+                      placeholder={field.label}
+                      value={form.getValues('credentials')[field.name] || ''}
+                      onChange={(e) => {
+                        const currentCreds = form.getValues('credentials');
+                        form.setValue('credentials', {
+                          ...currentCreds,
+                          [field.name]: e.target.value
+                        });
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              ))}
+
+              <DialogFooter>
+                <Button 
+                  type="submit" 
+                  disabled={connecting}
+                  className="w-full sm:w-auto"
+                >
+                  {connecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Connect Provider
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
