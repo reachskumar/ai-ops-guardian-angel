@@ -1,19 +1,11 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Clock, AlertTriangle } from 'lucide-react';
 import { ResourceMetric } from '@/services/cloudProviderService';
+import { AreaChart } from '@/components/ui/charts';
 
 interface ResourceMetricsProps {
   metrics: ResourceMetric[];
@@ -94,50 +86,14 @@ const ResourceMetrics: React.FC<ResourceMetricsProps> = ({
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="h-[120px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={metric.data}
-                      margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
-                    >
-                      <defs>
-                        <linearGradient id={`color${metric.name}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis 
-                        dataKey="timestamp" 
-                        tickFormatter={formatTime}
-                        tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                        tickLine={{ stroke: '#374151' }}
-                        axisLine={{ stroke: '#374151' }}
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 10, fill: '#9CA3AF' }}
-                        tickLine={{ stroke: '#374151' }}
-                        axisLine={{ stroke: '#374151' }}
-                        domain={[0, 'auto']}
-                        tickFormatter={(value) => `${value}${metric.unit === '%' ? '%' : ''}`}
-                      />
-                      <Tooltip 
-                        formatter={(value: number) => [`${value} ${metric.unit}`, metric.name]}
-                        labelFormatter={(label) => `Time: ${formatTime(label)}`}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(222 47% 14%)', 
-                          borderColor: 'hsl(215 25% 22%)',
-                          color: '#F3F4F6'
-                        }} 
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#3b82f6" 
-                        fillOpacity={1} 
-                        fill={`url(#color${metric.name})` as string} 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <AreaChart
+                    data={metric.data}
+                    categories={["value"]}
+                    index="timestamp"
+                    colors={["blue"]}
+                    valueFormatter={(value) => `${value}${metric.unit}`}
+                    className="h-full"
+                  />
                 </div>
               </CardContent>
             </Card>

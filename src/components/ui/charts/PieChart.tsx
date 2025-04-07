@@ -47,7 +47,7 @@ export const PieChart = ({
           {data.map((entry, i) => (
             <Cell
               key={`cell-${i}`}
-              fill={`var(--color-${entry[index]}, ${colors[i % colors.length]})`}
+              fill={colors[i % colors.length]}
             />
           ))}
         </Pie>

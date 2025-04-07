@@ -1,20 +1,6 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell
-} from "recharts";
 import { BarChart3, PieChart as PieChartIcon, LineChart, MoreVertical } from "lucide-react";
 import { 
   DropdownMenu,
@@ -23,6 +9,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { AreaChart, BarChart, PieChart } from "@/components/ui/charts";
 
 interface MonitoringWidgetProps {
   title: string;
@@ -43,102 +30,36 @@ const MonitoringWidget: React.FC<MonitoringWidgetProps> = ({
     switch (type) {
       case "area":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <AreaChart
-              data={data}
-              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="time" 
-                tick={{ fontSize: 10, fill: '#9CA3AF' }} 
-                tickLine={{ stroke: '#374151' }} 
-                axisLine={{ stroke: '#374151' }}
-              />
-              <YAxis 
-                tick={{ fontSize: 10, fill: '#9CA3AF' }} 
-                tickLine={{ stroke: '#374151' }} 
-                axisLine={{ stroke: '#374151' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(222 47% 14%)', 
-                  borderColor: 'hsl(215 25% 22%)',
-                  color: '#F3F4F6'
-                }} 
-              />
-              <Area 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#3b82f6" 
-                fillOpacity={1} 
-                fill="url(#colorMetric)" 
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <AreaChart
+            data={data}
+            categories={["value"]}
+            index="time"
+            colors={["blue"]}
+            valueFormatter={(value) => `${value}%`}
+            className="h-full"
+          />
         );
       case "bar":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <BarChart
-              data={data}
-              margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="name" 
-                tick={{ fontSize: 10, fill: '#9CA3AF' }} 
-                tickLine={{ stroke: '#374151' }} 
-                axisLine={{ stroke: '#374151' }}
-              />
-              <YAxis 
-                tick={{ fontSize: 10, fill: '#9CA3AF' }} 
-                tickLine={{ stroke: '#374151' }} 
-                axisLine={{ stroke: '#374151' }}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(222 47% 14%)', 
-                  borderColor: 'hsl(215 25% 22%)',
-                  color: '#F3F4F6'
-                }} 
-              />
-              <Bar dataKey="value" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart
+            data={data}
+            categories={["value"]}
+            index="name"
+            colors={["blue"]}
+            valueFormatter={(value) => `${value}`}
+            className="h-full"
+          />
         );
       case "pie":
         return (
-          <ResponsiveContainer width="100%" height={height}>
-            <PieChart>
-              <Pie
-                data={data}
-                innerRadius={45}
-                outerRadius={60}
-                paddingAngle={3}
-                dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                labelLine={false}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(222 47% 14%)', 
-                  borderColor: 'hsl(215 25% 22%)',
-                  color: '#F3F4F6'
-                }} 
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart
+            data={data}
+            category="value"
+            index="name"
+            colors={COLORS}
+            valueFormatter={(value) => `${value}`}
+            className="h-full"
+          />
         );
       default:
         return null;
@@ -180,7 +101,9 @@ const MonitoringWidget: React.FC<MonitoringWidgetProps> = ({
         </DropdownMenu>
       </CardHeader>
       <CardContent className="px-4 pb-4">
-        {renderChart()}
+        <div style={{ height: `${height}px` }}>
+          {renderChart()}
+        </div>
       </CardContent>
     </Card>
   );
