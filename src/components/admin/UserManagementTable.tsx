@@ -13,6 +13,7 @@ import { LoadingSpinner } from "./LoadingSpinner";
 import { EmptyUsers } from "./EmptyUsers";
 import { RoleLabel } from "@/components/teams";
 import { UserRole } from "@/services/authService";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserManagementTableProps {
   profiles: Profile[];
@@ -26,11 +27,22 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
   updateUserRole,
 }) => {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleRoleUpdate = async (userId: string, role: UserRole) => {
     setUpdatingUserId(userId);
     try {
       await updateUserRole(userId, role);
+      toast({
+        title: "Role updated",
+        description: `User's role has been updated to ${role}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error updating role",
+        description: error.message || "An error occurred while updating the role",
+        variant: "destructive",
+      });
     } finally {
       setUpdatingUserId(null);
     }

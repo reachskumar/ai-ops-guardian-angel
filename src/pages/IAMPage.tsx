@@ -1,40 +1,56 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Shield, Key } from "lucide-react";
 import { IAMSearchBar, UsersTab, RolesTab, ApiKeysTab } from "@/components/iam";
+import { supabase } from "@/integrations/supabase/client";
+import { Profile } from "@/types/user";
+import { useToast } from "@/hooks/use-toast";
 
 const IAMPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("users");
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const { toast } = useToast();
   
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
+  useEffect(() => {
+    fetchProfiles();
+  }, []);
+
+  const fetchProfiles = async () => {
+    try {
+      setIsRefreshing(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*");
+
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error fetching users",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
       setIsRefreshing(false);
-    }, 1000);
+    }
   };
 
-  // Mock data for users
-  const users = [
-    { id: "user1", name: "John Doe", email: "john.doe@example.com", role: "Admin", lastLogin: "2 hours ago" },
-    { id: "user2", name: "Jane Smith", email: "jane.smith@example.com", role: "User", lastLogin: "1 day ago" },
-    { id: "user3", name: "Mike Johnson", email: "mike.johnson@example.com", role: "User", lastLogin: "5 days ago" },
-    { id: "user4", name: "Sarah Williams", email: "sarah.williams@example.com", role: "Operator", lastLogin: "3 hours ago" },
-    { id: "user5", name: "David Brown", email: "david.brown@example.com", role: "Read-only", lastLogin: "2 weeks ago" },
-  ];
+  const handleRefresh = () => {
+    fetchProfiles();
+  };
 
   // Mock data for roles
   const roles = [
     { id: "role1", name: "Admin", description: "Full system access", users: 1, permissions: 15 },
-    { id: "role2", name: "User", description: "Standard user access", users: 2, permissions: 8 },
-    { id: "role3", name: "Operator", description: "System operation access", users: 1, permissions: 10 },
-    { id: "role4", name: "Read-only", description: "View-only access", users: 1, permissions: 5 },
+    { id: "role2", name: "Developer", description: "Developer access", users: 2, permissions: 10 },
+    { id: "role3", name: "Operator", description: "System operation access", users: 1, permissions: 8 },
+    { id: "role4", name: "Viewer", description: "View-only access", users: 1, permissions: 5 },
   ];
 
   // Mock data for API keys
@@ -46,11 +62,11 @@ const IAMPage: React.FC = () => {
   ];
 
   // Filter users based on search query
-  const filteredUsers = users.filter(
+  const filteredUsers = profiles.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchQuery.toLowerCase())
+      (user.full_name && user.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (user.username && user.username.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (user.role && user.role.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Filter roles based on search query
@@ -103,7 +119,10 @@ const IAMPage: React.FC = () => {
             
             {/* Users Tab */}
             <TabsContent value="users" className="space-y-4">
-              <UsersTab filteredUsers={filteredUsers} />
+              <UsersTab 
+                filteredUsers={filteredUsers} 
+                refreshUsers={handleRefresh}
+              />
             </TabsContent>
             
             {/* Roles Tab */}
