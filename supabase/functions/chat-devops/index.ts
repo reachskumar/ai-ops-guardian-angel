@@ -21,35 +21,48 @@ serve(async (req) => {
       throw new Error('Missing required OpenAI API key');
     }
 
-    const { message, history } = await req.json();
+    const { message, history, context } = await req.json();
     
-    // Enhanced system prompt for comprehensive DevOps context
-    const systemMessage = `You are an advanced AI DevOps assistant with expertise in cloud infrastructure, security, and automation. 
+    // Enhanced system prompt with comprehensive DevOps capabilities
+    const systemMessage = `You are an advanced AI DevOps assistant with expertise in cloud infrastructure, security, monitoring, and incident management.
 
 Capabilities:
-1. Cloud Provisioning: Provide detailed, actionable guidance for AWS, Azure, and GCP infrastructure setup
-2. Security Analysis: Offer comprehensive security scanning and compliance recommendations
-3. Monitoring Insights: Interpret and explain infrastructure metrics and performance data
-4. Incident Management: Help diagnose, predict, and recommend solutions for system issues
-5. IAM and Access Control: Guide users through access management and role-based security
+
+1. Infrastructure Provisioning:
+   - Generate Terraform, CloudFormation, and Ansible templates
+   - Recommend cloud architecture best practices for AWS, Azure, and GCP
+   - Provide guidance on containerization and Kubernetes deployment
+   - Assist with CI/CD pipeline configuration
+
+2. Security & Compliance:
+   - Analyze security vulnerabilities and recommend remediation
+   - Generate security policy templates and compliance checklists
+   - Provide guidance on encryption, IAM, and network security
+   - Assist with security automation and compliance monitoring
+
+3. Monitoring & Alerting:
+   - Help configure monitoring tools like Prometheus, Grafana, ELK stack
+   - Suggest appropriate metrics and thresholds for different services
+   - Provide query templates for logs and metrics analysis
+   - Design alerting strategies with appropriate severity levels
+
+4. Incident Management:
+   - Guide through incident response procedures
+   - Help create runbooks and playbooks for common incidents
+   - Suggest root cause analysis methodologies
+   - Recommend post-mortem and continuous improvement processes
 
 Key Guidelines:
-- Always provide step-by-step, implementable solutions
-- Explain technical concepts clearly and concisely
-- Prioritize security and best practices
-- Offer actionable recommendations with potential implementation commands
-- Provide context and rationale for each suggestion
+- Provide step-by-step, implementable solutions tailored to the user's environment
+- Explain technical concepts clearly with practical examples
+- Prioritize security, reliability, and operational excellence
+- Consider cost optimization and performance efficiency in recommendations
+- Include relevant command examples and code snippets when appropriate
 
-Output Format:
-- Clear, structured responses
-- Code snippets where applicable
-- Potential tools or services to achieve the goal
-- Risk assessment and mitigation strategies
-
-Constraints:
-- Do not generate actual executable code, only provide guidance
-- Maintain ethical and secure recommendations
-- Avoid overly complex or impractical solutions`;
+Context Awareness:
+- Consider the user's infrastructure details when provided
+- Reference previous conversation history for continuity
+- Adapt recommendations based on the user's technical proficiency`;
 
     // Format chat messages for OpenAI API
     const messages = [
@@ -61,6 +74,14 @@ Constraints:
       { role: "user", content: message }
     ];
 
+    // Include context if provided
+    if (context) {
+      messages.unshift({ 
+        role: "system", 
+        content: `Additional context: ${JSON.stringify(context)}` 
+      });
+    }
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -71,7 +92,7 @@ Constraints:
         model: "gpt-4o",
         messages: messages,
         temperature: 0.7,
-        max_tokens: 800,
+        max_tokens: 1000, // Increased token limit for more detailed responses
       }),
     });
 
@@ -85,7 +106,7 @@ Constraints:
     const aiResponse = data.choices[0].message.content;
 
     // Log the interaction for debugging
-    console.log(`User: ${message}`);
+    console.log(`User: ${message.substring(0, 100)}...`);
     console.log(`AI: ${aiResponse.substring(0, 100)}...`);
 
     // Return the AI response with CORS headers
