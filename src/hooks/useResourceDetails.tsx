@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { 
   getResourceDetails, 
   getResourceMetrics, 
@@ -17,6 +17,7 @@ export const useResourceDetails = () => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [resourceMetrics, setResourceMetrics] = useState<ResourceMetric[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsRefreshInterval, setMetricsRefreshInterval] = useState<number | null>(null);
   
   const { toast } = useToast();
 
@@ -30,6 +31,9 @@ export const useResourceDetails = () => {
       
       // Automatically fetch metrics when viewing resource details
       fetchResourceMetrics(resource.id);
+      
+      // Set up automatic refresh for metrics
+      startMetricsRefresh(resource.id);
     } catch (error) {
       toast({
         title: "Error fetching resource details",
@@ -41,7 +45,7 @@ export const useResourceDetails = () => {
     }
   };
 
-  const fetchResourceMetrics = async (resourceId: string) => {
+  const fetchResourceMetrics = useCallback(async (resourceId: string) => {
     setMetricsLoading(true);
     try {
       const metricsData = await getResourceMetrics(resourceId);
@@ -55,7 +59,30 @@ export const useResourceDetails = () => {
     } finally {
       setMetricsLoading(false);
     }
-  };
+  }, [toast]);
+
+  const startMetricsRefresh = useCallback((resourceId: string) => {
+    // Clear any existing interval
+    if (metricsRefreshInterval !== null) {
+      clearInterval(metricsRefreshInterval);
+    }
+    
+    // Set up new interval - refresh every 30 seconds
+    const intervalId = window.setInterval(() => {
+      fetchResourceMetrics(resourceId);
+    }, 30000) as unknown as number;
+    
+    setMetricsRefreshInterval(intervalId);
+  }, [fetchResourceMetrics, metricsRefreshInterval]);
+  
+  // Cleanup interval on unmount or when resource changes
+  useEffect(() => {
+    return () => {
+      if (metricsRefreshInterval !== null) {
+        clearInterval(metricsRefreshInterval);
+      }
+    };
+  }, [metricsRefreshInterval]);
 
   return {
     selectedResource,
@@ -65,6 +92,7 @@ export const useResourceDetails = () => {
     resourceMetrics,
     metricsLoading,
     handleViewDetails,
-    fetchResourceMetrics
+    fetchResourceMetrics,
+    startMetricsRefresh
   };
 };
