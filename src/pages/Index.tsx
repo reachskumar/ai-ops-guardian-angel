@@ -1,36 +1,51 @@
 
-import React, { useMemo } from "react";
+import React, { useMemo, lazy, Suspense } from "react";
 import Header from "@/components/Header";
 import { SidebarWithProvider } from "@/components/Sidebar";
-import AIChat from "@/components/AIChat";
 import StatusOverview from "@/components/dashboard/StatusOverview";
-import MonitoringWidget from "@/components/dashboard/MonitoringWidget";
-import SecurityPanel from "@/components/dashboard/SecurityPanel";
-import IncidentPanel from "@/components/dashboard/IncidentPanel";
-import ResourcesPanel from "@/components/dashboard/ResourcesPanel";
+
+// Use lazy loading for components that aren't immediately visible
+const AIChat = lazy(() => import("@/components/AIChat"));
+const MonitoringWidget = lazy(() => import("@/components/dashboard/MonitoringWidget"));
+const SecurityPanel = lazy(() => import("@/components/dashboard/SecurityPanel"));
+const IncidentPanel = lazy(() => import("@/components/dashboard/IncidentPanel"));
+const ResourcesPanel = lazy(() => import("@/components/dashboard/ResourcesPanel"));
+
+// Loading spinner for lazy-loaded components
+const LazyLoadingSpinner = () => (
+  <div className="flex items-center justify-center w-full h-40">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+);
 
 // Sample data for charts - memoize this data to prevent regeneration on each render
 const Index: React.FC = () => {
-  // Memoize expensive data calculations
-  const cpuData = useMemo(() => 
-    Array.from({ length: 24 }, (_, i) => ({
-      time: `${i}:00`,
-      value: Math.floor(Math.random() * 30) + 40,
-    })),
-    []
-  );
+  // Pre-generate data using more efficient methods
+  const cpuData = useMemo(() => {
+    const data = [];
+    for (let i = 0; i < 24; i++) {
+      data.push({
+        time: `${i}:00`,
+        value: Math.floor(Math.random() * 30) + 40,
+      });
+    }
+    return data;
+  }, []);
 
-  const memoryData = useMemo(() => 
-    Array.from({ length: 24 }, (_, i) => ({
-      time: `${i}:00`,
-      value: Math.floor(Math.random() * 25) + 60,
-    })),
-    []
-  );
+  const memoryData = useMemo(() => {
+    const data = [];
+    for (let i = 0; i < 24; i++) {
+      data.push({
+        time: `${i}:00`,
+        value: Math.floor(Math.random() * 25) + 60,
+      });
+    }
+    return data;
+  }, []);
 
   const networkData = useMemo(() => 
-    Array.from({ length: 5 }, (_, i) => ({
-      name: ["Web", "API", "Auth", "Database", "Cache"][i],
+    ["Web", "API", "Auth", "Database", "Cache"].map((name, i) => ({
+      name,
       value: Math.floor(Math.random() * 400) + 100,
     })),
     []
@@ -58,42 +73,54 @@ const Index: React.FC = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="space-y-6">
-                <MonitoringWidget
-                  title="CPU Usage (Last 24 Hours)"
-                  type="area"
-                  data={cpuData}
-                />
-                <MonitoringWidget
-                  title="Memory Usage (Last 24 Hours)"
-                  type="area"
-                  data={memoryData}
-                />
+                <Suspense fallback={<LazyLoadingSpinner />}>
+                  <MonitoringWidget
+                    title="CPU Usage (Last 24 Hours)"
+                    type="area"
+                    data={cpuData}
+                  />
+                  <MonitoringWidget
+                    title="Memory Usage (Last 24 Hours)"
+                    type="area"
+                    data={memoryData}
+                  />
+                </Suspense>
               </div>
               <div className="space-y-6">
-                <ResourcesPanel />
-                <MonitoringWidget
-                  title="Network Traffic (Mbps)"
-                  type="bar"
-                  data={networkData}
-                />
+                <Suspense fallback={<LazyLoadingSpinner />}>
+                  <ResourcesPanel />
+                  <MonitoringWidget
+                    title="Network Traffic (Mbps)"
+                    type="bar"
+                    data={networkData}
+                  />
+                </Suspense>
               </div>
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6">
-                  <MonitoringWidget
-                    title="Storage Usage"
-                    type="pie"
-                    data={storageData}
-                  />
+                  <Suspense fallback={<LazyLoadingSpinner />}>
+                    <MonitoringWidget
+                      title="Storage Usage"
+                      type="pie"
+                      data={storageData}
+                    />
+                  </Suspense>
                 </div>
                 <div className="hidden sm:block">
-                  <AIChat />
+                  <Suspense fallback={<LazyLoadingSpinner />}>
+                    <AIChat />
+                  </Suspense>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <SecurityPanel />
-              <IncidentPanel />
+              <Suspense fallback={<LazyLoadingSpinner />}>
+                <SecurityPanel />
+              </Suspense>
+              <Suspense fallback={<LazyLoadingSpinner />}>
+                <IncidentPanel />
+              </Suspense>
             </div>
           </div>
         </div>
@@ -102,4 +129,4 @@ const Index: React.FC = () => {
   );
 };
 
-export default Index;
+export default React.memo(Index);
