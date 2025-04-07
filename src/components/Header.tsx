@@ -1,102 +1,101 @@
 
 import React from "react";
+import { Bell, Settings, Search, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Bell, Settings, Search, User } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/providers/AuthProvider";
+import { useNavigate } from "react-router-dom";
 
 const Header: React.FC = () => {
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   return (
-    <header className="border-b border-border bg-card p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-primary">AI Ops Guardian</h1>
-          
-          <div className="relative hidden md:block">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-[200px] rounded-md border border-border bg-background py-2 pl-8 pr-4 text-sm"
-            />
-          </div>
+    <header className="border-b border-border bg-card px-4 lg:px-6 h-14 flex items-center justify-between sticky top-0 z-30">
+      <div className="flex-1 flex items-center">
+        <div className="relative w-full max-w-sm mr-4 hidden md:flex">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search..."
+            className="pl-8 bg-background w-full md:w-[240px] lg:w-[320px]"
+          />
         </div>
-        
-        <div className="flex items-center gap-2">
+      </div>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="icon" className="rounded-full h-8 w-8">
+          <Bell className="h-4 w-4" />
+          <span className="sr-only">Notifications</span>
+        </Button>
+
+        {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell size={20} />
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-critical text-[10px] text-white">
-                  3
-                </span>
+              <Button variant="ghost" className="rounded-full h-8 w-8 p-0">
+                <Avatar className="h-8 w-8">
+                  {profile?.avatar_url && (
+                    <AvatarImage src={profile.avatar_url} alt={profile?.full_name || user.email} />
+                  )}
+                  <AvatarFallback>
+                    {profile?.full_name
+                      ? getInitials(profile.full_name)
+                      : getInitials(user.email || "")}
+                  </AvatarFallback>
+                </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-80" align="end">
-              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {profile?.full_name || "User"}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuItem className="flex flex-col items-start py-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="destructive" className="h-2 w-2 rounded-full p-0" />
-                    <span className="font-medium">Critical: Memory Usage Alert</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">Production Database - 2 min ago</p>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start py-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="h-2 w-2 rounded-full p-0 bg-warning" />
-                    <span className="font-medium">Security Scan Complete</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">3 medium vulnerabilities found - 15 min ago</p>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start py-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="h-2 w-2 rounded-full p-0 bg-success" />
-                    <span className="font-medium">Deployment Successful</span>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">Frontend v2.1.4 - 30 min ago</p>
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="justify-center text-center">
-                View all notifications
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          <Button variant="ghost" size="icon">
-            <Settings size={20} />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary">
-                  <User size={14} />
-                </div>
-                <span className="hidden md:inline-block">Admin</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Help</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        )}
       </div>
     </header>
   );
