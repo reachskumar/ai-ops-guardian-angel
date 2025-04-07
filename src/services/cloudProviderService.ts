@@ -29,6 +29,16 @@ export interface CloudResource {
   metadata?: Record<string, any>;
 }
 
+export interface ResourceMetric {
+  name: string;
+  data: Array<{
+    timestamp: string;
+    value: number;
+  }>;
+  unit: string;
+  status?: string;
+}
+
 // Connect to cloud providers via Edge Function
 export const connectCloudProvider = async (
   provider: CloudProvider,
@@ -251,4 +261,70 @@ export const getResourceCosts = async (
       error: error.message || 'Failed to get resource costs' 
     };
   }
+};
+
+// Add a new function to get resource metrics
+export const getResourceMetrics = async (
+  resourceId: string,
+  metricNames: string[] = ['cpu', 'memory', 'network', 'disk'],
+  timeRange: string = '1h'
+): Promise<ResourceMetric[]> => {
+  // Mock data for now - would connect to cloud provider APIs in production
+  await new Promise(resolve => setTimeout(resolve, 800)); // Simulate API delay
+  
+  const now = new Date();
+  const metrics: ResourceMetric[] = [];
+  
+  for (const metricName of metricNames) {
+    // Generate random data points for the past hour (or specified time range)
+    const dataPoints = Array.from({ length: 12 }, (_, i) => {
+      const timestamp = new Date(now.getTime() - ((11 - i) * 5 * 60 * 1000)); // 5 min intervals
+      
+      // Different patterns for different metrics
+      let value = 0;
+      switch (metricName) {
+        case 'cpu':
+          value = Math.floor(Math.random() * 40) + 30; // 30-70%
+          break;
+        case 'memory':
+          value = Math.floor(Math.random() * 30) + 50; // 50-80%
+          break;
+        case 'network':
+          value = Math.floor(Math.random() * 100) + 20; // 20-120 Mbps
+          break;
+        case 'disk':
+          value = Math.floor(Math.random() * 20) + 10; // 10-30 IOPS
+          break;
+        default:
+          value = Math.floor(Math.random() * 100);
+      }
+      
+      return {
+        timestamp: timestamp.toISOString(),
+        value
+      };
+    });
+    
+    // Define unit based on metric type
+    const unit = metricName === 'cpu' || metricName === 'memory' ? 
+                  '%' : 
+                  metricName === 'network' ? 
+                  'Mbps' : 'IOPS';
+    
+    // Calculate status based on latest value
+    let status = 'normal';
+    const latestValue = dataPoints[dataPoints.length - 1].value;
+    if (metricName === 'cpu' && latestValue > 80) status = 'warning';
+    if (metricName === 'memory' && latestValue > 85) status = 'warning';
+    if (metricName === 'disk' && latestValue > 25) status = 'warning';
+    
+    metrics.push({
+      name: metricName.charAt(0).toUpperCase() + metricName.slice(1),
+      data: dataPoints,
+      unit,
+      status
+    });
+  }
+  
+  return metrics;
 };

@@ -4,9 +4,11 @@ import {
   getCloudAccounts, 
   getCloudResources, 
   getResourceDetails,
+  getResourceMetrics,
   connectCloudProvider,
   CloudResource, 
-  CloudAccount
+  CloudAccount,
+  ResourceMetric
 } from '@/services/cloudProviderService';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, PlusCircle } from 'lucide-react';
@@ -34,6 +36,8 @@ const CloudResourcesPage: React.FC = () => {
     metrics: []
   });
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [resourceMetrics, setResourceMetrics] = useState<ResourceMetric[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
   
   // State for dialogs
   const [connectDialogOpen, setConnectDialogOpen] = useState(false);
