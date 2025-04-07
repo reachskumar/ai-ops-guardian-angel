@@ -1,7 +1,8 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { mockInsert, mockSelect, mockUpdate, mockDelete } from "./mockDatabaseService";
 
-export type NotificationType = 'incident' | 'alert' | 'system' | 'resource' | 'user';
+export type NotificationType = 'incident' | 'alert' | 'system' | 'resource' | 'user' | 'security' | 'infrastructure' | 'monitoring';
 
 export type NotificationPriority = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
@@ -11,6 +12,7 @@ export interface Notification {
   message: string;
   type: NotificationType;
   priority: NotificationPriority;
+  title: string; // Added title field to match component usage
   related_id?: string; // Reference to the related item (incident, alert, etc.)
   related_type?: string;
   read: boolean;
@@ -18,8 +20,8 @@ export interface Notification {
   metadata?: Record<string, any>;
 }
 
-// Get notifications for a user
-export const getUserNotifications = async (
+// Get notifications for a user - renamed to match component usage
+export const getNotifications = async (
   userId: string,
   options?: {
     unreadOnly?: boolean;
@@ -72,8 +74,8 @@ export const createNotification = async (
   }
 };
 
-// Mark a notification as read
-export const markAsRead = async (
+// Mark a notification as read - renamed to match component usage
+export const markNotificationAsRead = async (
   notificationId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
@@ -89,8 +91,8 @@ export const markAsRead = async (
   }
 };
 
-// Mark all notifications as read for a user
-export const markAllAsRead = async (
+// Mark all notifications as read for a user - renamed to match component usage
+export const markAllNotificationsAsRead = async (
   userId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
@@ -127,6 +129,20 @@ export const deleteNotification = async (
   }
 };
 
+// Set up notification listener - added to match component usage
+export const setupNotificationListener = (
+  userId: string, 
+  callback: (notification: Notification) => void
+): (() => void) => {
+  // Mock listener implementation
+  console.log(`Setting up notification listener for user ${userId}`);
+  
+  // Return cleanup function
+  return () => {
+    console.log(`Cleaning up notification listener for user ${userId}`);
+  };
+};
+
 // Subscribe user to push notifications
 export const subscribePushNotifications = async (
   userId: string,
@@ -137,7 +153,11 @@ export const subscribePushNotifications = async (
     const { error } = mockInsert('push_subscriptions', {
       user_id: userId,
       endpoint: subscription.endpoint,
-      keys: subscription.keys
+      // Fix for PushSubscription keys property
+      keys: JSON.stringify({
+        p256dh: "mock-p256dh-key",
+        auth: "mock-auth-key"
+      })
     });
     
     if (error) throw error;

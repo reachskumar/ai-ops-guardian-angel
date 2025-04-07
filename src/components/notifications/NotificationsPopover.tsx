@@ -21,6 +21,7 @@ import {
   NotificationType,
   NotificationPriority
 } from "@/services/notificationService";
+import { toast } from "@/hooks/use-toast";
 
 const NotificationsPopover: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -42,6 +43,11 @@ const NotificationsPopover: React.FC = () => {
         setUnreadCount(notifs.filter(n => !n.read).length);
       } catch (error) {
         console.error("Failed to load notifications:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load notifications",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
@@ -59,6 +65,11 @@ const NotificationsPopover: React.FC = () => {
     const cleanup = setupNotificationListener(user.id, (notification) => {
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
+      
+      toast({
+        title: notification.title,
+        description: notification.message
+      });
     });
     
     return cleanup;
@@ -74,6 +85,11 @@ const NotificationsPopover: React.FC = () => {
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark notification as read",
+        variant: "destructive"
+      });
     }
   };
   
@@ -85,8 +101,17 @@ const NotificationsPopover: React.FC = () => {
       await markAllNotificationsAsRead(user.id);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      toast({
+        title: "Success",
+        description: "All notifications marked as read"
+      });
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
+      toast({
+        title: "Error",
+        description: "Failed to mark all notifications as read",
+        variant: "destructive"
+      });
     }
   };
   
@@ -99,8 +124,17 @@ const NotificationsPopover: React.FC = () => {
       if (deleted && !deleted.read) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
+      toast({
+        title: "Success",
+        description: "Notification deleted"
+      });
     } catch (error) {
       console.error("Failed to delete notification:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete notification",
+        variant: "destructive"
+      });
     }
   };
   
@@ -115,6 +149,14 @@ const NotificationsPopover: React.FC = () => {
         return <div className="h-2 w-2 rounded-full bg-green-500 mr-2" />;
       case 'incident':
         return <div className="h-2 w-2 rounded-full bg-orange-500 mr-2" />;
+      case 'alert':
+        return <div className="h-2 w-2 rounded-full bg-yellow-500 mr-2" />;
+      case 'system':
+        return <div className="h-2 w-2 rounded-full bg-purple-500 mr-2" />;
+      case 'resource':
+        return <div className="h-2 w-2 rounded-full bg-indigo-500 mr-2" />;
+      case 'user':
+        return <div className="h-2 w-2 rounded-full bg-gray-500 mr-2" />;
       default:
         return <div className="h-2 w-2 rounded-full bg-gray-500 mr-2" />;
     }
