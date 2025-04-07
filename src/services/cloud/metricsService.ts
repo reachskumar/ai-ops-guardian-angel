@@ -1,12 +1,11 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, ResourceMetric } from "./types";
 
 // Get resource metrics by resource ID
 export const getResourceMetrics = async (
   resourceId: string,
-  timeRange: string = '1d',
-  metricNames: string[] = []
+  metricNames: string[] = [],
+  timeRange: string = '1d'
 ): Promise<ResourceMetric[]> => {
   try {
     const { data, error } = await supabase.functions.invoke('get-resource-metrics', {

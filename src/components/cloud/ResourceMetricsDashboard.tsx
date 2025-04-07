@@ -27,7 +27,11 @@ const ResourceMetricsDashboard: React.FC<ResourceMetricsDashboardProps> = ({
   const fetchMetrics = async () => {
     setIsLoading(true);
     try {
-      const metricsData = await getResourceMetrics(resourceId, ['cpu', 'memory', 'network', 'disk'], timeRange);
+      const metricsData = await getResourceMetrics(
+        resourceId,
+        ['cpu', 'memory', 'network', 'disk'],
+        timeRange
+      );
       setMetrics(metricsData);
     } catch (error) {
       console.error("Failed to fetch metrics:", error);
