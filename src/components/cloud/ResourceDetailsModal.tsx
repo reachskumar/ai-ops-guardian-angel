@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CloudResource, getResourceMetrics, ResourceMetric } from '@/services/cloudProviderService';
 import {
@@ -30,6 +29,8 @@ interface ResourceDetailsModalProps {
     metrics: any[];
   };
   detailsLoading: boolean;
+  resourceMetrics: ResourceMetric[];
+  metricsLoading: boolean;
 }
 
 const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
@@ -38,31 +39,16 @@ const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
   selectedResource,
   resourceDetails,
   detailsLoading,
+  resourceMetrics,
+  metricsLoading,
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [metrics, setMetrics] = useState<ResourceMetric[]>([]);
-  const [metricsLoading, setMetricsLoading] = useState(false);
 
-  // Fetch resource metrics when the modal is opened or when the activeTab changes to 'metrics'
   useEffect(() => {
     if (isOpen && selectedResource && activeTab === 'metrics') {
-      fetchResourceMetrics();
+      // We no longer need to fetch metrics here since they're coming from props
     }
   }, [isOpen, selectedResource, activeTab]);
-
-  const fetchResourceMetrics = async () => {
-    if (!selectedResource) return;
-    
-    setMetricsLoading(true);
-    try {
-      const metricsData = await getResourceMetrics(selectedResource.id);
-      setMetrics(metricsData);
-    } catch (error) {
-      console.error('Error fetching metrics:', error);
-    } finally {
-      setMetricsLoading(false);
-    }
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -195,8 +181,8 @@ const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
               
               <TabsContent value="metrics">
                 <ResourceMetrics 
-                  metrics={metrics}
-                  onRefresh={fetchResourceMetrics}
+                  metrics={resourceMetrics}
+                  onRefresh={() => {}} // This will be handled by the parent component now
                   loading={metricsLoading}
                 />
               </TabsContent>
