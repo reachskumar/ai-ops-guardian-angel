@@ -27,6 +27,9 @@ export const useResourceDetails = () => {
     try {
       const details = await getResourceDetails(resource.id);
       setResourceDetails(details);
+      
+      // Automatically fetch metrics when viewing resource details
+      fetchResourceMetrics(resource.id);
     } catch (error) {
       toast({
         title: "Error fetching resource details",
