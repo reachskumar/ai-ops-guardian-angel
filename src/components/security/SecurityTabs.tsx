@@ -7,7 +7,7 @@ import { Filter, Search, Download } from "lucide-react";
 import VulnerabilityTable from "./VulnerabilityTable";
 import ComplianceCards from "./ComplianceCards";
 
-interface SecurityTabsProps {
+export interface SecurityTabsProps {
   vulnerabilities: Array<{
     id: string;
     title: string;
@@ -21,13 +21,21 @@ interface SecurityTabsProps {
     status: string;
     score: number;
   }>;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-const SecurityTabs: React.FC<SecurityTabsProps> = ({ vulnerabilities, complianceItems }) => {
+const SecurityTabs: React.FC<SecurityTabsProps> = ({ 
+  vulnerabilities, 
+  complianceItems, 
+  activeTab = "vulnerabilities", 
+  onTabChange = () => {} 
+}) => {
   return (
-    <Tabs defaultValue="vulnerabilities">
+    <Tabs defaultValue={activeTab} value={activeTab} onValueChange={onTabChange}>
       <div className="flex items-center justify-between mb-4">
         <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="vulnerabilities">Vulnerabilities</TabsTrigger>
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
         </TabsList>
@@ -67,6 +75,12 @@ const SecurityTabs: React.FC<SecurityTabsProps> = ({ vulnerabilities, compliance
             <ComplianceCards complianceItems={complianceItems} />
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="overview">
+        <div className="text-center py-8">
+          <p className="text-muted-foreground">Select a specific tab to view detailed reports</p>
+        </div>
       </TabsContent>
     </Tabs>
   );

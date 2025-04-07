@@ -22,6 +22,42 @@ const SecurityPage: React.FC = () => {
     { name: "Low", value: 24, color: "#3b82f6" },
   ];
 
+  // Sample compliance data
+  const complianceItems = [
+    { name: "PCI DSS", status: "Passing", score: 92 },
+    { name: "HIPAA", status: "Needs Review", score: 78 },
+    { name: "NIST", status: "Passing", score: 85 },
+    { name: "SOC 2", status: "Warning", score: 72 },
+  ];
+
+  // Sample vulnerability data
+  const vulnerabilities = [
+    { 
+      id: "CVE-2023-1234", 
+      title: "SQL Injection in API Endpoint", 
+      severity: "Critical", 
+      component: "API Server", 
+      discovered: "2023-03-15", 
+      status: "Open" 
+    },
+    { 
+      id: "CVE-2023-5678", 
+      title: "Cross-Site Scripting", 
+      severity: "High", 
+      component: "Web UI", 
+      discovered: "2023-03-20", 
+      status: "In-Progress" 
+    },
+    { 
+      id: "CVE-2023-9101", 
+      title: "Outdated SSL Certificate", 
+      severity: "Medium", 
+      component: "Load Balancer", 
+      discovered: "2023-03-25", 
+      status: "Resolved" 
+    },
+  ];
+
   return (
     <SidebarWithProvider>
       <div className="flex flex-col min-h-screen">
@@ -36,15 +72,22 @@ const SecurityPage: React.FC = () => {
             </div>
           </div>
 
-          <SecurityTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          <SecurityTabs 
+            vulnerabilities={vulnerabilities} 
+            complianceItems={complianceItems} 
+          />
 
           {activeTab === "overview" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <SecurityOverview />
+                <SecurityOverview 
+                  complianceScore={85}
+                  lastScanTime="2023-04-05T14:30:00"
+                  vulnerabilityData={vulnerabilityData}
+                />
               </div>
               <div className="space-y-6">
-                <ComplianceCards />
+                <ComplianceCards complianceItems={complianceItems} />
                 <HardeningLink />
               </div>
             </div>
@@ -53,7 +96,7 @@ const SecurityPage: React.FC = () => {
           {activeTab === "vulnerabilities" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <VulnerabilityTable />
+                <VulnerabilityTable vulnerabilities={vulnerabilities} />
               </div>
               <div>
                 <VulnerabilityChart vulnerabilityData={vulnerabilityData} />
@@ -63,7 +106,7 @@ const SecurityPage: React.FC = () => {
 
           {activeTab === "compliance" && (
             <div className="grid grid-cols-1 gap-6">
-              <ComplianceCards showExpanded={true} />
+              <ComplianceCards complianceItems={complianceItems} />
             </div>
           )}
         </div>

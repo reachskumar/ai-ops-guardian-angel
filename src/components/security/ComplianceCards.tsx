@@ -13,11 +13,12 @@ interface ComplianceItem {
 
 interface ComplianceCardsProps {
   complianceItems: ComplianceItem[];
+  showExpanded?: boolean;
 }
 
-const ComplianceCards: React.FC<ComplianceCardsProps> = ({ complianceItems }) => {
+const ComplianceCards: React.FC<ComplianceCardsProps> = ({ complianceItems, showExpanded = false }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div className={`grid grid-cols-1 ${showExpanded ? 'md:grid-cols-3' : 'md:grid-cols-2'} xl:grid-cols-3 gap-4`}>
       {complianceItems.map((item, i) => (
         <div key={i} className="border border-border rounded-lg p-4">
           <div className="flex justify-between items-center mb-2">
@@ -60,6 +61,21 @@ const ComplianceCards: React.FC<ComplianceCardsProps> = ({ complianceItems }) =>
               </span>
             </div>
             <Progress value={item.score} className="h-1.5" />
+            {showExpanded && (
+              <div className="mt-4 pt-4 border-t">
+                <h4 className="text-sm font-medium mb-2">Compliance Details</h4>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Controls Passed</span>
+                    <span>{Math.floor(item.score / 100 * 42)}/42</span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span className="text-muted-foreground">Last Assessment</span>
+                    <span>{new Date().toLocaleDateString()}</span>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       ))}
