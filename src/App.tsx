@@ -17,6 +17,9 @@ const IncidentsPage = lazy(() => import("./pages/IncidentsPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const CollaborationPage = lazy(() => import("./pages/CollaborationPage"));
+const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 
 // Create a new query client with optimized settings
 const queryClient = new QueryClient({
@@ -74,6 +77,30 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <IncidentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/collaboration"
+                element={
+                  <ProtectedRoute>
+                    <CollaborationPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analytics"
+                element={
+                  <ProtectedRoute>
+                    <AnalyticsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
                   </ProtectedRoute>
                 }
               />
