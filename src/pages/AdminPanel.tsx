@@ -9,6 +9,7 @@ import {
   AdminHeader, 
   UserManagementCard 
 } from "@/components/admin";
+import { UserRole } from "@/services/authService";
 
 const AdminPanel: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -37,44 +38,19 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const makeAdmin = async (id: string) => {
+  const updateUserRole = async (id: string, role: UserRole) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .update({ role: "admin" })
+        .update({ role })
         .eq("id", id)
         .select("username, full_name");
 
       if (error) throw error;
 
       toast({
-        title: "Admin rights granted",
-        description: `${data?.[0]?.full_name || data?.[0]?.username || "User"} is now an admin.`,
-      });
-
-      fetchProfiles(); // Refresh the profiles list
-    } catch (error: any) {
-      toast({
-        title: "Error updating role",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const removeAdmin = async (id: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .update({ role: "user" })
-        .eq("id", id)
-        .select("username, full_name");
-
-      if (error) throw error;
-
-      toast({
-        title: "Admin rights removed",
-        description: `${data?.[0]?.full_name || data?.[0]?.username || "User"} is no longer an admin.`,
+        title: "Role updated",
+        description: `${data?.[0]?.full_name || data?.[0]?.username || "User"}'s role has been updated to ${role}.`,
       });
 
       fetchProfiles(); // Refresh the profiles list
@@ -96,8 +72,7 @@ const AdminPanel: React.FC = () => {
           <UserManagementCard 
             profiles={profiles}
             loading={loading}
-            makeAdmin={makeAdmin}
-            removeAdmin={removeAdmin}
+            updateUserRole={updateUserRole}
           />
         </main>
       </div>

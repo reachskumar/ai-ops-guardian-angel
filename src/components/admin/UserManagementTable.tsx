@@ -1,25 +1,41 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { UserCheck, UserX } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { UserCheck, UserX, Shield, ChevronDown } from "lucide-react";
 import { Profile } from "@/types/user";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { EmptyUsers } from "./EmptyUsers";
+import { RoleLabel } from "@/components/teams";
+import { UserRole } from "@/services/authService";
 
 interface UserManagementTableProps {
   profiles: Profile[];
   loading: boolean;
-  makeAdmin: (id: string) => Promise<void>;
-  removeAdmin: (id: string) => Promise<void>;
+  updateUserRole: (id: string, role: UserRole) => Promise<void>;
 }
 
 const UserManagementTable: React.FC<UserManagementTableProps> = ({
   profiles,
   loading,
-  makeAdmin,
-  removeAdmin,
+  updateUserRole,
 }) => {
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+
+  const handleRoleUpdate = async (userId: string, role: UserRole) => {
+    setUpdatingUserId(userId);
+    try {
+      await updateUserRole(userId, role);
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -27,6 +43,8 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
   if (profiles.length === 0) {
     return <EmptyUsers />;
   }
+
+  const availableRoles: UserRole[] = ['admin', 'developer', 'operator', 'viewer'];
 
   return (
     <div className="overflow-x-auto">
@@ -49,38 +67,39 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({
                 {profile.username || "No username"}
               </td>
               <td className="py-3 px-4">
-                {profile.role === "admin" ? (
-                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
-                    Admin
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-slate-100">
-                    User
-                  </Badge>
-                )}
+                <RoleLabel role={(profile.role || 'viewer') as UserRole} />
               </td>
               <td className="py-3 px-4 text-right">
-                {profile.role === "admin" ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => removeAdmin(profile.id)}
-                    className="flex items-center gap-1 text-red-500 border-red-200 hover:bg-red-50"
-                  >
-                    <UserX className="h-4 w-4" />
-                    Remove Admin
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => makeAdmin(profile.id)}
-                    className="flex items-center gap-1"
-                  >
-                    <UserCheck className="h-4 w-4" />
-                    Make Admin
-                  </Button>
-                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="ml-2"
+                      disabled={updatingUserId === profile.id}
+                    >
+                      {updatingUserId === profile.id ? (
+                        <div className="animate-spin h-4 w-4 border-2 border-foreground/50 rounded-full border-t-transparent" />
+                      ) : (
+                        <>
+                          Change Role <ChevronDown className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {availableRoles.map((role) => (
+                      <DropdownMenuItem 
+                        key={role}
+                        onClick={() => handleRoleUpdate(profile.id, role)}
+                        disabled={profile.role === role}
+                        className="flex items-center gap-2"
+                      >
+                        <RoleLabel role={role} size="sm" />
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </td>
             </tr>
           ))}

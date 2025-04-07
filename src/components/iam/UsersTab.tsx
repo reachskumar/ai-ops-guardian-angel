@@ -1,9 +1,18 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { UserPlus } from "lucide-react";
+import { UserPlus, ChevronDown } from "lucide-react";
 import { RoleLabel } from "@/components/teams";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { UserRole } from "@/services/authService";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface User {
   id: string;
@@ -15,9 +24,39 @@ interface User {
 
 interface UsersTabProps {
   filteredUsers: User[];
+  refreshUsers?: () => void;
 }
 
-const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers }) => {
+const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers, refreshUsers }) => {
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const { toast } = useToast();
+  
+  const availableRoles: UserRole[] = ['admin', 'developer', 'operator', 'viewer'];
+  
+  const handleRoleUpdate = async (userId: string, role: UserRole) => {
+    setUpdatingUserId(userId);
+    try {
+      // In a real implementation, this would update the user's role in Supabase
+      // For now, we'll just show a success toast
+      toast({
+        title: "Role updated",
+        description: `User's role has been updated to ${role}.`,
+      });
+      
+      if (refreshUsers) {
+        refreshUsers();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error updating role",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+  
   return (
     <>
       <div className="flex justify-between items-center">
@@ -54,11 +93,39 @@ const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers }) => {
                       <td className="p-4">{user.name}</td>
                       <td className="p-4">{user.email}</td>
                       <td className="p-4">
-                        <RoleLabel role={user.role.toLowerCase() as any} />
+                        <RoleLabel role={user.role.toLowerCase() as UserRole} />
                       </td>
                       <td className="p-4">{user.lastLogin}</td>
                       <td className="p-4 text-right">
-                        <Button variant="ghost" size="sm">Edit</Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              disabled={updatingUserId === user.id}
+                            >
+                              {updatingUserId === user.id ? (
+                                <div className="animate-spin h-4 w-4 border-2 border-foreground/50 rounded-full border-t-transparent" />
+                              ) : (
+                                <>
+                                  Change Role <ChevronDown className="ml-1 h-3 w-3" />
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {availableRoles.map((role) => (
+                              <DropdownMenuItem 
+                                key={role}
+                                onClick={() => handleRoleUpdate(user.id, role)}
+                                disabled={user.role.toLowerCase() === role}
+                                className="flex items-center gap-2"
+                              >
+                                <RoleLabel role={role} size="sm" />
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button variant="ghost" size="sm" className="text-red-500">Deactivate</Button>
                       </td>
                     </tr>

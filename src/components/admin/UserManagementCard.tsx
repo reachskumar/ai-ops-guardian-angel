@@ -4,19 +4,18 @@ import { Card, CardHeader, CardContent, CardDescription, CardTitle } from "@/com
 import { Shield } from "lucide-react";
 import { Profile } from "@/types/user";
 import UserManagementTable from "./UserManagementTable";
+import { UserRole } from "@/services/authService";
 
 interface UserManagementCardProps {
   profiles: Profile[];
   loading: boolean;
-  makeAdmin: (id: string) => Promise<void>;
-  removeAdmin: (id: string) => Promise<void>;
+  updateUserRole: (id: string, role: UserRole) => Promise<void>;
 }
 
 const UserManagementCard: React.FC<UserManagementCardProps> = ({
   profiles,
   loading,
-  makeAdmin,
-  removeAdmin,
+  updateUserRole,
 }) => {
   return (
     <Card>
@@ -26,15 +25,14 @@ const UserManagementCard: React.FC<UserManagementCardProps> = ({
           <CardTitle>User Management</CardTitle>
         </div>
         <CardDescription>
-          Manage user roles and permissions
+          Manage user roles and permissions across the entire application
         </CardDescription>
       </CardHeader>
       <CardContent>
         <UserManagementTable
           profiles={profiles}
           loading={loading}
-          makeAdmin={makeAdmin}
-          removeAdmin={removeAdmin}
+          updateUserRole={updateUserRole}
         />
       </CardContent>
     </Card>
