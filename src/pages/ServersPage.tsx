@@ -1,6 +1,6 @@
-
 import React, { useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,6 @@ import { Search, Server, Shield, Settings, HardDrive, Network, Cpu } from "lucid
 const ServersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Mock server data
   const servers = [
     {
       id: "srv-1",
@@ -71,7 +70,6 @@ const ServersPage: React.FC = () => {
     },
   ];
 
-  // Filter servers based on search query
   const filteredServers = servers.filter(server => 
     server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     server.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -196,7 +194,11 @@ const ServersPage: React.FC = () => {
                   {filteredServers.length > 0 ? (
                     filteredServers.map((server) => (
                       <div key={server.id} className="grid grid-cols-8 items-center p-2 text-sm border-b last:border-0">
-                        <div className="col-span-2 font-medium">{server.name}</div>
+                        <div className="col-span-2 font-medium">
+                          <Link to={`/servers/${server.id}`} className="hover:text-primary hover:underline">
+                            {server.name}
+                          </Link>
+                        </div>
                         <div>{getStatusBadge(server.status)}</div>
                         <div className="flex items-center gap-1">
                           {getServerTypeIcon(server.type)}
@@ -206,15 +208,21 @@ const ServersPage: React.FC = () => {
                         <div>{server.os}</div>
                         <div>{server.cpu}, {server.memory}</div>
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="ghost">
-                            <Cpu className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <Shield className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <Settings className="h-4 w-4" />
-                          </Button>
+                          <Link to={`/servers/${server.id}`}>
+                            <Button size="sm" variant="ghost">
+                              <Cpu className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Link to={`/servers/${server.id}?tab=security`}>
+                            <Button size="sm" variant="ghost">
+                              <Shield className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          <Link to={`/servers/${server.id}?tab=settings`}>
+                            <Button size="sm" variant="ghost">
+                              <Settings className="h-4 w-4" />
+                            </Button>
+                          </Link>
                         </div>
                       </div>
                     ))

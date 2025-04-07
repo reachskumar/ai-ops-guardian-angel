@@ -9,6 +9,8 @@ export { default as TrendCards } from './TrendCards';
 export { default as DashboardTabs } from './DashboardTabs';
 export { default as DashboardHeader } from './DashboardHeader';
 export { default as ServerMetricsPanel } from './ServerMetricsPanel';
+export { default as ServerDetailsHeader } from './ServerDetailsHeader';
+export { default as ServerPropertiesPanel } from './ServerPropertiesPanel';
 export { LazyLoadingSpinner } from './DashboardComponents';
 
 // Export tab components
