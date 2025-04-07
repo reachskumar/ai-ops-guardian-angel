@@ -28,6 +28,7 @@ const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers, refreshUsers }) => {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deactivatedUsers, setDeactivatedUsers] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   
   const availableRoles: UserRole[] = ['admin', 'developer', 'operator', 'viewer'];
@@ -134,21 +135,22 @@ const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers, refreshUsers }) => {
 
   const handleDeactivateUser = async (userId: string) => {
     try {
-      // In a production app, you'd use admin API or edge function to deactivate users
-      // For this demo, we'll just update a status field in the profile
-      const { error } = await supabase
-        .from("profiles")
-        .update({ active: false })
-        .eq("id", userId);
-
-      if (error) throw error;
+      // Instead of updating a non-existent 'active' field, we'll use our client-side state
+      // to track deactivated users and modify how they are displayed
+      setDeactivatedUsers(prev => {
+        const updated = new Set(prev);
+        updated.add(userId);
+        return updated;
+      });
 
       toast({
         title: "User deactivated",
-        description: "The user has been deactivated successfully.",
+        description: "The user has been visually marked as deactivated. In a production app, you would update the user status in the database.",
       });
       
-      fetchProfiles();
+      // Note: In a real implementation, you would update a status field in the database
+      // e.g., await supabase.from("profiles").update({ status: 'inactive' }).eq("id", userId);
+      
     } catch (error: any) {
       toast({
         title: "Error deactivating user",
@@ -200,7 +202,10 @@ const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers, refreshUsers }) => {
                   </tr>
                 ) : (
                   displayedUsers.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-muted/50">
+                    <tr 
+                      key={user.id} 
+                      className={`border-b hover:bg-muted/50 ${deactivatedUsers.has(user.id) ? 'opacity-50' : ''}`}
+                    >
                       <td className="p-4">{user.full_name || "No name"}</td>
                       <td className="p-4">{user.username || user.email || "No username"}</td>
                       <td className="p-4">
@@ -213,7 +218,7 @@ const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers, refreshUsers }) => {
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              disabled={updatingUserId === user.id}
+                              disabled={updatingUserId === user.id || deactivatedUsers.has(user.id)}
                             >
                               {updatingUserId === user.id ? (
                                 <div className="animate-spin h-4 w-4 border-2 border-foreground/50 rounded-full border-t-transparent" />
@@ -242,6 +247,7 @@ const UsersTab: React.FC<UsersTabProps> = ({ filteredUsers, refreshUsers }) => {
                           size="sm" 
                           className="text-red-500"
                           onClick={() => handleDeactivateUser(user.id)}
+                          disabled={deactivatedUsers.has(user.id)}
                         >
                           <UserMinus className="h-4 w-4 mr-1" />
                           Deactivate
