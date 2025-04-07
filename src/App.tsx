@@ -1,4 +1,3 @@
-
 import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -23,6 +22,7 @@ const CloudResourcesPage = lazy(() => import("./pages/CloudResourcesPage"));
 const ServersPage = lazy(() => import("./pages/ServersPage"));
 const ServerDetailsPage = lazy(() => import("./pages/ServerDetailsPage"));
 const ServerMonitoringPage = lazy(() => import("./pages/ServerMonitoringPage"));
+const InfrastructureOverviewPage = lazy(() => import("./pages/InfrastructureOverviewPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -142,6 +142,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <ServerMonitoringPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/infrastructure"
+                element={
+                  <ProtectedRoute>
+                    <InfrastructureOverviewPage />
                   </ProtectedRoute>
                 }
               />
