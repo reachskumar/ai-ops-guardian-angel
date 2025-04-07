@@ -12,18 +12,27 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye, Server, Database, Cloud } from 'lucide-react';
+import { Loader2, Eye, Server, Database, Cloud, X } from 'lucide-react';
 
 interface ResourceInventoryProps {
   resources: CloudResource[];
   loading: boolean;
   onViewDetails: (resource: CloudResource) => void;
+  filters?: {
+    search: string;
+    type: string;
+    region: string;
+    status: string;
+  };
+  onFilterRemove?: (key: string) => void;
 }
 
 const ResourceInventory: React.FC<ResourceInventoryProps> = ({
   resources,
   loading,
-  onViewDetails
+  onViewDetails,
+  filters,
+  onFilterRemove
 }) => {
   const renderResourceIcon = (type: string) => {
     switch (type.toLowerCase()) {
@@ -37,7 +46,50 @@ const ResourceInventory: React.FC<ResourceInventoryProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Resource Inventory</CardTitle>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <CardTitle>Resource Inventory</CardTitle>
+          
+          {filters && Object.entries(filters).some(([_, value]) => value !== '') && (
+            <div className="flex flex-wrap gap-2">
+              {filters.search && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Search: {filters.search}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => onFilterRemove && onFilterRemove('search')} 
+                  />
+                </Badge>
+              )}
+              {filters.type && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Type: {filters.type}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => onFilterRemove && onFilterRemove('type')} 
+                  />
+                </Badge>
+              )}
+              {filters.region && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Region: {filters.region}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => onFilterRemove && onFilterRemove('region')} 
+                  />
+                </Badge>
+              )}
+              {filters.status && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  Status: {filters.status}
+                  <X 
+                    className="h-3 w-3 ml-1 cursor-pointer" 
+                    onClick={() => onFilterRemove && onFilterRemove('status')} 
+                  />
+                </Badge>
+              )}
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -49,7 +101,10 @@ const ResourceInventory: React.FC<ResourceInventoryProps> = ({
             <Server className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
             <p className="mt-2 text-muted-foreground">No resources found.</p>
             <p className="text-sm text-muted-foreground">
-              Resources will appear once you connect a cloud provider.
+              {filters && Object.values(filters).some(v => v !== '')
+                ? "Try adjusting your filters or connect a new cloud provider."
+                : "Resources will appear once you connect a cloud provider."
+              }
             </p>
           </div>
         ) : (
