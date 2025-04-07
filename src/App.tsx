@@ -1,4 +1,3 @@
-
 import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,7 +8,6 @@ import { AuthProvider } from "./providers/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 
-// Use React.lazy for code splitting to improve initial load time
 const Index = lazy(() => import("./pages/Index"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
@@ -20,18 +18,17 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const CollaborationPage = lazy(() => import("./pages/CollaborationPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
+const CloudResourcesPage = lazy(() => import("./pages/CloudResourcesPage"));
 
-// Create a new query client with optimized settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Disable refetching data when window regains focus
-      staleTime: 5 * 60 * 1000, // Set stale time to 5 minutes
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000,
     },
   },
 });
 
-// Loading fallback component
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -104,7 +101,6 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
-              {/* Admin-only routes */}
               <Route
                 path="/admin"
                 element={
@@ -113,12 +109,11 @@ const App = () => (
                   </AdminRoute>
                 }
               />
-              {/* Placeholder routes for navigation items */}
               <Route
                 path="/cloud-resources"
                 element={
                   <ProtectedRoute>
-                    <NotFound />
+                    <CloudResourcesPage />
                   </ProtectedRoute>
                 }
               />
