@@ -5,7 +5,8 @@ import {
   OverviewTab,
   InfrastructureTab,
   SecurityTab,
-  MonitoringTab
+  MonitoringTab,
+  ComplianceTab
 } from "./tabs";
 
 interface DashboardTabsProps {
@@ -41,11 +42,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = ({
 }) => {
   return (
     <Tabs defaultValue="overview">
-      <TabsList className="grid w-full max-w-2xl grid-cols-4">
+      <TabsList className="grid w-full max-w-3xl grid-cols-5">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
         <TabsTrigger value="security">Security</TabsTrigger>
         <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+        <TabsTrigger value="compliance">Compliance</TabsTrigger>
       </TabsList>
       
       <TabsContent value="overview" className="mt-4">
@@ -76,6 +78,10 @@ const DashboardTabs: React.FC<DashboardTabsProps> = ({
           networkData={networkData}
           storageData={storageData}
         />
+      </TabsContent>
+      
+      <TabsContent value="compliance" className="mt-4">
+        <ComplianceTab />
       </TabsContent>
     </Tabs>
   );

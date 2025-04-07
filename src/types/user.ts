@@ -9,4 +9,5 @@ export interface Profile {
   last_login?: string; // Adding last login tracking
   last_active?: string; // Track when user was last active on dashboard
   metrics_access_level?: 'basic' | 'advanced' | 'admin'; // Control what metrics are visible
+  compliance_access_level?: 'viewer' | 'auditor' | 'manager' | 'admin'; // Control compliance features access
 }
