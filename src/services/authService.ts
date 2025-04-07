@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import { toast } from "@/hooks/use-toast";
@@ -127,7 +126,15 @@ export const updateUserProfile = async (
 export const checkUserRole = async (userId: string, role: UserRole): Promise<boolean> => {
   try {
     const profile = await getUserProfile(userId);
-    return profile?.role === role;
+    
+    if (!profile?.role) return false;
+    
+    // Check role hierarchy
+    const roleHierarchy = ['viewer', 'operator', 'developer', 'admin'];
+    const userRoleIndex = roleHierarchy.indexOf(profile.role as UserRole);
+    const requiredRoleIndex = roleHierarchy.indexOf(role);
+    
+    return userRoleIndex >= requiredRoleIndex;
   } catch (error) {
     console.error("Check user role error:", error);
     return false;

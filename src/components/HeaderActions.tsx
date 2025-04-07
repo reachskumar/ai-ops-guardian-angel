@@ -12,12 +12,21 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNavigate } from "react-router-dom";
-import { Settings, LogOut, User, Shield } from "lucide-react";
+import { Settings, LogOut, User, Shield, Users } from "lucide-react";
 import NotificationsPopover from "@/components/notifications/NotificationsPopover";
+import { RoleSwitcher } from "./teams";
 
 const HeaderActions: React.FC = () => {
   const { user, profile, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
+  
+  // Mock teams data - in a real implementation, this would come from the auth provider
+  const userTeams = [
+    {
+      team: { id: "team1", name: "Engineering" },
+      role: profile?.role || "viewer"
+    }
+  ];
   
   const getInitials = () => {
     if (profile?.full_name) {
@@ -42,7 +51,9 @@ const HeaderActions: React.FC = () => {
   };
   
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-3">
+      <RoleSwitcher userTeams={userTeams} compact />
+      
       <NotificationsPopover />
       
       <DropdownMenu>
@@ -65,6 +76,10 @@ const HeaderActions: React.FC = () => {
           <DropdownMenuItem onClick={() => navigate('/profile')}>
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/iam')}>
+            <Users className="mr-2 h-4 w-4" />
+            <span>Team Management</span>
           </DropdownMenuItem>
           {isAdmin && (
             <DropdownMenuItem onClick={() => navigate('/admin')}>

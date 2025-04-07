@@ -3,8 +3,32 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/providers/AuthProvider";
 
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading, isAdmin } = useAuth();
+type RoleRequirement = 'admin' | 'developer' | 'operator' | 'viewer' | undefined;
+
+interface AdminRouteProps {
+  children: React.ReactNode;
+  requiredRole?: RoleRequirement;
+}
+
+const AdminRoute: React.FC<AdminRouteProps> = ({ 
+  children, 
+  requiredRole = 'admin' 
+}) => {
+  const { user, loading, profile } = useAuth();
+
+  // Check user role against required role
+  const hasRequiredRole = () => {
+    const roleHierarchy = ['viewer', 'operator', 'developer', 'admin'];
+    
+    if (!profile?.role || !requiredRole) {
+      return false;
+    }
+    
+    const userRoleIndex = roleHierarchy.indexOf(profile.role);
+    const requiredRoleIndex = roleHierarchy.indexOf(requiredRole);
+    
+    return userRoleIndex >= requiredRoleIndex;
+  };
 
   if (loading) {
     return (
@@ -14,7 +38,7 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!user || !hasRequiredRole()) {
     return <Navigate to="/" replace />;
   }
 

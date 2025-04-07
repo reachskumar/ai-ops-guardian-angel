@@ -1,6 +1,6 @@
-
-import { UserProfile } from "./authService";
+import { UserProfile, UserRole } from "./authService";
 import { mockInsert, mockSelect, mockUpdate, mockDelete } from "./mockDatabaseService";
+import { hasResourcePermission } from "./permissions/teamPermissionsService";
 
 export interface Team {
   id: string;
@@ -19,11 +19,17 @@ export interface TeamMember {
   joined_at: string;
 }
 
-// Team operations
+// Team operations with permission checks
 export const createTeam = async (
-  team: Omit<Team, 'id' | 'created_at' | 'updated_at'>
+  team: Omit<Team, 'id' | 'created_at' | 'updated_at'>,
+  userRole: UserRole
 ): Promise<{ success: boolean; teamId?: string; error?: string }> => {
   try {
+    // Check if user has permission to create teams
+    if (!hasResourcePermission(userRole, 'admin')) {
+      throw new Error("You don't have permission to create teams");
+    }
+    
     // Use mock service
     const { data, error } = mockInsert('teams', team);
     
@@ -89,9 +95,15 @@ export const getTeamById = async (
 export const addTeamMember = async (
   teamId: string,
   userId: string,
-  role: TeamMember['role']
+  role: TeamMember['role'],
+  currentUserRole: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Check if user has permission to add team members
+    if (!hasResourcePermission(currentUserRole, 'admin')) {
+      throw new Error("You don't have permission to add team members");
+    }
+    
     const { error } = mockInsert('team_members', {
       team_id: teamId,
       user_id: userId,
@@ -110,9 +122,15 @@ export const addTeamMember = async (
 export const updateTeamMemberRole = async (
   teamId: string,
   userId: string,
-  role: TeamMember['role']
+  role: TeamMember['role'],
+  currentUserRole: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Check if user has permission to update team member roles
+    if (!hasResourcePermission(currentUserRole, 'admin')) {
+      throw new Error("You don't have permission to update team member roles");
+    }
+    
     // Find the member first
     const { data: members } = mockSelect('team_members', { 
       team_id: teamId,
@@ -137,9 +155,15 @@ export const updateTeamMemberRole = async (
 
 export const removeTeamMember = async (
   teamId: string,
-  userId: string
+  userId: string,
+  currentUserRole: UserRole
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Check if user has permission to remove team members
+    if (!hasResourcePermission(currentUserRole, 'admin')) {
+      throw new Error("You don't have permission to remove team members");
+    }
+    
     // Find the member first
     const { data: members } = mockSelect('team_members', { 
       team_id: teamId,

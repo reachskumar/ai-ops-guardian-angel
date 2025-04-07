@@ -1,8 +1,9 @@
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { UserRole } from "@/services/authService";
+import { getUserResourcePermissions } from "@/services/permissions/teamPermissionsService";
 
 type AuthContextType = {
   session: Session | null;
@@ -10,6 +11,12 @@ type AuthContextType = {
   profile: any | null;
   loading: boolean;
   isAdmin: boolean;
+  permissions: {
+    canView: boolean;
+    canEdit: boolean;
+    canManage: boolean;
+    canAdmin: boolean;
+  };
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
@@ -20,6 +27,12 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   isAdmin: false,
+  permissions: {
+    canView: false,
+    canEdit: false,
+    canManage: false,
+    canAdmin: false
+  },
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -33,6 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const { toast } = useToast();
+
+  const permissions = getUserResourcePermissions(profile?.role as UserRole);
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
@@ -58,7 +73,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [toast]);
 
-  // Ensure profile exists for a user
   const ensureProfileExists = useCallback(async (user: User) => {
     try {
       const { data, error } = await supabase
@@ -68,17 +82,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error || !data) {
-        // Create profile if it doesn't exist
         const { error: insertError } = await supabase.from('profiles').insert({
           id: user.id,
           username: user.email?.split('@')[0],
           full_name: user.user_metadata?.full_name || user.email,
-          role: 'user' // Default role
+          role: 'viewer'
         });
 
         if (insertError) throw insertError;
         
-        // Fetch the newly created profile
         return await fetchUserProfile(user.id);
       }
       
@@ -101,7 +113,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, fetchUserProfile]);
 
   useEffect(() => {
-    // First set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log("Auth state change:", event);
@@ -109,7 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          // Use setTimeout to avoid potential recursion issues
           setTimeout(async () => {
             await fetchUserProfile(currentSession.user!.id);
           }, 0);
@@ -120,7 +130,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Then check for existing session
     const initializeAuth = async () => {
       try {
         setLoading(true);
@@ -179,6 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     loading,
     isAdmin,
+    permissions,
     signOut,
     refreshProfile,
   };

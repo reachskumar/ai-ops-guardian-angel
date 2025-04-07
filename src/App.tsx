@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -69,7 +70,7 @@ const App = () => (
               <Route
                 path="/security"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="operator">
                     <SecurityPage />
                   </ProtectedRoute>
                 }
@@ -77,7 +78,7 @@ const App = () => (
               <Route
                 path="/incidents"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="operator">
                     <IncidentsPage />
                   </ProtectedRoute>
                 }
@@ -93,7 +94,7 @@ const App = () => (
               <Route
                 path="/analytics"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="developer">
                     <AnalyticsPage />
                   </ProtectedRoute>
                 }
@@ -117,7 +118,7 @@ const App = () => (
               <Route
                 path="/cloud-resources"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="developer">
                     <CloudResourcesPage />
                   </ProtectedRoute>
                 }
@@ -125,7 +126,7 @@ const App = () => (
               <Route
                 path="/servers"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="operator">
                     <ServersPage />
                   </ProtectedRoute>
                 }
@@ -133,7 +134,7 @@ const App = () => (
               <Route
                 path="/servers/:serverId"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="viewer">
                     <ServerDetailsPage />
                   </ProtectedRoute>
                 }
@@ -141,7 +142,7 @@ const App = () => (
               <Route
                 path="/monitoring"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="operator">
                     <ServerMonitoringPage />
                   </ProtectedRoute>
                 }
@@ -149,7 +150,7 @@ const App = () => (
               <Route
                 path="/infrastructure"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="developer">
                     <InfrastructureOverviewPage />
                   </ProtectedRoute>
                 }
@@ -157,7 +158,7 @@ const App = () => (
               <Route
                 path="/iam"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="admin">
                     <IAMPage />
                   </ProtectedRoute>
                 }
@@ -173,7 +174,7 @@ const App = () => (
               <Route
                 path="/databases"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="operator">
                     <NotFound />
                   </ProtectedRoute>
                 }
@@ -181,7 +182,7 @@ const App = () => (
               <Route
                 path="/cost"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requiredRole="developer">
                     <NotFound />
                   </ProtectedRoute>
                 }
