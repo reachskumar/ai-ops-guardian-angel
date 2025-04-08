@@ -112,15 +112,33 @@ const ScannerIntegration: React.FC = () => {
       
       if (data) {
         // Properly map data to Scanner type with correct status literals
-        const formattedScanners: Scanner[] = data.map(item => ({
-          id: item.id,
-          name: item.name,
-          type: item.scan_engine,
-          url: item.scan_parameters?.url || '',
-          // Convert string status to our literal type
-          status: (item.is_active ? "connected" : "disconnected") as "connected" | "disconnected" | "error",
-          lastSyncTime: item.updated_at
-        }));
+        const formattedScanners: Scanner[] = data.map(item => {
+          // Safely access the URL from scan_parameters, which could be JSON or string
+          let url = '';
+          if (item.scan_parameters) {
+            if (typeof item.scan_parameters === 'string') {
+              try {
+                const params = JSON.parse(item.scan_parameters);
+                url = params.url || '';
+              } catch {
+                url = '';
+              }
+            } else {
+              // It's already an object
+              url = (item.scan_parameters as any).url || '';
+            }
+          }
+          
+          return {
+            id: item.id,
+            name: item.name,
+            type: item.scan_engine,
+            url: url,
+            // Convert string status to our literal type
+            status: (item.is_active ? "connected" : "disconnected") as "connected" | "disconnected" | "error",
+            lastSyncTime: item.updated_at
+          };
+        });
         
         setScanners(formattedScanners);
       }

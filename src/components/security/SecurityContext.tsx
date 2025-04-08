@@ -53,6 +53,7 @@ export const SecurityProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
   const [lastScanTime, setLastScanTime] = useState<string>(new Date().toISOString());
   const [selectedCompliance, setSelectedCompliance] = useState<string[]>(["All"]);
   const [complianceScore, setComplianceScore] = useState(85);
+  const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
 
   // Sample data for the vulnerability chart
   const [vulnerabilityData, setVulnerabilityData] = useState([
