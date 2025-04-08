@@ -10,3 +10,6 @@ export { default as HardeningLink } from './HardeningLink';
 export { default as ComplianceSelector } from './ComplianceSelector';
 export { default as TabActions } from './TabActions';
 export { default as TabContents } from './TabContents';
+
+export { SecurityProvider, useSecurityContext } from './SecurityContext';
+export { OverviewSection, VulnerabilitiesSection, ComplianceSection } from './sections';
