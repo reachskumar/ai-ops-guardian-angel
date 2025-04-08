@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CreateConfigMapForm, CreateSecretForm } from "./config";
 import { toast } from "@/hooks/use-toast";
 
-// Mock data for demo
 const mockConfigMaps = [
   { 
     id: "cm-1", 
@@ -80,7 +79,6 @@ const ConfigTab: React.FC = () => {
   const [createSecretOpen, setCreateSecretOpen] = useState(false);
 
   const handleCreateConfigMap = (data: any) => {
-    // In a real app, this would call an API to create the ConfigMap
     const newConfigMap = {
       id: `cm-${configMaps.length + 1}`,
       name: data.name,
@@ -94,11 +92,14 @@ const ConfigTab: React.FC = () => {
     
     setConfigMaps([...configMaps, newConfigMap]);
     setCreateConfigMapOpen(false);
-    toast.success("ConfigMap created successfully");
+    toast({
+      title: "Success",
+      description: "ConfigMap created successfully",
+      variant: "default",
+    });
   };
 
   const handleCreateSecret = (data: any) => {
-    // In a real app, this would call an API to create the Secret
     const newSecret = {
       id: `secret-${secrets.length + 1}`,
       name: data.name,
@@ -113,7 +114,11 @@ const ConfigTab: React.FC = () => {
     
     setSecrets([...secrets, newSecret]);
     setCreateSecretOpen(false);
-    toast.success("Secret created successfully");
+    toast({
+      title: "Success", 
+      description: "Secret created successfully",
+      variant: "default",
+    });
   };
 
   return (
@@ -231,7 +236,6 @@ const ConfigTab: React.FC = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog for creating a new ConfigMap */}
       <Dialog open={createConfigMapOpen} onOpenChange={setCreateConfigMapOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
@@ -244,7 +248,6 @@ const ConfigTab: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for creating a new Secret */}
       <Dialog open={createSecretOpen} onOpenChange={setCreateSecretOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
