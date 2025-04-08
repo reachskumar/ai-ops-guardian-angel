@@ -3,11 +3,12 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp } from "lucide-react";
+import { ShieldCheck, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 
 interface ComplianceItem {
+  id: string;
   name: string;
   status: string;
   score: number;
@@ -16,10 +17,16 @@ interface ComplianceItem {
 interface ComplianceCardsProps {
   complianceItems: ComplianceItem[];
   showExpanded?: boolean;
+  onScanRequest?: (standardId: string) => Promise<void>;
 }
 
-const ComplianceCards: React.FC<ComplianceCardsProps> = ({ complianceItems, showExpanded = false }) => {
+const ComplianceCards: React.FC<ComplianceCardsProps> = ({ 
+  complianceItems, 
+  showExpanded = false,
+  onScanRequest 
+}) => {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [scanning, setScanning] = useState<string | null>(null);
 
   const toggleExpand = (itemName: string) => {
     setExpandedItems(prev => 
@@ -31,11 +38,22 @@ const ComplianceCards: React.FC<ComplianceCardsProps> = ({ complianceItems, show
 
   const isExpanded = (itemName: string) => expandedItems.includes(itemName);
 
+  const handleScanRequest = async (id: string) => {
+    if (!onScanRequest) return;
+    
+    setScanning(id);
+    try {
+      await onScanRequest(id);
+    } finally {
+      setScanning(null);
+    }
+  };
+
   return (
     <div className={`grid grid-cols-1 ${showExpanded ? 'md:grid-cols-3' : 'md:grid-cols-2'} xl:grid-cols-3 gap-4`}>
-      {complianceItems.map((item, i) => (
+      {complianceItems.map((item) => (
         <Collapsible
-          key={i}
+          key={item.id}
           open={isExpanded(item.name)}
           onOpenChange={() => toggleExpand(item.name)}
           className="border border-border rounded-lg p-4 transition-all duration-200 hover:shadow-md"
@@ -80,6 +98,25 @@ const ComplianceCards: React.FC<ComplianceCardsProps> = ({ complianceItems, show
               </span>
             </div>
             <Progress value={item.score} className="h-1.5" />
+            
+            {onScanRequest && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full"
+                disabled={scanning === item.id}
+                onClick={() => handleScanRequest(item.id)}
+              >
+                {scanning === item.id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Scanning...
+                  </>
+                ) : (
+                  'Run Compliance Scan'
+                )}
+              </Button>
+            )}
             
             <CollapsibleTrigger asChild>
               <Button

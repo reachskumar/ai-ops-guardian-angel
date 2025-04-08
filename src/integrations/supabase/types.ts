@@ -9,6 +9,184 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      compliance_assessments: {
+        Row: {
+          assessor: string | null
+          completed_at: string | null
+          id: string
+          next_assessment_due: string | null
+          notes: string | null
+          score: number | null
+          standard_id: string | null
+          started_at: string
+          status: string
+          summary_report: Json | null
+        }
+        Insert: {
+          assessor?: string | null
+          completed_at?: string | null
+          id?: string
+          next_assessment_due?: string | null
+          notes?: string | null
+          score?: number | null
+          standard_id?: string | null
+          started_at?: string
+          status: string
+          summary_report?: Json | null
+        }
+        Update: {
+          assessor?: string | null
+          completed_at?: string | null
+          id?: string
+          next_assessment_due?: string | null
+          notes?: string | null
+          score?: number | null
+          standard_id?: string | null
+          started_at?: string
+          status?: string
+          summary_report?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_assessments_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_standards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_control_results: {
+        Row: {
+          assessed_at: string
+          assessed_by: string | null
+          assessment_id: string | null
+          control_id: string | null
+          evidence: string | null
+          id: string
+          notes: string | null
+          remediation_due_date: string | null
+          remediation_plan: string | null
+          status: string
+        }
+        Insert: {
+          assessed_at?: string
+          assessed_by?: string | null
+          assessment_id?: string | null
+          control_id?: string | null
+          evidence?: string | null
+          id?: string
+          notes?: string | null
+          remediation_due_date?: string | null
+          remediation_plan?: string | null
+          status: string
+        }
+        Update: {
+          assessed_at?: string
+          assessed_by?: string | null
+          assessment_id?: string | null
+          control_id?: string | null
+          evidence?: string | null
+          id?: string
+          notes?: string | null
+          remediation_due_date?: string | null
+          remediation_plan?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_control_results_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_control_results_control_id_fkey"
+            columns: ["control_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_controls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_controls: {
+        Row: {
+          control_id: string
+          created_at: string
+          description: string | null
+          id: string
+          implementation_guidance: string | null
+          standard_id: string | null
+          title: string
+          updated_at: string
+          verification_method: string | null
+        }
+        Insert: {
+          control_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          implementation_guidance?: string | null
+          standard_id?: string | null
+          title: string
+          updated_at?: string
+          verification_method?: string | null
+        }
+        Update: {
+          control_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          implementation_guidance?: string | null
+          standard_id?: string | null
+          title?: string
+          updated_at?: string
+          verification_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_controls_standard_id_fkey"
+            columns: ["standard_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_standards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_standards: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       incidents: {
         Row: {
           assigned_to: string | null
@@ -77,6 +255,166 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      security_scan_configurations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          scan_engine: string
+          scan_frequency: string | null
+          scan_parameters: Json | null
+          scan_type: string
+          target_identifier: string
+          target_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          scan_engine: string
+          scan_frequency?: string | null
+          scan_parameters?: Json | null
+          scan_type: string
+          target_identifier: string
+          target_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          scan_engine?: string
+          scan_frequency?: string | null
+          scan_parameters?: Json | null
+          scan_type?: string
+          target_identifier?: string
+          target_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      security_scans: {
+        Row: {
+          completed_at: string | null
+          configuration_id: string | null
+          error_message: string | null
+          id: string
+          initiated_by: string | null
+          raw_result: Json | null
+          scan_engine_id: string | null
+          started_at: string | null
+          status: string
+          summary: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          configuration_id?: string | null
+          error_message?: string | null
+          id?: string
+          initiated_by?: string | null
+          raw_result?: Json | null
+          scan_engine_id?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          configuration_id?: string | null
+          error_message?: string | null
+          id?: string
+          initiated_by?: string | null
+          raw_result?: Json | null
+          scan_engine_id?: string | null
+          started_at?: string | null
+          status?: string
+          summary?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_scans_configuration_id_fkey"
+            columns: ["configuration_id"]
+            isOneToOne: false
+            referencedRelation: "security_scan_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vulnerabilities: {
+        Row: {
+          affected_component: string | null
+          assigned_to: string | null
+          cvss_score: number | null
+          description: string | null
+          discovered_at: string
+          external_references: Json | null
+          id: string
+          remediation_steps: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          scan_id: string | null
+          severity: string
+          status: string
+          tags: string[] | null
+          title: string
+          vulnerability_id: string
+        }
+        Insert: {
+          affected_component?: string | null
+          assigned_to?: string | null
+          cvss_score?: number | null
+          description?: string | null
+          discovered_at?: string
+          external_references?: Json | null
+          id?: string
+          remediation_steps?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          scan_id?: string | null
+          severity: string
+          status?: string
+          tags?: string[] | null
+          title: string
+          vulnerability_id: string
+        }
+        Update: {
+          affected_component?: string | null
+          assigned_to?: string | null
+          cvss_score?: number | null
+          description?: string | null
+          discovered_at?: string
+          external_references?: Json | null
+          id?: string
+          remediation_steps?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          scan_id?: string | null
+          severity?: string
+          status?: string
+          tags?: string[] | null
+          title?: string
+          vulnerability_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vulnerabilities_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "security_scans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
