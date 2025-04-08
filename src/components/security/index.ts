@@ -7,3 +7,6 @@ export { default as SecurityTabs } from './SecurityTabs';
 export { default as ServerHardening } from './ServerHardening';
 export { default as GoldenImageTab } from './GoldenImageTab';
 export { default as HardeningLink } from './HardeningLink';
+export { default as ComplianceSelector } from './ComplianceSelector';
+export { default as TabActions } from './TabActions';
+export { default as TabContents } from './TabContents';
