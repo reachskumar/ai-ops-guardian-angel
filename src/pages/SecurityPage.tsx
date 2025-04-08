@@ -20,12 +20,12 @@ const SecurityPage: React.FC = () => {
   const [complianceScore, setComplianceScore] = useState(85);
 
   // Sample data for the vulnerability chart
-  const vulnerabilityData = [
+  const [vulnerabilityData, setVulnerabilityData] = useState([
     { name: "Critical", value: 3, color: "#ef4444" },
     { name: "High", value: 8, color: "#f97316" },
     { name: "Medium", value: 15, color: "#f59e0b" },
     { name: "Low", value: 24, color: "#3b82f6" },
-  ];
+  ]);
 
   // Sample compliance data
   const complianceItems = [
@@ -36,7 +36,7 @@ const SecurityPage: React.FC = () => {
   ];
 
   // Sample vulnerability data
-  const vulnerabilities = [
+  const [vulnerabilities, setVulnerabilities] = useState([
     { 
       id: "CVE-2023-1234", 
       title: "SQL Injection in API Endpoint", 
@@ -61,7 +61,7 @@ const SecurityPage: React.FC = () => {
       discovered: "2023-03-25", 
       status: "Resolved" 
     },
-  ];
+  ]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -104,6 +104,33 @@ const SecurityPage: React.FC = () => {
         title: "Security Scan Complete",
         description: `Scan completed for ${standardsText}`,
       });
+    }, 3000);
+  };
+
+  // Handle vulnerability scan and update data
+  const handleVulnerabilityScan = () => {
+    // We'll generate some random new vulnerability data when scanning
+    setTimeout(() => {
+      // Simulate changing vulnerability counts
+      setVulnerabilityData([
+        { name: "Critical", value: Math.floor(Math.random() * 5) + 1, color: "#ef4444" },
+        { name: "High", value: Math.floor(Math.random() * 7) + 5, color: "#f97316" },
+        { name: "Medium", value: Math.floor(Math.random() * 10) + 10, color: "#f59e0b" },
+        { name: "Low", value: Math.floor(Math.random() * 15) + 15, color: "#3b82f6" },
+      ]);
+      
+      // Add a new vulnerability
+      const newVulnerability = {
+        id: `CVE-2023-${Math.floor(Math.random() * 9000) + 1000}`,
+        title: "New Security Vulnerability",
+        severity: ["Critical", "High", "Medium"][Math.floor(Math.random() * 3)],
+        component: ["API Server", "Web UI", "Database", "Auth System"][Math.floor(Math.random() * 4)],
+        discovered: new Date().toISOString().split('T')[0],
+        status: "Open"
+      };
+      
+      setVulnerabilities(prev => [newVulnerability, ...prev]);
+      setLastScanTime(new Date().toISOString());
     }, 3000);
   };
 
@@ -160,7 +187,10 @@ const SecurityPage: React.FC = () => {
           {activeTab === "vulnerabilities" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               <div className="md:col-span-2">
-                <VulnerabilityTable vulnerabilities={vulnerabilities} />
+                <VulnerabilityTable 
+                  vulnerabilities={vulnerabilities} 
+                  onRescan={handleVulnerabilityScan}
+                />
               </div>
               <div>
                 <VulnerabilityChart vulnerabilityData={vulnerabilityData} />
