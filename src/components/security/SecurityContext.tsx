@@ -1,6 +1,6 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { ComplianceItem } from "./ComplianceCards";
 
 interface VulnerabilityData {
   name: string;
@@ -15,14 +15,6 @@ interface Vulnerability {
   component: string;
   discovered: string;
   status: string;
-}
-
-// Make sure this matches the ComplianceItem interface in ComplianceCards.tsx
-export interface ComplianceItem {
-  id: string;
-  name: string;
-  status: string;
-  score: number;
 }
 
 interface SecurityContextType {
@@ -70,41 +62,13 @@ export const SecurityProvider: React.FC<React.PropsWithChildren<{}>> = ({ childr
     { name: "Low", value: 24, color: "#3b82f6" },
   ]);
 
-  // Sample compliance data
-  const complianceItems = [
-    { name: "PCI DSS", status: "Passing", score: 92 },
-    { name: "HIPAA", status: "Needs Review", score: 78 },
-    { name: "NIST", status: "Passing", score: 85 },
-    { name: "SOC 2", status: "Warning", score: 72 },
+  // Sample compliance data with id field added
+  const complianceItems: ComplianceItem[] = [
+    { id: "pci-dss", name: "PCI DSS", status: "Passing", score: 92 },
+    { id: "hipaa", name: "HIPAA", status: "Needs Review", score: 78 },
+    { id: "nist", name: "NIST", status: "Passing", score: 85 },
+    { id: "soc-2", name: "SOC 2", status: "Warning", score: 72 },
   ];
-
-  // Sample vulnerability data
-  const [vulnerabilities, setVulnerabilities] = useState([
-    { 
-      id: "CVE-2023-1234", 
-      title: "SQL Injection in API Endpoint", 
-      severity: "Critical", 
-      component: "API Server", 
-      discovered: "2023-03-15", 
-      status: "Open" 
-    },
-    { 
-      id: "CVE-2023-5678", 
-      title: "Cross-Site Scripting", 
-      severity: "High", 
-      component: "Web UI", 
-      discovered: "2023-03-20", 
-      status: "In-Progress" 
-    },
-    { 
-      id: "CVE-2023-9101", 
-      title: "Outdated SSL Certificate", 
-      severity: "Medium", 
-      component: "Load Balancer", 
-      discovered: "2023-03-25", 
-      status: "Resolved" 
-    },
-  ]);
 
   const refreshSecurityData = (selectedStandards?: string[]) => {
     setIsScanning(true);
