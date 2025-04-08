@@ -42,6 +42,7 @@ const CreateClusterDialog: React.FC<CreateClusterDialogProps> = ({
       case "AWS EKS": return "aws";
       case "GCP GKE": return "gcp";
       case "Azure AKS": return "azure";
+      case "DO DOKS": return "aws"; // Fallback to AWS regions for DigitalOcean as it's not supported in CloudProvider type
       default: return "aws";
     }
   };
@@ -155,6 +156,9 @@ const CreateClusterDialog: React.FC<CreateClusterDialogProps> = ({
                   <SelectItem value="1.26">1.26</SelectItem>
                   <SelectItem value="1.25">1.25</SelectItem>
                   <SelectItem value="1.24">1.24</SelectItem>
+                  <SelectItem value="1.27">1.27</SelectItem>
+                  <SelectItem value="1.28">1.28</SelectItem>
+                  <SelectItem value="1.29">1.29</SelectItem>
                 </SelectContent>
               </Select>
             </div>
