@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -14,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Lock, Settings, Key } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CreateConfigMapForm, CreateSecretForm } from "./config";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "@/hooks/use-toast";
 
 // Mock data for demo
 const mockConfigMaps = [
