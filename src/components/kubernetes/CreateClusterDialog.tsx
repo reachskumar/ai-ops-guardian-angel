@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CloudProvider } from "@/services/cloud";
+import { RegionSelector } from "@/components/cloud/provisioning";
 
 interface CreateClusterDialogProps {
   open: boolean;
@@ -27,12 +29,22 @@ const CreateClusterDialog: React.FC<CreateClusterDialogProps> = ({
   onCreateCluster,
 }) => {
   const [name, setName] = useState("");
-  const [provider, setProvider] = useState("AWS EKS");
+  const [provider, setProvider] = useState<string>("AWS EKS");
   const [region, setRegion] = useState("us-west-2");
   const [version, setVersion] = useState("1.26");
   const [nodeCount, setNodeCount] = useState(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Map the UI provider names to the CloudProvider type
+  const getProviderType = (providerName: string): CloudProvider => {
+    switch (providerName) {
+      case "AWS EKS": return "aws";
+      case "GCP GKE": return "gcp";
+      case "Azure AKS": return "azure";
+      default: return "aws";
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,20 +135,12 @@ const CreateClusterDialog: React.FC<CreateClusterDialogProps> = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">Region</Label>
-              <Select value={region} onValueChange={setRegion}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select region" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="us-west-1">US West (N. California)</SelectItem>
-                  <SelectItem value="us-west-2">US West (Oregon)</SelectItem>
-                  <SelectItem value="us-east-1">US East (N. Virginia)</SelectItem>
-                  <SelectItem value="eu-west-1">EU West (Ireland)</SelectItem>
-                  <SelectItem value="ap-southeast-1">Asia Pacific (Singapore)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div>
+              <RegionSelector
+                provider={getProviderType(provider)}
+                value={region}
+                onChange={setRegion}
+              />
             </div>
           </div>
 
