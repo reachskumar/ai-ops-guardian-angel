@@ -1,7 +1,8 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
+import { toast } from "@/hooks/use-toast";
 import { 
   VulnerabilityChart, 
   ComplianceCards, 
@@ -13,6 +14,8 @@ import {
 
 const SecurityPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [isScanning, setIsScanning] = useState(false);
+  const [lastScanTime, setLastScanTime] = useState<string>(new Date().toISOString());
 
   // Sample data for the vulnerability chart
   const vulnerabilityData = [
@@ -58,6 +61,30 @@ const SecurityPage: React.FC = () => {
     },
   ];
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+  };
+
+  const refreshSecurityData = () => {
+    setIsScanning(true);
+    
+    // Simulate scanning delay
+    setTimeout(() => {
+      setIsScanning(false);
+      setLastScanTime(new Date().toISOString());
+      
+      toast({
+        title: "Security Scan Complete",
+        description: "The latest security data has been refreshed",
+      });
+    }, 2000);
+  };
+
+  // For demo purposes, we'll automatically scan when the component mounts
+  useEffect(() => {
+    // You would typically fetch real security data here
+  }, []);
+
   return (
     <SidebarWithProvider>
       <div className="flex flex-col min-h-screen">
@@ -72,17 +99,23 @@ const SecurityPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Pass all necessary props to the SecurityTabs component */}
           <SecurityTabs 
             vulnerabilities={vulnerabilities} 
             complianceItems={complianceItems} 
+            vulnerabilityData={vulnerabilityData}
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            onRefreshData={refreshSecurityData}
+            lastScanTime={lastScanTime}
           />
 
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               <div className="md:col-span-2">
                 <SecurityOverview 
                   complianceScore={85}
-                  lastScanTime="2023-04-05T14:30:00"
+                  lastScanTime={lastScanTime}
                   vulnerabilityData={vulnerabilityData}
                 />
               </div>
@@ -94,7 +127,7 @@ const SecurityPage: React.FC = () => {
           )}
 
           {activeTab === "vulnerabilities" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               <div className="md:col-span-2">
                 <VulnerabilityTable vulnerabilities={vulnerabilities} />
               </div>
@@ -105,8 +138,8 @@ const SecurityPage: React.FC = () => {
           )}
 
           {activeTab === "compliance" && (
-            <div className="grid grid-cols-1 gap-6">
-              <ComplianceCards complianceItems={complianceItems} />
+            <div className="grid grid-cols-1 gap-6 mt-6">
+              <ComplianceCards complianceItems={complianceItems} showExpanded={true} />
             </div>
           )}
         </div>
