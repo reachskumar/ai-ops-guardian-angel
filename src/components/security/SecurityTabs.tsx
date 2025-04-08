@@ -1,8 +1,8 @@
-
 import React, { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TabActions from "./TabActions";
 import TabContents from "./TabContents";
+import { ComplianceItem } from "./ComplianceCards";
 
 export interface SecurityTabsProps {
   vulnerabilities: Array<{
@@ -13,11 +13,7 @@ export interface SecurityTabsProps {
     discovered: string;
     status: string;
   }>;
-  complianceItems: Array<{
-    name: string;
-    status: string;
-    score: number;
-  }>;
+  complianceItems: ComplianceItem[];
   vulnerabilityData: Array<{
     name: string;
     value: number;

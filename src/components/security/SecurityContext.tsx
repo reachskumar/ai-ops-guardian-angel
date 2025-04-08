@@ -17,7 +17,9 @@ interface Vulnerability {
   status: string;
 }
 
-interface ComplianceItem {
+// Make sure this matches the ComplianceItem interface in ComplianceCards.tsx
+export interface ComplianceItem {
+  id: string;
   name: string;
   status: string;
   score: number;
