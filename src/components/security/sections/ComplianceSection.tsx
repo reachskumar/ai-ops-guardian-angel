@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
 
 interface ComplianceStandard {
   id: string;
@@ -152,10 +153,10 @@ const ComplianceSection: React.FC = () => {
       ) : viewMode === "cards" ? (
         <ComplianceCards 
           complianceItems={complianceStandards.map(std => ({
+            id: std.id,
             name: std.name,
             status: std.status || 'Not Assessed',
             score: std.score || 0,
-            id: std.id
           }))} 
           onScanRequest={runComplianceScan}
         />

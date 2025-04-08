@@ -4,7 +4,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SecurityOverview from "./SecurityOverview";
 import VulnerabilityTable from "./VulnerabilityTable";
-import ComplianceCards from "./ComplianceCards";
+import ComplianceCards, { ComplianceItem } from "./ComplianceCards";
 
 // Importing types from SecurityTabs to maintain consistency
 interface TabContentsProps {
@@ -16,11 +16,7 @@ interface TabContentsProps {
     discovered: string;
     status: string;
   }>;
-  complianceItems: Array<{
-    name: string;
-    status: string;
-    score: number;
-  }>;
+  complianceItems: ComplianceItem[];
   vulnerabilityData: Array<{
     name: string;
     value: number;

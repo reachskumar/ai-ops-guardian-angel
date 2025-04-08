@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -7,7 +6,7 @@ import { ShieldCheck, AlertTriangle, ShieldAlert, ChevronDown, ChevronUp, Loader
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 
-interface ComplianceItem {
+export interface ComplianceItem {
   id: string;
   name: string;
   status: string;

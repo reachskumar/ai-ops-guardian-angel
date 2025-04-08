@@ -1,7 +1,7 @@
 
 import React from "react";
 import { SecurityOverview, HardeningLink } from "@/components/security";
-import { ComplianceCards } from "@/components/security";
+import { ComplianceCards, ComplianceItem } from "@/components/security";
 import { useSecurityContext } from "../SecurityContext";
 
 const OverviewSection: React.FC = () => {
