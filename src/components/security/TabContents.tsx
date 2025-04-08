@@ -4,9 +4,9 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SecurityOverview from "./SecurityOverview";
 import VulnerabilityTable from "./VulnerabilityTable";
-import ComplianceCards, { ComplianceItem } from "./ComplianceCards";
+import ComplianceCards from "./ComplianceCards";
+import { ComplianceItem } from "./SecurityContext";
 
-// Importing types from SecurityTabs to maintain consistency
 interface TabContentsProps {
   vulnerabilities: Array<{
     id: string;

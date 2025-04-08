@@ -1,13 +1,7 @@
 
 import React, { useState } from "react";
 import { ComplianceCard } from "./compliance/card";
-
-export interface ComplianceItem {
-  id: string;
-  name: string;
-  status: string;
-  score: number;
-}
+import { ComplianceItem } from "./SecurityContext";
 
 interface ComplianceCardsProps {
   complianceItems: ComplianceItem[];

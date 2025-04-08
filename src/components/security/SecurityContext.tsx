@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
-import { ComplianceItem } from "./ComplianceCards";
 
 interface VulnerabilityData {
   name: string;
@@ -15,6 +14,13 @@ interface Vulnerability {
   component: string;
   discovered: string;
   status: string;
+}
+
+export interface ComplianceItem {
+  id: string;
+  name: string;
+  status: string;
+  score: number;
 }
 
 interface SecurityContextType {
