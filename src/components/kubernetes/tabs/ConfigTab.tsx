@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Table, 
@@ -12,6 +12,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Lock, Settings, Key } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CreateConfigMapForm, CreateSecretForm } from "./config";
+import { toast } from "@/components/ui/sonner";
 
 // Mock data for demo
 const mockConfigMaps = [
@@ -72,6 +75,48 @@ const mockSecrets = [
 ];
 
 const ConfigTab: React.FC = () => {
+  const [configMaps, setConfigMaps] = useState(mockConfigMaps);
+  const [secrets, setSecrets] = useState(mockSecrets);
+  const [createConfigMapOpen, setCreateConfigMapOpen] = useState(false);
+  const [createSecretOpen, setCreateSecretOpen] = useState(false);
+
+  const handleCreateConfigMap = (data: any) => {
+    // In a real app, this would call an API to create the ConfigMap
+    const newConfigMap = {
+      id: `cm-${configMaps.length + 1}`,
+      name: data.name,
+      namespace: data.namespace,
+      cluster: "production-cluster",
+      keys: data.data.split('\n').filter((line: string) => 
+        line.includes('=') && !line.startsWith('#')
+      ).length,
+      age: "Just now"
+    };
+    
+    setConfigMaps([...configMaps, newConfigMap]);
+    setCreateConfigMapOpen(false);
+    toast.success("ConfigMap created successfully");
+  };
+
+  const handleCreateSecret = (data: any) => {
+    // In a real app, this would call an API to create the Secret
+    const newSecret = {
+      id: `secret-${secrets.length + 1}`,
+      name: data.name,
+      namespace: data.namespace,
+      cluster: "production-cluster",
+      type: data.type,
+      keys: data.data.split('\n').filter((line: string) => 
+        line.includes('=') && !line.startsWith('#')
+      ).length,
+      age: "Just now"
+    };
+    
+    setSecrets([...secrets, newSecret]);
+    setCreateSecretOpen(false);
+    toast.success("Secret created successfully");
+  };
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="configmaps">
@@ -89,7 +134,7 @@ const ConfigTab: React.FC = () => {
         <TabsContent value="configmaps">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium">ConfigMaps</h3>
-            <Button>
+            <Button onClick={() => setCreateConfigMapOpen(true)}>
               <FileText className="h-4 w-4 mr-2" />
               Create ConfigMap
             </Button>
@@ -107,7 +152,7 @@ const ConfigTab: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockConfigMaps.map((config) => (
+              {configMaps.map((config) => (
                 <TableRow key={config.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -136,7 +181,7 @@ const ConfigTab: React.FC = () => {
         <TabsContent value="secrets">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium">Secrets</h3>
-            <Button>
+            <Button onClick={() => setCreateSecretOpen(true)}>
               <Lock className="h-4 w-4 mr-2" />
               Create Secret
             </Button>
@@ -155,7 +200,7 @@ const ConfigTab: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockSecrets.map((secret) => (
+              {secrets.map((secret) => (
                 <TableRow key={secret.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -186,6 +231,32 @@ const ConfigTab: React.FC = () => {
           </Table>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog for creating a new ConfigMap */}
+      <Dialog open={createConfigMapOpen} onOpenChange={setCreateConfigMapOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>Create ConfigMap</DialogTitle>
+          </DialogHeader>
+          <CreateConfigMapForm
+            onSubmit={handleCreateConfigMap}
+            onCancel={() => setCreateConfigMapOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for creating a new Secret */}
+      <Dialog open={createSecretOpen} onOpenChange={setCreateSecretOpen}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>Create Secret</DialogTitle>
+          </DialogHeader>
+          <CreateSecretForm
+            onSubmit={handleCreateSecret}
+            onCancel={() => setCreateSecretOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
