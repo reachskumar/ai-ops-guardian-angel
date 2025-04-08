@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Clock, ShieldAlert } from "lucide-react";
+import { Clock, ShieldAlert, RefreshCw } from "lucide-react";
 import VulnerabilityChart from "./VulnerabilityChart";
 
 interface SecurityOverviewProps {
@@ -15,12 +15,16 @@ interface SecurityOverviewProps {
     value: number;
     color: string;
   }>;
+  isScanning?: boolean;
+  onRunScan?: () => void;
 }
 
 const SecurityOverview: React.FC<SecurityOverviewProps> = ({
   complianceScore,
   lastScanTime,
   vulnerabilityData,
+  isScanning = false,
+  onRunScan = () => {},
 }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -50,8 +54,21 @@ const SecurityOverview: React.FC<SecurityOverviewProps> = ({
               <span className="text-muted-foreground flex items-center gap-1">
                 <Clock className="h-4 w-4" /> Last scan: {new Date(lastScanTime).toLocaleString()}
               </span>
-              <Button size="sm" variant="outline" className="h-8">
-                Run Scan
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="h-8"
+                onClick={onRunScan}
+                disabled={isScanning}
+              >
+                {isScanning ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                    Scanning...
+                  </>
+                ) : (
+                  "Run Scan"
+                )}
               </Button>
             </div>
           </div>
@@ -85,14 +102,14 @@ const SecurityOverview: React.FC<SecurityOverviewProps> = ({
                 <ShieldAlert className="h-4 w-4 text-critical" />
                 <span>Critical Issues</span>
               </div>
-              <Badge className="bg-critical">{vulnerabilityData[0].value}</Badge>
+              <Badge className="bg-critical">{vulnerabilityData[0]?.value || 0}</Badge>
             </div>
             <div className="flex justify-between items-center p-3 bg-muted rounded-md">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="h-4 w-4 text-warning" />
                 <span>High Issues</span>
               </div>
-              <Badge className="bg-warning">{vulnerabilityData[1].value}</Badge>
+              <Badge className="bg-warning">{vulnerabilityData[1]?.value || 0}</Badge>
             </div>
             <div className="flex justify-between items-center p-3 bg-muted rounded-md">
               <div className="flex items-center gap-2">

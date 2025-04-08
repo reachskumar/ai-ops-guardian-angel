@@ -16,6 +16,8 @@ const SecurityPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanTime, setLastScanTime] = useState<string>(new Date().toISOString());
+  const [selectedCompliance, setSelectedCompliance] = useState<string[]>(["All"]);
+  const [complianceScore, setComplianceScore] = useState(85);
 
   // Sample data for the vulnerability chart
   const vulnerabilityData = [
@@ -65,19 +67,44 @@ const SecurityPage: React.FC = () => {
     setActiveTab(tab);
   };
 
-  const refreshSecurityData = () => {
+  const refreshSecurityData = (selectedStandards?: string[]) => {
     setIsScanning(true);
+    
+    const standards = selectedStandards || selectedCompliance;
+    setSelectedCompliance(standards);
     
     // Simulate scanning delay
     setTimeout(() => {
       setIsScanning(false);
       setLastScanTime(new Date().toISOString());
       
+      // Calculate a new compliance score based on selected standards
+      let newScore = 85; // Default
+      
+      if (standards.includes("All")) {
+        newScore = 85;
+      } else if (standards.includes("PCI DSS")) {
+        newScore = 92;
+      } else if (standards.includes("HIPAA")) {
+        newScore = 78;
+      } else if (standards.includes("NIST")) {
+        newScore = 85;
+      } else if (standards.includes("SOC 2")) {
+        newScore = 72;
+      }
+      
+      setComplianceScore(newScore);
+      
+      // Show completion toast with info about what was scanned
+      const standardsText = standards.length === 1 && standards[0] === "All" 
+        ? "all compliance standards" 
+        : `${standards.join(", ")} compliance`;
+      
       toast({
         title: "Security Scan Complete",
-        description: "The latest security data has been refreshed",
+        description: `Scan completed for ${standardsText}`,
       });
-    }, 2000);
+    }, 3000);
   };
 
   // For demo purposes, we'll automatically scan when the component mounts
@@ -108,15 +135,19 @@ const SecurityPage: React.FC = () => {
             onTabChange={handleTabChange}
             onRefreshData={refreshSecurityData}
             lastScanTime={lastScanTime}
+            complianceScore={complianceScore}
+            isScanning={isScanning}
           />
 
           {activeTab === "overview" && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               <div className="md:col-span-2">
                 <SecurityOverview 
-                  complianceScore={85}
+                  complianceScore={complianceScore}
                   lastScanTime={lastScanTime}
                   vulnerabilityData={vulnerabilityData}
+                  isScanning={isScanning}
+                  onRunScan={() => refreshSecurityData()}
                 />
               </div>
               <div className="space-y-6">
