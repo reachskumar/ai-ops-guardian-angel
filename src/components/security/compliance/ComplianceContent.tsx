@@ -10,7 +10,7 @@ interface ComplianceContentProps {
   loading: boolean;
   viewMode: "cards" | "table";
   complianceStandards: ComplianceStandard[];
-  onScanRequest: (standardId: string) => void;
+  onScanRequest: (standardId: string) => Promise<void>;
 }
 
 const ComplianceContent: React.FC<ComplianceContentProps> = ({

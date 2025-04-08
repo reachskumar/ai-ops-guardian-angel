@@ -6,7 +6,7 @@ import { ComplianceStandard } from "./types";
 
 interface ComplianceStandardsTableProps {
   complianceStandards: ComplianceStandard[];
-  onRunScan: (standardId: string) => void;
+  onRunScan: (standardId: string) => Promise<void>;
 }
 
 const ComplianceStandardsTable: React.FC<ComplianceStandardsTableProps> = ({ 

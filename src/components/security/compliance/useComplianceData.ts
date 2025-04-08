@@ -78,7 +78,7 @@ export const useComplianceData = () => {
     }
   };
 
-  const runComplianceScan = async (standardId: string) => {
+  const runComplianceScan = async (standardId: string): Promise<void> => {
     try {
       setIsScanning(true);
       
