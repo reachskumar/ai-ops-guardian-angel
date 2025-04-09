@@ -1,8 +1,9 @@
+
 import React, { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TabActions from "./TabActions";
 import TabContents from "./TabContents";
-import { ComplianceItem } from "./ComplianceCards";
+import { ComplianceItem } from "./SecurityContext";
 
 export interface SecurityTabsProps {
   vulnerabilities: Array<{

@@ -4,7 +4,7 @@ import { ComplianceCards } from "@/components/security";
 import { Loader2 } from "lucide-react";
 import { ComplianceStandard } from "./types";
 import ComplianceStandardsTable from "./ComplianceStandardsTable";
-import { ComplianceItem } from "@/components/security/ComplianceCards";
+import { ComplianceItem } from "@/components/security/SecurityContext";
 
 interface ComplianceContentProps {
   loading: boolean;

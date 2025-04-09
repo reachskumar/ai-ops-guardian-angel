@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Collapsible } from "@/components/ui/collapsible";
-import { ComplianceItem } from "../../ComplianceCards";
+import { ComplianceItem } from "@/components/security/SecurityContext";
 import ComplianceCardHeader from "./ComplianceCardHeader";
 import ComplianceScoreDisplay from "./ComplianceScoreDisplay";
 import ComplianceScanButton from "./ComplianceScanButton";
