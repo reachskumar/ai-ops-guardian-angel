@@ -22,4 +22,3 @@ export { default as MetricsTab } from './tabs/MetricsTab';
 export { default as CostAnalysisTab } from './tabs/CostAnalysisTab';
 export { default as TagsTab } from './tabs/TagsTab';
 export { default as IaCTab } from './tabs/IaCTab';
-
