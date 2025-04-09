@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,13 +30,10 @@ const CostAnalysisPanel: React.FC = () => {
     isRealTimeEnabled
   } = useCostAnalysis();
 
-  // Display an error message if there was an issue loading the data
   const [errorShown, setErrorShown] = React.useState(false);
   
   useEffect(() => {
-    // Check for any errors in the simulated data
     if (serviceCostData?.length && !errorShown) {
-      // We're using simulated data, so show an info banner once
       setErrorShown(true);
     }
   }, [serviceCostData, errorShown]);
@@ -159,7 +155,10 @@ const CostAnalysisPanel: React.FC = () => {
                 <DollarSign className="h-5 w-5 text-primary" />
                 Cost Trend
               </CardTitle>
-              <Select value={timeRange} onValueChange={(value) => setTimeRange(value)}>
+              <Select 
+                value={timeRange} 
+                onValueChange={(value: "7d" | "30d" | "90d") => setTimeRange(value)}
+              >
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder="Time range" />
                 </SelectTrigger>
