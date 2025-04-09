@@ -2,12 +2,16 @@
 import React, { Suspense, lazy } from "react";
 import { LazyLoadingSpinner } from "@/components/dashboard/DashboardComponents";
 import AIChat from "@/components/AIChat";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield } from "lucide-react";
+
+// Import SecurityPanel directly instead of lazy loading
+import SecurityPanel from "@/components/dashboard/SecurityPanel";
+import IncidentPanel from "@/components/dashboard/IncidentPanel";
 
 // Lazy-loaded components
 const MonitoringWidget = lazy(() => import("@/components/dashboard/MonitoringWidget"));
 const ResourcesPanel = lazy(() => import("@/components/dashboard/ResourcesPanel"));
-const SecurityPanel = lazy(() => import("@/components/dashboard/SecurityPanel"));
-const IncidentPanel = lazy(() => import("@/components/dashboard/IncidentPanel"));
 
 interface OverviewTabProps {
   cpuData: Array<{ time: string; value: number }>;
@@ -72,12 +76,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <Suspense fallback={<LazyLoadingSpinner />}>
-          <SecurityPanel />
-        </Suspense>
-        <Suspense fallback={<LazyLoadingSpinner />}>
-          <IncidentPanel />
-        </Suspense>
+        <SecurityPanel />
+        <IncidentPanel />
       </div>
     </>
   );
