@@ -23,6 +23,7 @@ const ServerMonitoringPage = lazy(() => import("./pages/ServerMonitoringPage"));
 const InfrastructureOverviewPage = lazy(() => import("./pages/InfrastructureOverviewPage"));
 const IAMPage = lazy(() => import("./pages/IAMPage"));
 const KubernetesPage = lazy(() => import("./pages/KubernetesPage"));
+const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 
 const AppRoutes: React.FC = () => {
   return (
@@ -176,7 +177,7 @@ const AppRoutes: React.FC = () => {
         path="/cost"
         element={
           <ProtectedRoute requiredRole="developer">
-            <NotFound />
+            <CostAnalysisPage />
           </ProtectedRoute>
         }
       />
