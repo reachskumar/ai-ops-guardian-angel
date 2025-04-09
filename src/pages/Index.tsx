@@ -16,7 +16,7 @@ import {
   securityFindings
 } from "@/components/dashboard";
 
-const Index: React.FC = () => {
+const Index = () => {
   // Use real-time data instead of static data
   const [cpuData, setCpuData] = useState([] as Array<{ time: string; value: number }>);
   const [memoryData, setMemoryData] = useState([] as Array<{ time: string; value: number }>);
@@ -123,4 +123,4 @@ const generateFallbackData = (metric: string) => {
   }));
 };
 
-export default React.memo(Index);
+export default Index;

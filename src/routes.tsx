@@ -1,11 +1,14 @@
 
-import React, { lazy } from "react";
+import React, { lazy, Suspense } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import LoadingFallback from "./components/ui/loading-fallback";
+
+// Import the Index component directly instead of lazy loading it
+import Index from "./pages/Index";
 
 // Lazy loaded page components
-const Index = lazy(() => import("./pages/Index"));
 const AIAssistantPage = lazy(() => import("./pages/AIAssistantPage"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const SecurityHardeningPage = lazy(() => import("./pages/SecurityHardeningPage"));
@@ -28,11 +31,19 @@ const CostAnalysisPage = lazy(() => import("./pages/CostAnalysisPage"));
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      <Route path="/auth" element={<AuthPage />} />
+      <Route 
+        path="/auth" 
+        element={
+          <Suspense fallback={<LoadingFallback />}>
+            <AuthPage />
+          </Suspense>
+        } 
+      />
       <Route
         path="/"
         element={
           <ProtectedRoute>
+            {/* Index is not lazy loaded, so no need for Suspense here */}
             <Index />
           </ProtectedRoute>
         }
@@ -41,15 +52,20 @@ const AppRoutes: React.FC = () => {
         path="/ai-chatbot"
         element={
           <ProtectedRoute>
-            <AIAssistantPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <AIAssistantPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
+      {/* Continue with the same pattern for other routes */}
       <Route
         path="/security"
         element={
           <ProtectedRoute requiredRole="operator">
-            <SecurityPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <SecurityPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -57,7 +73,9 @@ const AppRoutes: React.FC = () => {
         path="/security/hardening"
         element={
           <ProtectedRoute requiredRole="operator">
-            <SecurityHardeningPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <SecurityHardeningPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -65,7 +83,9 @@ const AppRoutes: React.FC = () => {
         path="/incidents"
         element={
           <ProtectedRoute requiredRole="operator">
-            <IncidentsPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <IncidentsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -73,7 +93,9 @@ const AppRoutes: React.FC = () => {
         path="/collaboration"
         element={
           <ProtectedRoute>
-            <CollaborationPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <CollaborationPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -81,7 +103,9 @@ const AppRoutes: React.FC = () => {
         path="/analytics"
         element={
           <ProtectedRoute requiredRole="developer">
-            <AnalyticsPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <AnalyticsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -89,7 +113,9 @@ const AppRoutes: React.FC = () => {
         path="/profile"
         element={
           <ProtectedRoute>
-            <ProfilePage />
+            <Suspense fallback={<LoadingFallback />}>
+              <ProfilePage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -97,7 +123,9 @@ const AppRoutes: React.FC = () => {
         path="/admin"
         element={
           <AdminRoute>
-            <AdminPanel />
+            <Suspense fallback={<LoadingFallback />}>
+              <AdminPanel />
+            </Suspense>
           </AdminRoute>
         }
       />
@@ -105,7 +133,9 @@ const AppRoutes: React.FC = () => {
         path="/cloud-resources"
         element={
           <ProtectedRoute requiredRole="developer">
-            <CloudResourcesPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <CloudResourcesPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -113,7 +143,9 @@ const AppRoutes: React.FC = () => {
         path="/kubernetes"
         element={
           <ProtectedRoute requiredRole="developer">
-            <KubernetesPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <KubernetesPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -121,7 +153,9 @@ const AppRoutes: React.FC = () => {
         path="/servers"
         element={
           <ProtectedRoute requiredRole="operator">
-            <ServersPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <ServersPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -129,7 +163,9 @@ const AppRoutes: React.FC = () => {
         path="/servers/:serverId"
         element={
           <ProtectedRoute requiredRole="viewer">
-            <ServerDetailsPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <ServerDetailsPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -137,7 +173,9 @@ const AppRoutes: React.FC = () => {
         path="/monitoring"
         element={
           <ProtectedRoute requiredRole="operator">
-            <ServerMonitoringPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <ServerMonitoringPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -145,7 +183,9 @@ const AppRoutes: React.FC = () => {
         path="/infrastructure"
         element={
           <ProtectedRoute requiredRole="developer">
-            <InfrastructureOverviewPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <InfrastructureOverviewPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -153,7 +193,9 @@ const AppRoutes: React.FC = () => {
         path="/iam"
         element={
           <ProtectedRoute requiredRole="admin">
-            <IAMPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <IAMPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -161,7 +203,9 @@ const AppRoutes: React.FC = () => {
         path="/settings"
         element={
           <ProtectedRoute>
-            <NotFound />
+            <Suspense fallback={<LoadingFallback />}>
+              <NotFound />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -169,7 +213,9 @@ const AppRoutes: React.FC = () => {
         path="/databases"
         element={
           <ProtectedRoute requiredRole="operator">
-            <NotFound />
+            <Suspense fallback={<LoadingFallback />}>
+              <NotFound />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -177,11 +223,20 @@ const AppRoutes: React.FC = () => {
         path="/cost"
         element={
           <ProtectedRoute requiredRole="developer">
-            <CostAnalysisPage />
+            <Suspense fallback={<LoadingFallback />}>
+              <CostAnalysisPage />
+            </Suspense>
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<NotFound />} />
+      <Route 
+        path="*" 
+        element={
+          <Suspense fallback={<LoadingFallback />}>
+            <NotFound />
+          </Suspense>
+        } 
+      />
     </Routes>
   );
 };
