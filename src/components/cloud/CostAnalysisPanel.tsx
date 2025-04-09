@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useCostAnalysis } from "@/hooks/useCostAnalysis";
+import { useCostAnalysis } from "@/hooks/cost";
 
 const CostAnalysisPanel: React.FC = () => {
   const {
@@ -30,7 +29,6 @@ const CostAnalysisPanel: React.FC = () => {
     isRealTimeEnabled
   } = useCostAnalysis();
 
-  // Calculate total costs for the displayed period
   const totalCost = costData.reduce((sum, item) => sum + item.amount, 0);
 
   const getDifficultyColor = (difficulty: string) => {
@@ -72,7 +70,6 @@ const CostAnalysisPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Cost Overview / Summary */}
       {costTrend && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -124,9 +121,7 @@ const CostAnalysisPanel: React.FC = () => {
         </div>
       )}
       
-      {/* Cost Trend and Service Breakdown */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Cost Trend Chart */}
         <Card className="flex-1">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -167,7 +162,6 @@ const CostAnalysisPanel: React.FC = () => {
           </CardContent>
         </Card>
         
-        {/* Cost by Service */}
         <Card className="flex-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Cost by Service</CardTitle>
@@ -194,7 +188,6 @@ const CostAnalysisPanel: React.FC = () => {
         </Card>
       </div>
       
-      {/* Optimization Recommendations */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
