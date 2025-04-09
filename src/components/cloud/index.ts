@@ -15,3 +15,11 @@ export { default as ResourceMetrics } from './ResourceMetrics';
 export { default as ResourceMetricsDashboard } from './ResourceMetricsDashboard';
 export { default as ResourceProvisioningForm } from './ResourceProvisioningForm';
 export { default as ResourceTagsManager } from './ResourceTagsManager';
+
+// Export tab components
+export { default as InventoryTab } from './tabs/InventoryTab';
+export { default as MetricsTab } from './tabs/MetricsTab';
+export { default as CostAnalysisTab } from './tabs/CostAnalysisTab';
+export { default as TagsTab } from './tabs/TagsTab';
+export { default as IaCTab } from './tabs/IaCTab';
+
