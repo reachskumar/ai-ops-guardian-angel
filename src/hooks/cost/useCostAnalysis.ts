@@ -3,9 +3,12 @@ import { useState, useEffect } from 'react';
 import { useCostData } from './useCostData';
 import { useOptimizationRecommendations } from './useOptimizationRecommendations';
 import { useRealTimeUpdates } from './useRealTimeUpdates';
+import { useToast } from '@/hooks/use-toast';
 
 export const useCostAnalysis = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const {
     timeRange,
@@ -13,7 +16,8 @@ export const useCostAnalysis = () => {
     costData,
     serviceCostData,
     costTrend,
-    loadCostData
+    loadCostData,
+    error: costDataError
   } = useCostData();
 
   const {
@@ -22,15 +26,36 @@ export const useCostAnalysis = () => {
     totalPotentialSavings,
     loadRecommendations,
     applyRecommendation,
-    dismissRecommendation
+    dismissRecommendation,
+    error: recommendationsError
   } = useOptimizationRecommendations();
 
   // Combined refresh function
   const refreshData = async () => {
     setIsLoading(true);
-    await loadCostData();
-    await loadRecommendations();
-    setIsLoading(false);
+    setError(null);
+    
+    try {
+      await Promise.all([
+        loadCostData(),
+        loadRecommendations()
+      ]);
+      
+      // Check for errors from the individual hooks
+      if (costDataError || recommendationsError) {
+        setError(costDataError || recommendationsError);
+      }
+    } catch (error: any) {
+      console.error("Error refreshing data:", error);
+      setError(error.message || "An unexpected error occurred");
+      toast({
+        title: "Error refreshing data",
+        description: "Some data may not be up-to-date",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const {
@@ -47,6 +72,7 @@ export const useCostAnalysis = () => {
   return {
     isLoading,
     isApplyingRecommendation,
+    error,
     timeRange,
     setTimeRange,
     costData,

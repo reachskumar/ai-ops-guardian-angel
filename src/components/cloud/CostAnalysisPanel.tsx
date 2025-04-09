@@ -1,14 +1,16 @@
-import React from "react";
+
+import React, { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { Loader2, DollarSign, TrendingDown, TrendingUp, Timer, Clock, X, Check, AlertTriangle, ExternalLink } from "lucide-react";
+import { Loader2, DollarSign, TrendingDown, TrendingUp, Clock, X, Check, AlertCircle } from "lucide-react";
 import { AreaChart, BarChart } from "@/components/ui/charts";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useCostAnalysis } from "@/hooks/cost";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const CostAnalysisPanel: React.FC = () => {
   const {
@@ -28,6 +30,17 @@ const CostAnalysisPanel: React.FC = () => {
     disableRealTimeUpdates,
     isRealTimeEnabled
   } = useCostAnalysis();
+
+  // Display an error message if there was an issue loading the data
+  const [errorShown, setErrorShown] = React.useState(false);
+  
+  useEffect(() => {
+    // Check for any errors in the simulated data
+    if (serviceCostData?.length && !errorShown) {
+      // We're using simulated data, so show an info banner once
+      setErrorShown(true);
+    }
+  }, [serviceCostData, errorShown]);
 
   const totalCost = costData.reduce((sum, item) => sum + item.amount, 0);
 
@@ -69,6 +82,23 @@ const CostAnalysisPanel: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {errorShown && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Connection Error</AlertTitle>
+          <AlertDescription>
+            Failed to connect to the Edge Functions. Using simulated data instead. 
+            <Button 
+              variant="link" 
+              className="p-0 h-auto text-destructive-foreground underline ml-2" 
+              onClick={refreshData}
+            >
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {costTrend && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
