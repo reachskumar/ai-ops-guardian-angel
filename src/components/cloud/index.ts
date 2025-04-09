@@ -11,3 +11,16 @@ export { default as ResourceProvisioningForm } from './ResourceProvisioningForm'
 export { default as ResourceTagsManager } from './ResourceTagsManager';
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
 export { default as CostAnalysisPanel } from './CostAnalysisPanel';
+
+// Export tab components
+export { default as InventoryTab } from './tabs/InventoryTab';
+export { default as MetricsTab } from './tabs/MetricsTab';
+export { default as CostAnalysisTab } from './tabs/CostAnalysisTab';
+export { default as TagsTab } from './tabs/TagsTab';
+export { default as IaCTab } from './tabs/IaCTab';
+
+// Export metrics components
+export * from './metrics';
+
+// Export provisioning components
+export * from './provisioning';
