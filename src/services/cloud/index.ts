@@ -5,4 +5,5 @@ export * from "./accountService";
 export * from "./resourceService"; 
 export * from "./metricsService";
 export * from "./infrastructureService";
-export * from "./costService";
+export * from "./costService"; // This now re-exports from the cost/ folder
+
