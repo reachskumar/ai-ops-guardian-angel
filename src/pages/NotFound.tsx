@@ -20,7 +20,7 @@ const NotFound = () => {
     { path: "/iam", name: "Identity and Access Management" },
     { path: "/settings", name: "Settings" },
     { path: "/databases", name: "Databases" },
-    { path: "/cost", name: "Cost Analysis" },
+    // Removed Cost Analysis from the under construction routes
   ];
 
   const currentRoute = knownRoutes.find(route => route.path === location.pathname);
