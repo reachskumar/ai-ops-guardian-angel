@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   Sheet,
@@ -38,7 +37,7 @@ export const SidebarMobile: React.FC<SidebarMobileProps> = ({
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-card">
         <SheetHeader>
-          <SheetTitle>CloudMaestro</SheetTitle>
+          <SheetTitle>AI-Ops Guardian Angel</SheetTitle>
           <SheetDescription>
             Navigate through the application.
           </SheetDescription>

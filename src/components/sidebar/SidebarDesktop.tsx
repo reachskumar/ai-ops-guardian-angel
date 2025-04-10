@@ -24,7 +24,7 @@ export const SidebarDesktop: React.FC<SidebarDesktopProps> = ({
     <div className="hidden lg:block w-64 bg-card border-r border-border">
       <div className="flex items-center justify-center h-16 border-b border-border">
         <Link to="/" className="text-lg font-semibold">
-          CloudMaestro
+          AI-Ops Guardian Angel
         </Link>
       </div>
 
