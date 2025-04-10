@@ -17,7 +17,9 @@ import {
   Users,
   Bot,
   Layers,
-  KanbanSquare
+  KanbanSquare,
+  GitBranch,
+  GitPullRequest
 } from "lucide-react";
 
 interface NavItem {
@@ -77,6 +79,11 @@ const navItems: NavItem[] = [
     path: "/iam",
     label: "IAM",
     icon: Lock,
+  },
+  {
+    path: "/devops",
+    label: "DevOps",
+    icon: GitBranch,
   },
   {
     path: "/analytics",

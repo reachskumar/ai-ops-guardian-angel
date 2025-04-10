@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   Table,
@@ -20,7 +19,7 @@ interface FeatureStatus {
   status: "completed" | "in-progress" | "planned";
   dataStatus: "real" | "mock";
   pendingTasks: string[];
-  category: "infrastructure" | "security" | "monitoring" | "collaboration" | "cloud" | "analytics" | "other";
+  category: "infrastructure" | "security" | "monitoring" | "collaboration" | "cloud" | "analytics" | "devops" | "other";
 }
 
 const features: FeatureStatus[] = [
@@ -140,7 +139,143 @@ const features: FeatureStatus[] = [
     dataStatus: "mock",
     pendingTasks: ["Add query performance analyzer", "Implement backup management"],
     category: "infrastructure",
-  }
+  },
+  
+  {
+    id: "cicd",
+    name: "CI/CD Pipeline Integration",
+    description: "Monitor and manage deployment pipelines",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Connect with popular CI/CD platforms", "Implement pipeline visualization"],
+    category: "devops",
+  },
+  {
+    id: "iac-repo",
+    name: "Infrastructure as Code Repository",
+    description: "Version control for infrastructure code",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Implement Git integration", "Add code validation and testing"],
+    category: "devops",
+  },
+  {
+    id: "multi-cloud-cost",
+    name: "Multi-Cloud Cost Comparison",
+    description: "Compare costs across cloud providers",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Add support for major cloud providers", "Create comparison visualizations"],
+    category: "cloud",
+  },
+  {
+    id: "auto-remediation",
+    name: "Automated Remediation",
+    description: "Automatically fix common infrastructure issues",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Define remediation rules", "Implement automation workflows"],
+    category: "devops",
+  },
+  {
+    id: "compliance-reporting",
+    name: "Compliance Reporting",
+    description: "Generate reports for regulatory frameworks",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Add support for GDPR, HIPAA, SOC 2", "Create report templates"],
+    category: "security",
+  },
+  {
+    id: "log-aggregation",
+    name: "Log Aggregation and Analysis",
+    description: "Centralized log management with search",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Implement log collection agents", "Create search interface"],
+    category: "monitoring",
+  },
+  {
+    id: "performance-benchmarking",
+    name: "Performance Benchmarking",
+    description: "Compare infrastructure against industry standards",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Collect benchmark data", "Create comparison visualizations"],
+    category: "analytics",
+  },
+  {
+    id: "capacity-planning",
+    name: "Capacity Planning",
+    description: "Forecast resource needs based on historical usage",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Implement predictive algorithms", "Create forecast visualizations"],
+    category: "analytics",
+  },
+  {
+    id: "dr-testing",
+    name: "Disaster Recovery Testing",
+    description: "Automated testing of DR procedures",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Define test scenarios", "Create automated testing workflows"],
+    category: "devops",
+  },
+  {
+    id: "api-management",
+    name: "API Management",
+    description: "Monitor and manage APIs with usage metrics",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Create API gateway integration", "Implement documentation generator"],
+    category: "devops",
+  },
+  {
+    id: "sla-monitoring",
+    name: "SLA Monitoring",
+    description: "Track service uptime against defined SLAs",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Define SLA metrics", "Create alerting system"],
+    category: "monitoring",
+  },
+  {
+    id: "training-environment",
+    name: "Training Environment",
+    description: "Sandbox environments for team training",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Create environment templates", "Implement provisioning system"],
+    category: "collaboration",
+  },
+  {
+    id: "custom-dashboard",
+    name: "Custom Dashboard Builder",
+    description: "Create personalized dashboards with widgets",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Create widget library", "Implement drag-and-drop interface"],
+    category: "other",
+  },
+  {
+    id: "mobile-app",
+    name: "Mobile Companion App",
+    description: "Monitoring and alerts on mobile devices",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Create mobile app design", "Implement push notifications"],
+    category: "other",
+  },
+  {
+    id: "integration-marketplace",
+    name: "Integration Marketplace",
+    description: "Directory of pre-built tool integrations",
+    status: "planned",
+    dataStatus: "mock",
+    pendingTasks: ["Create integration framework", "Build initial integrations"],
+    category: "devops",
+  },
 ];
 
 const ProjectKanban: React.FC = () => {
