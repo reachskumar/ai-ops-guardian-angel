@@ -2,7 +2,8 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart, AreaChart } from "@/components/ui/charts";
+import { AreaChart } from "@/components/ui/charts/AreaChart";
+import { BarChart } from "@/components/ui/charts/BarChart";
 import { DatabaseMetric } from "@/services/databaseService";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
