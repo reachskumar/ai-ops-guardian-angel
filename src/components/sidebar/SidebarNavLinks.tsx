@@ -1,137 +1,144 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-} from "@/components/ui/navigation-menu";
-import { 
-  Home, 
-  Server, 
-  Database, 
-  Shield, 
-  Cloud, 
-  TrendingUp, 
-  Code, 
-  Lock, 
-  MessageSquare, 
-  LayoutDashboard, 
-  Users, 
-  AlertTriangle,
+  AlertCircle,
+  BarChart3,
+  Box,
+  Cloud,
+  CreditCard,
+  Database,
+  Lock,
+  LucideIcon,
   Network,
-  Settings
+  Server,
+  Settings,
+  Shield,
+  Users,
+  Bot,
+  Layers,
+  KanbanSquare
 } from "lucide-react";
 
-interface SidebarNavLinksProps {
-  isMobile?: boolean;
-  role?: string;
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+  roles?: string[];
 }
 
-export const SidebarNavLinks: React.FC<SidebarNavLinksProps> = ({ 
-  isMobile = false, 
-  role 
+interface SidebarNavLinksProps {
+  role?: string;
+  isMobile?: boolean;
+}
+
+const navItems: NavItem[] = [
+  {
+    path: "/",
+    label: "Dashboard",
+    icon: BarChart3,
+  },
+  {
+    path: "/infrastructure",
+    label: "Infrastructure",
+    icon: Network,
+  },
+  {
+    path: "/servers",
+    label: "Servers",
+    icon: Server,
+  },
+  {
+    path: "/security",
+    label: "Security",
+    icon: Shield,
+  },
+  {
+    path: "/cloud-resources",
+    label: "Cloud Resources",
+    icon: Cloud,
+  },
+  {
+    path: "/cost-analysis",
+    label: "Cost Analysis",
+    icon: CreditCard,
+  },
+  {
+    path: "/kubernetes",
+    label: "Kubernetes",
+    icon: Box,
+  },
+  {
+    path: "/databases",
+    label: "Databases",
+    icon: Database,
+  },
+  {
+    path: "/iam",
+    label: "IAM",
+    icon: Lock,
+  },
+  {
+    path: "/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+  },
+  {
+    path: "/collaboration",
+    label: "Collaboration",
+    icon: Users,
+  },
+  {
+    path: "/incidents",
+    label: "Incidents",
+    icon: AlertCircle,
+  },
+  {
+    path: "/ai-assistant",
+    label: "AI Assistant",
+    icon: Bot,
+  },
+  {
+    path: "/project-kanban",
+    label: "Project Kanban",
+    icon: KanbanSquare,
+  },
+  {
+    path: "/admin",
+    label: "Admin Panel",
+    icon: Settings,
+    roles: ["admin"],
+  },
+];
+
+export const SidebarNavLinks: React.FC<SidebarNavLinksProps> = ({
+  role = "user",
+  isMobile = false
 }) => {
-  const navItemClass = isMobile 
-    ? "block py-2 px-4 rounded hover:bg-secondary" 
-    : "block py-2 px-4 rounded hover:bg-secondary w-full";
-  
-  const containerClass = isMobile
-    ? "flex flex-col space-y-1"
-    : "flex flex-col space-y-1 w-full";
-    
-  const menuItemClass = isMobile ? "" : "w-full";
+  // Filter items based on user role
+  const filteredItems = navItems.filter(
+    (item) => !item.roles || item.roles.includes(role)
+  );
 
   return (
-    <NavigationMenu orientation="vertical">
-      <NavigationMenuList className={containerClass}>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/" className={navItemClass}>
-            <Home className="mr-2 h-4 w-4 inline-block" />
-            Dashboard
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/servers" className={navItemClass}>
-            <Server className="mr-2 h-4 w-4 inline-block" />
-            Servers
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/databases" className={navItemClass}>
-            <Database className="mr-2 h-4 w-4 inline-block" />
-            Databases
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/security" className={navItemClass}>
-            <Shield className="mr-2 h-4 w-4 inline-block" />
-            Security
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/cloud-resources" className={navItemClass}>
-            <Cloud className="mr-2 h-4 w-4 inline-block" />
-            Cloud Resources
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/cost-analysis" className={navItemClass}>
-            <TrendingUp className="mr-2 h-4 w-4 inline-block" />
-            Cost Analysis
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/kubernetes" className={navItemClass}>
-            <Code className="mr-2 h-4 w-4 inline-block" />
-            Kubernetes
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/iam" className={navItemClass}>
-            <Lock className="mr-2 h-4 w-4 inline-block" />
-            IAM
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/ai-assistant" className={navItemClass}>
-            <MessageSquare className="mr-2 h-4 w-4 inline-block" />
-            AI Assistant
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/analytics" className={navItemClass}>
-            <LayoutDashboard className="mr-2 h-4 w-4 inline-block" />
-            Analytics
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/collaboration" className={navItemClass}>
-            <Users className="mr-2 h-4 w-4 inline-block" />
-            Collaboration
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/incidents" className={navItemClass}>
-            <AlertTriangle className="mr-2 h-4 w-4 inline-block" />
-            Incidents
-          </Link>
-        </NavigationMenuItem>
-        <NavigationMenuItem className={menuItemClass}>
-          <Link to="/infrastructure" className={navItemClass}>
-            <Network className="mr-2 h-4 w-4 inline-block" />
-            Infrastructure
-          </Link>
-        </NavigationMenuItem>
-        {role === 'admin' && (
-          <NavigationMenuItem className={menuItemClass}>
-            <Link to="/admin" className={navItemClass}>
-              <Settings className="mr-2 h-4 w-4 inline-block" />
-              Admin Panel
-            </Link>
-          </NavigationMenuItem>
-        )}
-      </NavigationMenuList>
-    </NavigationMenu>
+    <div className={`space-y-1 py-2 ${isMobile ? 'px-2' : 'px-3'}`}>
+      {filteredItems.map((item) => (
+        <NavLink
+          key={item.path}
+          to={item.path}
+          className={({ isActive }) => 
+            `flex items-center ${isMobile ? 'gap-2' : 'gap-3'} px-3 py-2 rounded-md text-sm font-medium transition-all ${
+              isActive
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            }`
+          }
+          end={item.path === "/"}
+        >
+          <item.icon className="h-4 w-4" />
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </div>
   );
 };

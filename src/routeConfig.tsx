@@ -24,6 +24,7 @@ import CollaborationPage from "./pages/CollaborationPage";
 import IncidentsPage from "./pages/IncidentsPage";
 import InfrastructureOverviewPage from "./pages/InfrastructureOverviewPage";
 import DatabasesPage from "./pages/DatabasesPage";
+import ProjectKanbanPage from "./pages/ProjectKanbanPage";
 
 const routes: RouteObject[] = [
   {
@@ -102,6 +103,10 @@ const routes: RouteObject[] = [
   {
     path: "/databases",
     element: <ProtectedRoute><DatabasesPage /></ProtectedRoute>
+  },
+  {
+    path: "/project-kanban",
+    element: <ProtectedRoute><ProjectKanbanPage /></ProtectedRoute>
   },
   {
     path: "*",
