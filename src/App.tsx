@@ -1,7 +1,7 @@
 
 import React from "react";
 import AppProvider from "./AppProvider";
-import Routes from "./Routes"; // This matches the case of the file
+import Routes from "./Routes";
 
 const App = () => {
   return (
