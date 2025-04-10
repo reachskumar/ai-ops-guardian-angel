@@ -7,7 +7,7 @@ export { default as CostBudgetPanel } from './CostBudgetPanel';
 export { default as CostForecastPanel } from './CostForecastPanel';
 export { default as CostBreakdownPanel } from './CostBreakdownPanel';
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
-export { default as OpenSourceCostTools } from './OpenSourceCostTools';
+export { default as OpenSourceCostTools } from './tools/OpenSourceCostTools';
 export { default as ResourceDetailsModal } from './ResourceDetailsModal';
 export { default as ResourceFilters } from './ResourceFilters';
 export { default as ResourceInventory } from './ResourceInventory';
