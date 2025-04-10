@@ -101,8 +101,8 @@ const DatabasesPage = () => {
           onDownloadBackup={handleDownloadBackup}
           onRestoreBackup={handleRestoreBackup}
           onSaveSettings={(updates) => {
-            // Wrap the Promise<boolean> in a void Promise to satisfy the type requirement
-            void handleSaveSettings(updates);
+            // Convert the Promise<boolean> to Promise<void>
+            return handleSaveSettings(updates).then(() => {});
           }}
           selectedTimeRange={timeRange}
           onTimeRangeChange={handleTimeRangeChange}
