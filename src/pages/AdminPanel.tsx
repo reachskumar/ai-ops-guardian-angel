@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import SidebarWithProvider from "@/components/Sidebar";
+import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { Profile } from "@/types/user";
 import { 

@@ -100,7 +100,10 @@ const DatabasesPage = () => {
           onDeleteBackup={handleDeleteBackup}
           onDownloadBackup={handleDownloadBackup}
           onRestoreBackup={handleRestoreBackup}
-          onSaveSettings={handleSaveSettings}
+          onSaveSettings={(updates) => {
+            // Wrap the Promise<boolean> in a void Promise to satisfy the type requirement
+            void handleSaveSettings(updates);
+          }}
           selectedTimeRange={timeRange}
           onTimeRangeChange={handleTimeRangeChange}
         />
