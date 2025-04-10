@@ -1,12 +1,17 @@
 
 import React from "react";
 import AppProvider from "./AppProvider";
-import AppRoutes from "./routes";
+import { useRoutes } from "react-router-dom";
+import routes from "./routes";
 
-const App = () => (
-  <AppProvider>
-    <AppRoutes />
-  </AppProvider>
-);
+const App = () => {
+  const routeElements = useRoutes(routes);
+  
+  return (
+    <AppProvider>
+      {routeElements}
+    </AppProvider>
+  );
+};
 
 export default App;
