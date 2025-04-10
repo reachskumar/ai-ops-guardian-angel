@@ -4,7 +4,7 @@ import { SidebarWithProvider } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, RefreshCw } from "lucide-react";
-import { useDatabase } from "@/hooks/useDatabase";
+import { useDatabase } from "@/hooks/database";
 import {
   DatabaseInstancesList,
   CreateDatabaseDialog,
