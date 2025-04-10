@@ -25,6 +25,7 @@ const DatabasesPage = () => {
     isCreateDialogOpen,
     isLoadingMetrics,
     isLoadingBackups,
+    timeRange,
     fetchDatabases,
     handleCreateDatabase,
     handleStartDatabase,
@@ -36,7 +37,8 @@ const DatabasesPage = () => {
     handleDeleteBackup,
     handleDownloadBackup,
     handleRestoreBackup,
-    handleSaveSettings
+    handleSaveSettings,
+    handleTimeRangeChange
   } = useDatabase();
 
   return (
@@ -99,6 +101,8 @@ const DatabasesPage = () => {
           onDownloadBackup={handleDownloadBackup}
           onRestoreBackup={handleRestoreBackup}
           onSaveSettings={handleSaveSettings}
+          selectedTimeRange={timeRange}
+          onTimeRangeChange={handleTimeRangeChange}
         />
       </div>
     </SidebarWithProvider>

@@ -28,6 +28,8 @@ interface DatabaseDetailsDialogProps {
   onDownloadBackup: (id: string) => void;
   onRestoreBackup: (id: string) => void;
   onSaveSettings: (updates: Partial<DatabaseInstance>) => Promise<void>;
+  onTimeRangeChange?: (timeRange: string) => void;
+  selectedTimeRange?: string;
 }
 
 const DatabaseDetailsDialog: React.FC<DatabaseDetailsDialogProps> = ({
@@ -45,7 +47,9 @@ const DatabaseDetailsDialog: React.FC<DatabaseDetailsDialogProps> = ({
   onDeleteBackup,
   onDownloadBackup,
   onRestoreBackup,
-  onSaveSettings
+  onSaveSettings,
+  onTimeRangeChange,
+  selectedTimeRange = "24h"
 }) => {
   const [activeTab, setActiveTab] = useState("performance");
   
@@ -72,6 +76,8 @@ const DatabaseDetailsDialog: React.FC<DatabaseDetailsDialogProps> = ({
               connectionMetrics={connectionMetrics}
               diskMetrics={diskMetrics}
               isLoading={isLoadingMetrics}
+              onTimeRangeChange={onTimeRangeChange}
+              selectedTimeRange={selectedTimeRange}
             />
           </TabsContent>
           

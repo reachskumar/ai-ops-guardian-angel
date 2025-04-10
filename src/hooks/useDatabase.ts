@@ -29,6 +29,7 @@ export const useDatabase = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
   const [isLoadingBackups, setIsLoadingBackups] = useState(false);
+  const [timeRange, setTimeRange] = useState<string>("24h");
 
   // Fetch all database instances
   const fetchDatabases = useCallback(async () => {
@@ -44,6 +45,36 @@ export const useDatabase = () => {
     }
   }, []);
 
+  // Fetch database metrics
+  const fetchMetrics = useCallback(async (databaseId: string) => {
+    setIsLoadingMetrics(true);
+    try {
+      const [cpu, memory, connections, disk] = await Promise.all([
+        getDatabaseMetrics(databaseId, "cpu", timeRange),
+        getDatabaseMetrics(databaseId, "memory", timeRange),
+        getDatabaseMetrics(databaseId, "connections", timeRange),
+        getDatabaseMetrics(databaseId, "disk_io", timeRange)
+      ]);
+      
+      setCpuMetrics(cpu);
+      setMemoryMetrics(memory);
+      setConnectionMetrics(connections);
+      setDiskMetrics(disk);
+    } catch (error) {
+      console.error("Error fetching metrics:", error);
+    } finally {
+      setIsLoadingMetrics(false);
+    }
+  }, [timeRange]);
+
+  // Handle time range change
+  const handleTimeRangeChange = useCallback((range: string) => {
+    setTimeRange(range);
+    if (selectedDatabase) {
+      fetchMetrics(selectedDatabase.id);
+    }
+  }, [selectedDatabase, fetchMetrics]);
+
   // Fetch a specific database instance
   const fetchDatabase = useCallback(async (id: string) => {
     try {
@@ -54,6 +85,19 @@ export const useDatabase = () => {
     } catch (error) {
       console.error(`Error fetching database ${id}:`, error);
       toast.error("Failed to fetch database details");
+    }
+  }, []);
+
+  // Fetch database backups
+  const fetchBackups = useCallback(async (databaseId: string) => {
+    setIsLoadingBackups(true);
+    try {
+      const data = await getDatabaseBackups(databaseId);
+      setBackups(data);
+    } catch (error) {
+      console.error("Error fetching backups:", error);
+    } finally {
+      setIsLoadingBackups(false);
     }
   }, []);
 
@@ -78,6 +122,7 @@ export const useDatabase = () => {
       if (result.success) {
         toast.success("Database created successfully");
         fetchDatabases();
+        setIsCreateDialogOpen(false);
       } else {
         toast.error(result.error || "Failed to create database");
       }
@@ -136,41 +181,6 @@ export const useDatabase = () => {
       toast.error(error.message || "An error occurred");
     }
   }, [selectedDatabase]);
-
-  // Fetch database backups
-  const fetchBackups = useCallback(async (databaseId: string) => {
-    setIsLoadingBackups(true);
-    try {
-      const data = await getDatabaseBackups(databaseId);
-      setBackups(data);
-    } catch (error) {
-      console.error("Error fetching backups:", error);
-    } finally {
-      setIsLoadingBackups(false);
-    }
-  }, []);
-
-  // Fetch database metrics
-  const fetchMetrics = useCallback(async (databaseId: string) => {
-    setIsLoadingMetrics(true);
-    try {
-      const [cpu, memory, connections, disk] = await Promise.all([
-        getDatabaseMetrics(databaseId, "cpu", "1h"),
-        getDatabaseMetrics(databaseId, "memory", "1h"),
-        getDatabaseMetrics(databaseId, "connections", "1h"),
-        getDatabaseMetrics(databaseId, "disk_io", "1h")
-      ]);
-      
-      setCpuMetrics(cpu);
-      setMemoryMetrics(memory);
-      setConnectionMetrics(connections);
-      setDiskMetrics(disk);
-    } catch (error) {
-      console.error("Error fetching metrics:", error);
-    } finally {
-      setIsLoadingMetrics(false);
-    }
-  }, []);
 
   // Handle creating a backup
   const handleCreateBackup = useCallback(async () => {
@@ -289,6 +299,7 @@ export const useDatabase = () => {
     isCreateDialogOpen,
     isLoadingMetrics,
     isLoadingBackups,
+    timeRange,
     fetchDatabases,
     handleCreateDatabase,
     handleStartDatabase,
@@ -300,6 +311,7 @@ export const useDatabase = () => {
     handleDeleteBackup,
     handleDownloadBackup,
     handleRestoreBackup,
-    handleSaveSettings
+    handleSaveSettings,
+    handleTimeRangeChange
   };
 };

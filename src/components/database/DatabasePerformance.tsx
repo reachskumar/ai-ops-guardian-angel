@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart, AreaChart } from "@/components/ui/charts";
 import { DatabaseMetric } from "@/services/databaseService";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface DatabasePerformanceProps {
   cpuMetrics: DatabaseMetric[];
@@ -11,6 +12,8 @@ interface DatabasePerformanceProps {
   connectionMetrics: DatabaseMetric[];
   diskMetrics: DatabaseMetric[];
   isLoading: boolean;
+  onTimeRangeChange?: (timeRange: string) => void;
+  selectedTimeRange?: string;
 }
 
 const DatabasePerformance: React.FC<DatabasePerformanceProps> = ({
@@ -18,7 +21,9 @@ const DatabasePerformance: React.FC<DatabasePerformanceProps> = ({
   memoryMetrics,
   connectionMetrics,
   diskMetrics,
-  isLoading
+  isLoading,
+  onTimeRangeChange,
+  selectedTimeRange = "24h"
 }) => {
   // Format metrics for charts
   const formatChartData = (metrics: DatabaseMetric[]) => {
@@ -51,8 +56,23 @@ const DatabasePerformance: React.FC<DatabasePerformanceProps> = ({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Performance Metrics</CardTitle>
+        {onTimeRangeChange && (
+          <ToggleGroup 
+            type="single" 
+            value={selectedTimeRange}
+            onValueChange={(value) => {
+              if (value) onTimeRangeChange(value);
+            }}
+            className="border rounded-md"
+          >
+            <ToggleGroupItem value="1h" size="sm">1h</ToggleGroupItem>
+            <ToggleGroupItem value="24h" size="sm">24h</ToggleGroupItem>
+            <ToggleGroupItem value="7d" size="sm">7d</ToggleGroupItem>
+            <ToggleGroupItem value="30d" size="sm">30d</ToggleGroupItem>
+          </ToggleGroup>
+        )}
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="cpu">

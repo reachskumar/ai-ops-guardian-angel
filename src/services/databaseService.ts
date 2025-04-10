@@ -1,5 +1,4 @@
 
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export interface DatabaseInstance {
@@ -33,32 +32,126 @@ export interface DatabaseMetric {
   metric: string;
 }
 
+// Mock data for database instances
+const mockDatabaseInstances: DatabaseInstance[] = [
+  {
+    id: "db-1",
+    name: "Production DB",
+    type: "PostgreSQL",
+    status: "Running",
+    region: "us-west-1",
+    version: "14.5",
+    connectionString: "postgresql://user:password@hostname:5432/dbname",
+    createdAt: "2023-01-15T08:30:00Z",
+    resources: {
+      cpu: 4,
+      memory: 16,
+      storage: 500
+    }
+  },
+  {
+    id: "db-2",
+    name: "Development DB",
+    type: "MySQL",
+    status: "Running",
+    region: "eu-central-1",
+    version: "8.0",
+    connectionString: "mysql://user:password@hostname:3306/dbname",
+    createdAt: "2023-03-22T14:15:30Z",
+    resources: {
+      cpu: 2,
+      memory: 8,
+      storage: 250
+    }
+  },
+  {
+    id: "db-3",
+    name: "Testing DB",
+    type: "PostgreSQL",
+    status: "Stopped",
+    region: "ap-southeast-2",
+    version: "15.2",
+    connectionString: "postgresql://user:password@hostname:5432/testdb",
+    createdAt: "2023-06-10T11:45:20Z",
+    resources: {
+      cpu: 1,
+      memory: 4,
+      storage: 100
+    }
+  }
+];
+
+// Mock data for backups
+const generateMockBackups = (databaseId: string): DatabaseBackup[] => {
+  const count = Math.floor(Math.random() * 4) + 1; // 1-4 backups per database
+  const result: DatabaseBackup[] = [];
+  
+  for (let i = 0; i < count; i++) {
+    const date = new Date();
+    date.setDate(date.getDate() - i * 5);
+    
+    result.push({
+      id: `backup-${databaseId}-${i}`,
+      databaseId,
+      name: `${databaseId}-backup-${date.toISOString().split('T')[0]}`,
+      size: `${Math.floor(Math.random() * 500) + 50} MB`,
+      createdAt: date.toISOString(),
+      status: "Completed"
+    });
+  }
+  
+  return result;
+};
+
+// Generate mock metrics data
+const generateMockMetrics = (metric: string, hours = 24): DatabaseMetric[] => {
+  const result: DatabaseMetric[] = [];
+  const now = new Date();
+  
+  for (let i = 0; i < hours; i++) {
+    const time = new Date(now);
+    time.setHours(now.getHours() - i);
+    
+    let value: number;
+    switch (metric) {
+      case "cpu":
+        value = Math.floor(Math.random() * 70) + 10; // 10-80%
+        break;
+      case "memory":
+        value = Math.floor(Math.random() * 60) + 20; // 20-80%
+        break;
+      case "connections":
+        value = Math.floor(Math.random() * 50); // 0-50 connections
+        break;
+      case "disk_io":
+        value = Math.floor(Math.random() * 15) + 1; // 1-16 MB/s
+        break;
+      default:
+        value = Math.floor(Math.random() * 100);
+    }
+    
+    result.push({
+      timestamp: time.toISOString(),
+      value,
+      metric
+    });
+  }
+  
+  // Sort by timestamp
+  return result.sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+};
+
 // Get all database instances
 export const getDatabaseInstances = async (): Promise<DatabaseInstance[]> => {
   try {
-    const { data, error } = await supabase
-      .from('database_instances')
-      .select('*');
-    
-    if (error) throw error;
-    
-    // Map the data to our interface
-    return data.map(db => ({
-      id: db.id,
-      name: db.name,
-      type: db.type,
-      status: db.status,
-      region: db.region,
-      version: db.version,
-      connectionString: db.connection_string,
-      createdAt: db.created_at,
-      resources: db.resources
-    }));
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    return [...mockDatabaseInstances];
   } catch (error) {
     console.error("Error fetching database instances:", error);
     toast.error("Failed to fetch database instances");
-    
-    // Return empty array on error
     return [];
   }
 };
@@ -66,25 +159,10 @@ export const getDatabaseInstances = async (): Promise<DatabaseInstance[]> => {
 // Get a specific database instance by ID
 export const getDatabaseInstance = async (id: string): Promise<DatabaseInstance | null> => {
   try {
-    const { data, error } = await supabase
-      .from('database_instances')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) throw error;
-    
-    return {
-      id: data.id,
-      name: data.name,
-      type: data.type,
-      status: data.status,
-      region: data.region,
-      version: data.version,
-      connectionString: data.connection_string,
-      createdAt: data.created_at,
-      resources: data.resources
-    };
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const database = mockDatabaseInstances.find(db => db.id === id);
+    return database ? { ...database } : null;
   } catch (error) {
     console.error(`Error fetching database instance ${id}:`, error);
     toast.error("Failed to fetch database instance");
@@ -95,23 +173,18 @@ export const getDatabaseInstance = async (id: string): Promise<DatabaseInstance 
 // Create a new database instance
 export const createDatabaseInstance = async (database: Omit<DatabaseInstance, 'id' | 'createdAt'>): Promise<{ success: boolean; id?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('database_instances')
-      .insert({
-        name: database.name,
-        type: database.type,
-        status: database.status,
-        region: database.region,
-        version: database.version,
-        connection_string: database.connectionString,
-        resources: database.resources
-      })
-      .select()
-      .single();
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    const newId = `db-${mockDatabaseInstances.length + 1}`;
+    const newDb: DatabaseInstance = {
+      ...database,
+      id: newId,
+      createdAt: new Date().toISOString()
+    };
     
-    if (error) throw error;
-    
-    return { success: true, id: data.id };
+    mockDatabaseInstances.push(newDb);
+    return { success: true, id: newId };
   } catch (error: any) {
     console.error("Error creating database instance:", error);
     return { success: false, error: error.message || "Failed to create database instance" };
@@ -121,18 +194,18 @@ export const createDatabaseInstance = async (database: Omit<DatabaseInstance, 'i
 // Update a database instance
 export const updateDatabaseInstance = async (id: string, updates: Partial<DatabaseInstance>): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('database_instances')
-      .update({
-        name: updates.name,
-        status: updates.status,
-        version: updates.version,
-        connection_string: updates.connectionString,
-        resources: updates.resources
-      })
-      .eq('id', id);
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (error) throw error;
+    const dbIndex = mockDatabaseInstances.findIndex(db => db.id === id);
+    if (dbIndex === -1) {
+      return { success: false, error: "Database instance not found" };
+    }
+    
+    mockDatabaseInstances[dbIndex] = {
+      ...mockDatabaseInstances[dbIndex],
+      ...updates
+    };
     
     return { success: true };
   } catch (error: any) {
@@ -141,33 +214,18 @@ export const updateDatabaseInstance = async (id: string, updates: Partial<Databa
   }
 };
 
-// Delete a database instance
-export const deleteDatabaseInstance = async (id: string): Promise<{ success: boolean; error?: string }> => {
-  try {
-    const { error } = await supabase
-      .from('database_instances')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error(`Error deleting database instance ${id}:`, error);
-    return { success: false, error: error.message || "Failed to delete database instance" };
-  }
-};
-
 // Start a database instance
 export const startDatabaseInstance = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('database_instances')
-      .update({ status: 'Running' })
-      .eq('id', id);
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    if (error) throw error;
+    const dbIndex = mockDatabaseInstances.findIndex(db => db.id === id);
+    if (dbIndex === -1) {
+      return { success: false, error: "Database instance not found" };
+    }
     
+    mockDatabaseInstances[dbIndex].status = "Running";
     return { success: true };
   } catch (error: any) {
     console.error(`Error starting database instance ${id}:`, error);
@@ -178,13 +236,15 @@ export const startDatabaseInstance = async (id: string): Promise<{ success: bool
 // Stop a database instance
 export const stopDatabaseInstance = async (id: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('database_instances')
-      .update({ status: 'Stopped' })
-      .eq('id', id);
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    if (error) throw error;
+    const dbIndex = mockDatabaseInstances.findIndex(db => db.id === id);
+    if (dbIndex === -1) {
+      return { success: false, error: "Database instance not found" };
+    }
     
+    mockDatabaseInstances[dbIndex].status = "Stopped";
     return { success: true };
   } catch (error: any) {
     console.error(`Error stopping database instance ${id}:`, error);
@@ -195,62 +255,41 @@ export const stopDatabaseInstance = async (id: string): Promise<{ success: boole
 // Get database performance metrics
 export const getDatabaseMetrics = async (databaseId: string, metric: string, timeRange: string): Promise<DatabaseMetric[]> => {
   try {
-    const { data, error } = await supabase
-      .from('database_metrics')
-      .select('*')
-      .eq('database_id', databaseId)
-      .eq('metric', metric)
-      .gte('timestamp', getTimeRangeStart(timeRange));
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (error) throw error;
-    
-    return data.map(item => ({
-      timestamp: item.timestamp,
-      value: item.value,
-      metric: item.metric
-    }));
+    // Generate mock metrics data
+    const hours = getHoursForTimeRange(timeRange);
+    return generateMockMetrics(metric, hours);
   } catch (error) {
     console.error(`Error fetching metrics for database ${databaseId}:`, error);
     return [];
   }
 };
 
-// Helper function to calculate timestamp for time range
-const getTimeRangeStart = (timeRange: string): string => {
-  const now = new Date();
-  
+// Helper function to calculate hours for time range
+const getHoursForTimeRange = (timeRange: string): number => {
   switch (timeRange) {
     case '1h':
-      return new Date(now.setHours(now.getHours() - 1)).toISOString();
+      return 12; // 12 data points for 1 hour (5 min intervals)
     case '24h':
-      return new Date(now.setDate(now.getDate() - 1)).toISOString();
+      return 24; // 24 data points for 24 hours (1 hour intervals)
     case '7d':
-      return new Date(now.setDate(now.getDate() - 7)).toISOString();
+      return 24 * 7; // 7 days (1 data point per hour)
     case '30d':
-      return new Date(now.setDate(now.getDate() - 30)).toISOString();
+      return 30; // 30 data points for 30 days (1 day intervals)
     default:
-      return new Date(now.setHours(now.getHours() - 24)).toISOString();
+      return 24;
   }
 };
 
 // Get database backups
 export const getDatabaseBackups = async (databaseId: string): Promise<DatabaseBackup[]> => {
   try {
-    const { data, error } = await supabase
-      .from('database_backups')
-      .select('*')
-      .eq('database_id', databaseId);
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 800));
     
-    if (error) throw error;
-    
-    return data.map(backup => ({
-      id: backup.id,
-      databaseId: backup.database_id,
-      name: backup.name,
-      size: backup.size,
-      createdAt: backup.created_at,
-      status: backup.status
-    }));
+    return generateMockBackups(databaseId);
   } catch (error) {
     console.error(`Error fetching backups for database ${databaseId}:`, error);
     return [];
@@ -260,33 +299,18 @@ export const getDatabaseBackups = async (databaseId: string): Promise<DatabaseBa
 // Create a database backup
 export const createDatabaseBackup = async (databaseId: string, name: string): Promise<{ success: boolean; id?: string; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('database_backups')
-      .insert({
-        database_id: databaseId,
-        name,
-        status: 'In Progress',
-        size: '0 MB'
-      })
-      .select()
-      .single();
+    // Simulate API request delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (error) throw error;
+    const backupId = `backup-${databaseId}-${Date.now()}`;
     
     // Simulate backup completion after a delay
-    setTimeout(async () => {
-      const size = `${Math.floor(Math.random() * 1000) + 100} MB`;
-      
-      await supabase
-        .from('database_backups')
-        .update({
-          status: 'Completed',
-          size
-        })
-        .eq('id', data.id);
+    setTimeout(() => {
+      // This would typically update a real database record
+      console.log(`Backup ${backupId} completed`);
     }, 5000);
     
-    return { success: true, id: data.id };
+    return { success: true, id: backupId };
   } catch (error: any) {
     console.error(`Error creating backup for database ${databaseId}:`, error);
     return { success: false, error: error.message || "Failed to create backup" };
