@@ -251,7 +251,7 @@ const OpenSourceCostTools: React.FC = () => {
                 <div className="mt-4">
                   <h4 className="text-sm font-medium mb-2">Installation:</h4>
                   <div className="bg-muted p-3 rounded-md text-xs font-mono whitespace-pre overflow-x-auto">
-                    {tool.installation}
+                    {tool.installation.replace(/```bash\n|\n```/g, '')}
                   </div>
                 </div>
                 
