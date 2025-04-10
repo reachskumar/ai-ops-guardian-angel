@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Sheet,
@@ -51,6 +52,7 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
   const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -64,12 +66,12 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
   }, [user]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
   return (
     <ProSidebarProvider>
-      <div className="lg:flex relative min-h-screen">
+      <div className="flex h-screen bg-background">
         {/* Mobile Sidebar */}
         <Sheet>
           <SheetTrigger asChild className="lg:hidden absolute top-4 left-4 z-50">
@@ -77,9 +79,9 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
               <Menu className="h-4 w-4" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-80">
+          <SheetContent side="left" className="w-80 bg-card">
             <SheetHeader>
-              <SheetTitle>Navigation</SheetTitle>
+              <SheetTitle>CloudMaestro</SheetTitle>
               <SheetDescription>
                 Navigate through the application.
               </SheetDescription>
@@ -100,7 +102,7 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
                 <p className="p-4">Not signed in</p>
               )}
               <NavigationMenu>
-                <NavigationMenuList>
+                <NavigationMenuList className="flex flex-col space-y-1">
                   <NavigationMenuItem>
                     <Link to="/" className="block py-2 px-4 rounded hover:bg-secondary">
                       <Home className="mr-2 h-4 w-4 inline-block" />
@@ -189,7 +191,7 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
                   )}
                 </NavigationMenuList>
               </NavigationMenu>
-              <div className="absolute bottom-4 w-full">
+              <div className="absolute bottom-4 w-full pr-4">
                 <ThemeToggle />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -220,8 +222,8 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
         </Sheet>
 
         {/* Desktop Sidebar */}
-        <aside className="hidden lg:flex flex-col w-64 bg-gray-50 border-r border-gray-200">
-          <div className="flex items-center justify-center h-16 border-b border-gray-200">
+        <div className="hidden lg:block w-64 bg-card border-r border-border">
+          <div className="flex items-center justify-center h-16 border-b border-border">
             <Link to="/" className="text-lg font-semibold">
               CloudMaestro
             </Link>
@@ -242,89 +244,89 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
             ) : (
               <p className="p-4">Not signed in</p>
             )}
-            <NavigationMenu>
-              <NavigationMenuList className="flex flex-col space-y-1">
-                <NavigationMenuItem>
-                  <Link to="/" className="block py-2 px-4 rounded hover:bg-secondary">
+            <NavigationMenu orientation="vertical">
+              <NavigationMenuList className="flex flex-col space-y-1 w-full">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Home className="mr-2 h-4 w-4 inline-block" />
                     Dashboard
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/servers" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/servers" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Server className="mr-2 h-4 w-4 inline-block" />
                     Servers
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/databases" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/databases" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Database className="mr-2 h-4 w-4 inline-block" />
                     Databases
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/security" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/security" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Shield className="mr-2 h-4 w-4 inline-block" />
                     Security
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/cloud-resources" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/cloud-resources" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Cloud className="mr-2 h-4 w-4 inline-block" />
                     Cloud Resources
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/cost-analysis" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/cost-analysis" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <TrendingUp className="mr-2 h-4 w-4 inline-block" />
                     Cost Analysis
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/kubernetes" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/kubernetes" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Code className="mr-2 h-4 w-4 inline-block" />
                     Kubernetes
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/iam" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/iam" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Lock className="mr-2 h-4 w-4 inline-block" />
                     IAM
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/ai-assistant" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/ai-assistant" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <MessageSquare className="mr-2 h-4 w-4 inline-block" />
                     AI Assistant
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/analytics" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/analytics" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <LayoutDashboard className="mr-2 h-4 w-4 inline-block" />
                     Analytics
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/collaboration" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/collaboration" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Users className="mr-2 h-4 w-4 inline-block" />
                     Collaboration
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/incidents" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/incidents" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <AlertTriangle className="mr-2 h-4 w-4 inline-block" />
                     Incidents
                   </Link>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <Link to="/infrastructure" className="block py-2 px-4 rounded hover:bg-secondary">
+                <NavigationMenuItem className="w-full">
+                  <Link to="/infrastructure" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                     <Network className="mr-2 h-4 w-4 inline-block" />
                     Infrastructure
                   </Link>
                 </NavigationMenuItem>
                 {profile?.role === 'admin' && (
-                  <NavigationMenuItem>
-                    <Link to="/admin" className="block py-2 px-4 rounded hover:bg-secondary">
+                  <NavigationMenuItem className="w-full">
+                    <Link to="/admin" className="block py-2 px-4 rounded hover:bg-secondary w-full">
                       <Settings className="mr-2 h-4 w-4 inline-block" />
                       Admin Panel
                     </Link>
@@ -334,7 +336,7 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
             </NavigationMenu>
           </div>
 
-          <div className="sticky bottom-0 w-full border-t border-gray-200 p-4">
+          <div className="sticky bottom-0 w-full border-t border-border p-4">
             <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -360,10 +362,10 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({ childr
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </aside>
+        </div>
 
         {/* Main Content */}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </ProSidebarProvider>
   );
