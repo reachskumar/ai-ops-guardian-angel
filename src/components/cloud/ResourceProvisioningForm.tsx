@@ -89,6 +89,27 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
     setProvisioningError(null);
     
     try {
+      // Check if GCP account has credentials first
+      if (selectedProvider === 'gcp') {
+        const credentials = getAccountCredentials(data.accountId);
+        if (!credentials || !credentials.serviceAccountKey) {
+          throw new Error("Missing GCP service account key. Please add one in the account settings.");
+        }
+        
+        // Validate the service account key format
+        try {
+          const keyData = typeof credentials.serviceAccountKey === 'string' 
+            ? JSON.parse(credentials.serviceAccountKey)
+            : credentials.serviceAccountKey;
+          
+          if (!keyData.project_id || !keyData.private_key) {
+            throw new Error("Invalid service account key: missing required fields (project_id or private_key)");
+          }
+        } catch (parseError) {
+          throw new Error("Invalid service account key format. Please ensure it's valid JSON");
+        }
+      }
+      
       // Parse tags string into an object
       const tagsObj: Record<string, string> = {};
       if (data.tags) {
@@ -114,10 +135,6 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       
       // Get account credentials
       const credentials = getAccountCredentials(data.accountId);
-      
-      if (!credentials && selectedProvider === 'gcp') {
-        throw new Error("No GCP credentials found for this account. Please verify your account configuration.");
-      }
       
       // Call the provisioning API with credentials
       const result = await provisionResource(data.accountId, data.type, resourceConfig, credentials);

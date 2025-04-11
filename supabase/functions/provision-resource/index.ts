@@ -129,6 +129,8 @@ serve(async (req) => {
             : credentials.serviceAccountKey;
             
           console.log("Successfully parsed service account key");
+          console.log("Service account project ID:", serviceAccountKey.project_id);
+          console.log("Service account client email:", serviceAccountKey.client_email);
         } catch (parseError) {
           console.error("Failed to parse service account key:", parseError);
           throw new Error("Invalid service account key format: must be valid JSON");
