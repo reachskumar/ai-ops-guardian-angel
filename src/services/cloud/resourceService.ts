@@ -85,14 +85,14 @@ export const provisionResource = async (
         name: config.name || `New ${resourceType}`,
         type: resourceType,
         cloud_account_id: accountId,
-        // Use the cloud_account_id field instead of provider which doesn't exist in the type
         resource_id: resourceId,
         region: config.region || 'us-east-1',
         status: 'provisioning', // Initial status
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: config.tags || {},
-        details: config.size ? { size: config.size } : {}
+        // Use metadata field instead of details which doesn't exist in the CloudResource type
+        metadata: config.size ? { size: config.size } : {}
       };
       
       // Add to mock resources
