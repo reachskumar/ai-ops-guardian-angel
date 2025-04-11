@@ -46,3 +46,58 @@ export const getResourceMetrics = async (
     ];
   }
 };
+
+// Aggregate metrics across multiple resources
+export const getAggregatedMetrics = async (
+  resourceIds: string[],
+  metricName: string,
+  timeRange?: string
+): Promise<{ data?: any[], error?: Error }> => {
+  try {
+    console.log(`Aggregating ${metricName} metrics for ${resourceIds.length} resources with timeRange ${timeRange || 'default'}`);
+    
+    // For the 'all' special case, we'd fetch from all resources
+    if (resourceIds.includes('all')) {
+      // Here we would normally make an API call to get data for all resources
+      // For now, return mock data
+      return {
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 100)
+        }))
+      };
+    }
+    
+    // If specific resourceIds are provided, aggregate their metrics
+    const allMetrics = await Promise.all(
+      resourceIds.map(id => getResourceMetrics(id, timeRange))
+    );
+    
+    // Find the metric with the specified name in each resource's metrics
+    const specificMetrics = allMetrics.map(metrics => {
+      const metric = metrics.find(m => m.name === metricName);
+      return metric ? metric.data : [];
+    }).flat();
+    
+    // Aggregate by timestamp (simple average in this example)
+    const timestampMap = new Map();
+    specificMetrics.forEach(dataPoint => {
+      const timestamp = dataPoint.timestamp;
+      if (!timestampMap.has(timestamp)) {
+        timestampMap.set(timestamp, [dataPoint.value]);
+      } else {
+        timestampMap.get(timestamp).push(dataPoint.value);
+      }
+    });
+    
+    const aggregated = Array.from(timestampMap.entries()).map(([timestamp, values]) => ({
+      timestamp,
+      value: values.reduce((sum: number, value: number) => sum + value, 0) / values.length
+    }));
+    
+    return { data: aggregated };
+  } catch (error) {
+    console.error("Aggregate metrics error:", error);
+    return { error: error as Error };
+  }
+};

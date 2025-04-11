@@ -7,7 +7,6 @@ export {
   getCloudResources,
   provisionResource,
   getResourceDetails,
-  getResourceMetrics,
   updateResource,
   deleteResource 
 } from "./resourceService"; 
