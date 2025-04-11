@@ -6,138 +6,36 @@ import { Send, Loader, Cloud, Shield, Terminal, AlertTriangle, Users, Bot } from
 import { useAIChat } from "./AIChatContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/providers/AuthProvider";
-import { sendChatMessage } from "@/services/aiChatService";
-
-// Command categories with keywords
-const COMMAND_CATEGORIES = {
-  provision: ["create", "deploy", "launch", "provision", "setup", "configure", "terraform", "ansible"],
-  security: ["scan", "vulnerability", "compliance", "secure", "harden", "encrypt", "policy"],
-  monitoring: ["monitor", "metrics", "status", "health", "performance", "alert", "threshold", "grafana"],
-  incident: ["incident", "error", "problem", "ticket", "outage", "failure", "issue", "resolve"],
-  iam: ["user", "permission", "access", "role", "identity", "authenticate", "authorize"]
-};
 
 const AIChatInputForm: React.FC = () => {
   const { 
-    messages, 
-    setMessages, 
     input, 
     setInput, 
     isLoading, 
-    setIsLoading, 
     currentCategory, 
-    setCurrentCategory, 
-    context, 
-    setContext 
+    handleSendMessage
   } = useAIChat();
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const detectCommandCategory = (message: string): string | null => {
-    const lowerMessage = message.toLowerCase();
-    
-    for (const [category, keywords] of Object.entries(COMMAND_CATEGORIES)) {
-      if (keywords.some(keyword => lowerMessage.includes(keyword))) {
-        return category;
-      }
-    }
-    
-    return null;
-  };
-
-  const handleSend = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !user) return;
-
-    const category = detectCommandCategory(input);
-    setCurrentCategory(category);
     
-    const userMessage = {
-      type: "user" as const,
-      content: input,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const response = await sendChatMessage(
-        input, 
-        messages.slice(-10), // Send recent context
-        context
-      );
-
-      const systemMessage = {
-        type: "system" as const,
-        content: response,
-        timestamp: new Date(),
-      };
-
-      setMessages(prev => [...prev, systemMessage]);
-      
-      // Update context based on the detected category
-      if (category) {
-        // This is a simplified context update - in a real app, you'd extract more details
-        const newContext = { ...context };
-        
-        switch (category) {
-          case 'provision':
-            newContext.infrastructure = {
-              provider: input.toLowerCase().includes('aws') ? 'AWS' : 
-                      input.toLowerCase().includes('azure') ? 'Azure' : 
-                      input.toLowerCase().includes('gcp') ? 'GCP' : 'Unknown',
-              resources: ['Mentioned in chat']
-            };
-            break;
-          case 'security':
-            newContext.security = {
-              tools: ['Mentioned in chat'],
-              frameworks: ['Mentioned in chat']
-            };
-            break;
-          case 'monitoring':
-            newContext.monitoring = {
-              tools: ['Mentioned in chat'],
-              metrics: ['Mentioned in chat']
-            };
-            break;
-          case 'incident':
-            newContext.incident = {
-              current: ['Mentioned in chat'],
-              history: []
-            };
-            break;
-        }
-        
-        setContext(newContext);
-      }
-      
+    if (!user) {
       toast({
-        title: "DevOps AI Response",
-        description: "Received insights from your AI assistant",
-      });
-    } catch (error) {
-      console.error("Chat error:", error);
-      
-      const errorMessage = {
-        type: "system" as const,
-        content: "Sorry, I couldn't process your request. Please try again.",
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-      
-      toast({
-        title: "Communication Error",
-        description: "Failed to get AI response",
+        title: "Authentication Required",
+        description: "Please log in to use the chat.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
-      setCurrentCategory(null);
+      return;
     }
+    
+    handleSendMessage();
+    
+    toast({
+      title: "DevOps AI Response",
+      description: "Processing your request...",
+    });
   };
 
   const getCommandIcon = (category: string | null) => {
@@ -153,7 +51,7 @@ const AIChatInputForm: React.FC = () => {
 
   return (
     <form 
-      onSubmit={handleSend} 
+      onSubmit={handleSubmit} 
       className="flex w-full space-x-2"
     >
       <Input 

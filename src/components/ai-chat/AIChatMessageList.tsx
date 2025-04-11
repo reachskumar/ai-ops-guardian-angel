@@ -3,7 +3,6 @@ import React, { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User, Bot } from "lucide-react";
 import { useAIChat } from "./AIChatContext";
-import { ChatMessage } from "@/services/aiChatService";
 
 const AIChatMessageList: React.FC = () => {
   const { messages } = useAIChat();
