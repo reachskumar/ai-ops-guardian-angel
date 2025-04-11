@@ -20,7 +20,7 @@ export const useCloudProvider = (onSuccess?: () => void) => {
   const handleConnectProvider = async (data: z.infer<typeof formSchema>) => {
     setConnecting(true);
     console.log("Connecting provider:", data.provider);
-    console.log("Credentials object:", data.credentials);
+    console.log("Provider name:", data.name);
     
     // Log fields without showing sensitive values
     const safeCredentials = { ...data.credentials };
@@ -38,13 +38,20 @@ export const useCloudProvider = (onSuccess?: () => void) => {
       );
       
       if (result.success) {
+        console.log("Connection successful! Account ID:", result.accountId);
         toast({
           title: "Provider Connected",
           description: `Successfully connected to ${data.name}`,
         });
         setConnectDialogOpen(false);
-        // Call the success callback if provided
-        if (onSuccess) onSuccess();
+        
+        // Important: Call the success callback if provided
+        if (onSuccess) {
+          console.log("Calling onSuccess callback to refresh accounts");
+          setTimeout(() => {
+            onSuccess();
+          }, 100);
+        }
       } else {
         console.error("Connection failed:", result.error);
         toast({

@@ -20,12 +20,17 @@ export const useCloudResources = () => {
   const fetchResources = async () => {
     setLoading(true);
     try {
+      console.log("Fetching cloud accounts...");
       const accountsResult = await getCloudAccounts();
+      console.log("Fetched cloud accounts:", accountsResult);
+      
       const resourcesResult = await getCloudResources();
+      console.log("Fetched cloud resources:", resourcesResult);
       
       setAccounts(accountsResult);
       setResources(resourcesResult.resources);
     } catch (error) {
+      console.error("Error fetching cloud resources:", error);
       toast({
         title: "Error fetching resources",
         description: "Could not load cloud resources",

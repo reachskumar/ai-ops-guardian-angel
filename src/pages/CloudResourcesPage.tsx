@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarWithProvider } from '@/components/Sidebar';
@@ -52,6 +51,11 @@ const CloudResourcesPage: React.FC = () => {
   
   // State for connection errors
   const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  // Effect to log accounts whenever they change
+  useEffect(() => {
+    console.log("Accounts in CloudResourcesPage:", accounts);
+  }, [accounts]);
   
   const {
     connectDialogOpen,
@@ -59,6 +63,7 @@ const CloudResourcesPage: React.FC = () => {
     connecting,
     handleConnectProvider
   } = useCloudProvider(() => {
+    console.log("Connection successful callback triggered");
     fetchResources();
     setConnectionError(null);
   });
@@ -91,6 +96,12 @@ const CloudResourcesPage: React.FC = () => {
     }
   };
 
+  // Refresh connection manually
+  const handleForceRefresh = () => {
+    console.log("Force refreshing cloud resources and accounts");
+    fetchResources();
+  };
+
   return (
     <SidebarWithProvider>
       <div className="flex flex-col min-h-screen">
@@ -101,7 +112,7 @@ const CloudResourcesPage: React.FC = () => {
             <div className="flex space-x-2">
               <Button 
                 variant="outline" 
-                onClick={fetchResources}
+                onClick={handleForceRefresh}
                 disabled={loading}
               >
                 <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
