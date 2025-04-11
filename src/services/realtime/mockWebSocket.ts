@@ -1,8 +1,4 @@
 
-/**
- * Mock WebSocket implementation for testing and development
- */
-
 import { MockWebSocketConfig } from './types';
 
 /**
