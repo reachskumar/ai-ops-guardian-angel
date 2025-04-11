@@ -25,6 +25,7 @@ import IncidentsPage from "./pages/IncidentsPage";
 import InfrastructureOverviewPage from "./pages/InfrastructureOverviewPage";
 import DatabasesPage from "./pages/DatabasesPage";
 import ProjectKanbanPage from "./pages/ProjectKanbanPage";
+import WebSocketTestPage from "./pages/WebSocketTestPage";
 
 const routes: RouteObject[] = [
   {
@@ -107,6 +108,10 @@ const routes: RouteObject[] = [
   {
     path: "/project-kanban",
     element: <ProtectedRoute><ProjectKanbanPage /></ProtectedRoute>
+  },
+  {
+    path: "/websocket-test",
+    element: <ProtectedRoute><WebSocketTestPage /></ProtectedRoute>
   },
   {
     path: "*",
