@@ -6,6 +6,7 @@ import KanbanSummary from "./KanbanSummary";
 import FeaturesTable from "./FeaturesTable";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ActionItemsTab from "./ActionItemsTab";
+import ImplementationStepsTab from "./ImplementationStepsTab";
 
 const ProjectKanban: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -26,6 +27,7 @@ const ProjectKanban: React.FC = () => {
             <TabsList className="mb-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="action-items">Action Items</TabsTrigger>
+              <TabsTrigger value="implementation">Implementation Steps</TabsTrigger>
             </TabsList>
             
             <TabsContent value="overview">
@@ -34,6 +36,10 @@ const ProjectKanban: React.FC = () => {
             
             <TabsContent value="action-items">
               <ActionItemsTab features={features} />
+            </TabsContent>
+            
+            <TabsContent value="implementation">
+              <ImplementationStepsTab />
             </TabsContent>
           </Tabs>
         </CardContent>
