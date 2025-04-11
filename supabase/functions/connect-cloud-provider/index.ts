@@ -24,6 +24,7 @@ serve(async (req) => {
     const { provider, credentials, name } = await req.json();
     
     console.log(`Connecting to ${provider} provider with name: ${name}`);
+    console.log("Received credentials:", JSON.stringify(credentials));
     
     // Basic validation
     if (!provider || !credentials || !name) {
@@ -59,9 +60,13 @@ serve(async (req) => {
         break;
         
       case 'gcp':
-        // Fix for GCP: Different field names might be used in the frontend
+        console.log("Validating GCP credentials:", JSON.stringify(credentials));
+        
+        // Accept multiple possible field names for GCP credentials
         const projectId = credentials.projectId || credentials.gcpProjectId;
         const serviceAccountKey = credentials.serviceAccountKey || credentials.gcpServiceAccountKey;
+        
+        console.log("Extracted GCP credentials:", { projectId, serviceAccountKey: !!serviceAccountKey });
         
         if (projectId && serviceAccountKey) {
           validCredentials = true;
@@ -79,7 +84,8 @@ serve(async (req) => {
     }
     
     if (!validCredentials) {
-      throw new Error(`Invalid credentials for ${provider}`);
+      console.error(`Invalid credentials for ${provider}. Required fields missing.`);
+      throw new Error(`Invalid credentials for ${provider}. Please check that all required fields are provided.`);
     }
     
     if (!testConnection) {

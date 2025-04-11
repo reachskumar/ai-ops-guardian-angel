@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CloudProvider } from '@/services/cloudProviderService';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -29,6 +29,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
@@ -158,18 +159,33 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
               <FormItem key={field.name}>
                 <FormLabel>{field.label}</FormLabel>
                 <FormControl>
-                  <Input 
-                    type={field.type}
-                    placeholder={field.label}
-                    value={form.getValues('credentials')[field.name] || ''}
-                    onChange={(e) => {
-                      const currentCreds = form.getValues('credentials');
-                      form.setValue('credentials', {
-                        ...currentCreds,
-                        [field.name]: e.target.value
-                      });
-                    }}
-                  />
+                  {field.type === 'textarea' ? (
+                    <Textarea 
+                      placeholder={field.label}
+                      className="min-h-[100px]"
+                      value={form.getValues('credentials')[field.name] || ''}
+                      onChange={(e) => {
+                        const currentCreds = form.getValues('credentials');
+                        form.setValue('credentials', {
+                          ...currentCreds,
+                          [field.name]: e.target.value
+                        });
+                      }}
+                    />
+                  ) : (
+                    <Input 
+                      type={field.type}
+                      placeholder={field.label}
+                      value={form.getValues('credentials')[field.name] || ''}
+                      onChange={(e) => {
+                        const currentCreds = form.getValues('credentials');
+                        form.setValue('credentials', {
+                          ...currentCreds,
+                          [field.name]: e.target.value
+                        });
+                      }}
+                    />
+                  )}
                 </FormControl>
                 <FormMessage />
               </FormItem>
