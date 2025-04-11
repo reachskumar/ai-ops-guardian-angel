@@ -115,7 +115,7 @@ export const createTransformer = (dataSource: DataSource) => {
     default:
       return (data: any) => ({
         timestamp: new Date().toISOString(),
-        source: dataSource.name,
+        source: dataSource.name as string,
         sourceType: 'unknown',
         data,
         raw: data
