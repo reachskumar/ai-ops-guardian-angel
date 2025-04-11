@@ -7,6 +7,7 @@
 export * from './websocketService';
 export * from './types';
 export * from './useWebSocket';
+export * from './useWebSocketConnection';
 export * from './mockWebSocket';
 export * from './websocketFactory';
 
@@ -18,3 +19,4 @@ export * from './dataTransformer';
 
 // Real-time data hooks
 export * from './useRealtimeData';
+

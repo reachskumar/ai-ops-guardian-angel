@@ -12,6 +12,13 @@ export interface WebSocketConfig {
   protocols?: string | string[];
   reconnectAttempts?: number;
   reconnectInterval?: number;
+  mock?: boolean;
+  mockConfig?: {
+    interval?: number;
+    data?: any[];
+    simulateDisconnect?: boolean;
+    disconnectAfter?: number;
+  };
   onMessage?: (event: MessageEvent) => void;
   onOpen?: (event: Event) => void;
   onClose?: (event: CloseEvent) => void;
@@ -26,3 +33,4 @@ export interface MockWebSocketConfig {
   simulateDisconnect?: boolean;
   disconnectAfter?: number;
 }
+

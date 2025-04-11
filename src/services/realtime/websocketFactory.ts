@@ -6,21 +6,27 @@
 import { createMockWebSocket } from './mockWebSocket';
 
 /**
+ * Configuration options for WebSocket creation
+ */
+export interface WebSocketFactoryOptions {
+  mock?: boolean;
+  protocols?: string | string[];
+  mockConfig?: {
+    interval?: number;
+    data?: any[];
+    simulateDisconnect?: boolean;
+    disconnectAfter?: number;
+  };
+}
+
+/**
  * Factory function to create a WebSocket (real or mock)
  */
 export const createWebSocket = (
   url: string, 
-  options: { 
-    mock?: boolean;
-    mockConfig?: {
-      interval?: number;
-      data?: any[];
-      simulateDisconnect?: boolean;
-      disconnectAfter?: number;
-    }
-  } = {}
+  options: WebSocketFactoryOptions = {}
 ): WebSocket => {
-  const { mock = false, mockConfig = {} } = options;
+  const { mock = false, protocols, mockConfig = {} } = options;
   
   if (mock) {
     return createMockWebSocket({
@@ -29,5 +35,6 @@ export const createWebSocket = (
     });
   }
   
-  return new WebSocket(url);
+  return protocols ? new WebSocket(url, protocols) : new WebSocket(url);
 };
+
