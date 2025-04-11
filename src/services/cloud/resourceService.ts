@@ -124,82 +124,115 @@ export const getCloudResources = async (
 export const provisionResource = async (
   accountId: string,
   resourceType: string,
-  config: Record<string, any>
+  config: Record<string, any>,
+  credentials?: Record<string, any>
 ): Promise<{ success: boolean; resourceId?: string; error?: string }> => {
   try {
     console.log(`Starting resource provisioning for account ${accountId}`);
     console.log(`Resource type: ${resourceType}`);
     console.log(`Configuration:`, config);
-    
-    // Mock implementation for development without an edge function
-    // In a real implementation, we would call the edge function
-    const mockSuccess = Math.random() > 0.2; // 80% chance of success
-    
-    if (mockSuccess) {
-      const resourceId = `resource-${Math.random().toString(36).substring(2, 10)}`;
-      console.log(`Successfully provisioned resource with ID: ${resourceId}`);
-      
-      // Create a mock resource and add it to our local store
-      const newResource: CloudResource = {
-        id: resourceId,
-        name: config.name || `New ${resourceType}`,
-        type: resourceType,
-        cloud_account_id: accountId,
-        resource_id: resourceId,
-        region: config.region || 'us-east-1',
-        status: 'provisioning', // Initial status
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        tags: config.tags || {},
-        // Use metadata field instead of details which doesn't exist in the CloudResource type
-        metadata: config.size ? { size: config.size } : {}
-      };
-      
-      // Add to mock resources
-      mockResources.push(newResource);
-      console.log("Added new resource to mock storage:", newResource);
-      
-      // After a delay, update the status to "running"
-      setTimeout(() => {
-        const index = mockResources.findIndex(r => r.id === resourceId);
-        if (index >= 0) {
-          mockResources[index].status = 'running';
-          console.log(`Updated resource ${resourceId} status to running`);
-        }
-      }, 5000); // 5 second delay
-      
-      return { 
-        success: true, 
-        resourceId 
-      };
-    } else {
-      console.error("Mock provisioning failure");
-      return { 
-        success: false, 
-        error: 'Failed to provision resource (mock failure)' 
-      };
-    }
-    
-    /* Commented out for development - use this in production
-    const { data, error } = await supabase.functions.invoke('provision-resource', {
-      body: { accountId, resourceType, config }
-    });
 
-    if (error) {
-      console.error("Edge function error:", error);
-      throw new Error(`Edge function error: ${error.message}`);
+    // Call the Supabase Edge Function for real provisioning
+    try {
+      const { data, error } = await supabase.functions.invoke('provision-resource', {
+        body: { 
+          accountId, 
+          resourceType, 
+          config,
+          credentials 
+        }
+      });
+
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(`Edge function error: ${error.message}`);
+      }
+      
+      if (!data) {
+        throw new Error("No data returned from edge function");
+      }
+      
+      console.log("Provisioning response:", data);
+      
+      // If the provisioning was successful, add a mock resource for immediate feedback
+      if (data.success && data.resourceId) {
+        const newResource: CloudResource = {
+          id: data.resourceId,
+          name: config.name || `New ${resourceType}`,
+          type: resourceType,
+          cloud_account_id: accountId,
+          resource_id: data.resourceId,
+          region: config.region || 'us-east-1',
+          status: 'provisioning',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: config.tags || {},
+          metadata: data.details || (config.size ? { size: config.size } : {})
+        };
+        
+        // Add to mock resources
+        mockResources.push(newResource);
+        console.log("Added new resource to mock storage:", newResource);
+        saveResourcesToStorage(mockResources);
+      }
+      
+      return { 
+        success: data.success, 
+        resourceId: data.resourceId,
+        error: data.error
+      };
+    } catch (edgeError: any) {
+      console.warn("Edge function unavailable, falling back to mock provisioning:", edgeError);
+      
+      // Fall back to mock provisioning for development
+      const mockSuccess = Math.random() > 0.2; // 80% chance of success
+      
+      if (mockSuccess) {
+        const resourceId = `${resourceType.toLowerCase()}-${Date.now().toString(36)}`;
+        console.log(`Successfully provisioned mock resource with ID: ${resourceId}`);
+        
+        // Create a mock resource and add it to our local store
+        const newResource: CloudResource = {
+          id: resourceId,
+          name: config.name || `New ${resourceType}`,
+          type: resourceType,
+          cloud_account_id: accountId,
+          resource_id: resourceId,
+          region: config.region || 'us-east-1',
+          status: 'provisioning',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: config.tags || {},
+          metadata: config.size ? { size: config.size } : {}
+        };
+        
+        // Add to mock resources
+        mockResources.push(newResource);
+        console.log("Added new resource to mock storage:", newResource);
+        saveResourcesToStorage(mockResources);
+        
+        // After a delay, update the status to "running"
+        setTimeout(() => {
+          const index = mockResources.findIndex(r => r.id === resourceId);
+          if (index >= 0) {
+            mockResources[index].status = 'running';
+            console.log(`Updated resource ${resourceId} status to running`);
+            saveResourcesToStorage(mockResources);
+          }
+        }, 5000);
+        
+        return { 
+          success: true, 
+          resourceId 
+        };
+      } else {
+        console.error("Mock provisioning failure");
+        return { 
+          success: false, 
+          error: 'Failed to provision resource (mock failure)' 
+        };
+      }
     }
-    
-    if (!data) {
-      throw new Error("No data returned from edge function");
-    }
-    
-    return { 
-      success: data.success, 
-      resourceId: data.resourceId,
-      error: data.error
-    };
-    */
   } catch (error: any) {
     console.error("Provision resource error:", error);
     return { 

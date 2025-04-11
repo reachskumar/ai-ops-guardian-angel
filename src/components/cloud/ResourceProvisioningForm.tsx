@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getAccountCredentials } from "@/services/cloud/accountService";
 
 // Import our components
 import {
@@ -106,8 +107,11 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       console.log("Resource type:", data.type);
       console.log("Resource config:", resourceConfig);
       
-      // Call the provisioning API
-      const result = await provisionResource(data.accountId, data.type, resourceConfig);
+      // Get account credentials
+      const credentials = getAccountCredentials(data.accountId);
+      
+      // Call the provisioning API with credentials
+      const result = await provisionResource(data.accountId, data.type, resourceConfig, credentials);
       
       if (result.success) {
         toast({
