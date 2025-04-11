@@ -97,6 +97,14 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
     onConnectProvider(values);
   };
 
+  const updateCredentialField = (name: string, value: string) => {
+    const currentCreds = form.getValues('credentials');
+    form.setValue('credentials', {
+      ...currentCreds,
+      [name]: value
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -164,26 +172,14 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
                       placeholder={field.label}
                       className="min-h-[100px]"
                       value={form.getValues('credentials')[field.name] || ''}
-                      onChange={(e) => {
-                        const currentCreds = form.getValues('credentials');
-                        form.setValue('credentials', {
-                          ...currentCreds,
-                          [field.name]: e.target.value
-                        });
-                      }}
+                      onChange={(e) => updateCredentialField(field.name, e.target.value)}
                     />
                   ) : (
                     <Input 
                       type={field.type}
                       placeholder={field.label}
                       value={form.getValues('credentials')[field.name] || ''}
-                      onChange={(e) => {
-                        const currentCreds = form.getValues('credentials');
-                        form.setValue('credentials', {
-                          ...currentCreds,
-                          [field.name]: e.target.value
-                        });
-                      }}
+                      onChange={(e) => updateCredentialField(field.name, e.target.value)}
                     />
                   )}
                 </FormControl>
