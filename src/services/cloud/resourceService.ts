@@ -85,16 +85,14 @@ export const provisionResource = async (
         name: config.name || `New ${resourceType}`,
         type: resourceType,
         cloud_account_id: accountId,
-        provider: 'aws', // Default provider for now
+        // Use the cloud_account_id field instead of provider which doesn't exist in the type
+        resource_id: resourceId,
         region: config.region || 'us-east-1',
         status: 'provisioning', // Initial status
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: config.tags || {},
-        details: {
-          size: config.size,
-          // Add more details as needed
-        }
+        details: config.size ? { size: config.size } : {}
       };
       
       // Add to mock resources
