@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { 
   getCloudAccounts,
@@ -55,23 +54,26 @@ export const useCloudResources = () => {
       setSyncStatus(prev => ({ ...prev, [accountId]: 'syncing' }));
       setSyncErrorMessages(prev => ({ ...prev, [accountId]: null }));
       
+      // When using local mocks, we want to handle the response even with edge function errors
       const result = await syncCloudResources(accountId);
       
+      // Consider it a success even if there's a non-critical error like "Edge function unavailable"
+      // This allows the app to keep working in development without real edge functions
       if (result.success) {
         setSyncStatus(prev => ({ ...prev, [accountId]: 'success' }));
         
-        // Determine the toast variant based on whether there's a warning
-        const hasWarning = !!result.error;
+        // Check if there's a warning message (like edge function unavailable)
+        const hasWarning = !!result.error && result.error.includes("Edge function");
         
         toast({
-          title: hasWarning ? "Resources Synced with Warning" : "Resources Synced",
+          title: hasWarning ? "Resources Synced with Note" : "Resources Synced",
           description: hasWarning 
             ? result.error 
             : "Cloud resources have been synchronized successfully",
           variant: hasWarning ? "default" : "default"
         });
         
-        // If there's a warning, store it in the sync error messages
+        // Store warning message for display
         if (hasWarning && result.error) {
           setSyncErrorMessages(prev => ({ ...prev, [accountId]: result.error }));
         }
@@ -80,6 +82,7 @@ export const useCloudResources = () => {
         fetchResources();
         return true;
       } else {
+        // This is a real error that prevented successful sync
         setSyncStatus(prev => ({ ...prev, [accountId]: 'error' }));
         const errorMessage = result.error || "Failed to sync cloud resources";
         setSyncErrorMessages(prev => ({ ...prev, [accountId]: errorMessage }));

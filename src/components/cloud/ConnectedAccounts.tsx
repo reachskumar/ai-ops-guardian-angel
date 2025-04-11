@@ -107,9 +107,17 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
                       </p>
                     )}
                     
+                    {/* Display different messages depending on sync status */}
                     {status === 'error' && errorMessage && (
                       <div className="mt-2 p-2 bg-red-50 dark:bg-red-950/30 rounded-md text-xs text-red-500">
                         {errorMessage}
+                      </div>
+                    )}
+                    
+                    {status === 'success' && errorMessage && errorMessage.includes('Edge function') && (
+                      <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded-md text-xs text-yellow-600 dark:text-yellow-400">
+                        <Info className="h-3 w-3 inline-block mr-1" /> 
+                        Note: {errorMessage}
                       </div>
                     )}
                     
