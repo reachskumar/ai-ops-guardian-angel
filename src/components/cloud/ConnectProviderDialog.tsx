@@ -83,11 +83,17 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
         ];
       case 'gcp':
         return [
+          { name: 'projectId', label: 'GCP Project ID', type: 'text' },
           { name: 'serviceAccountKey', label: 'Service Account Key (JSON)', type: 'textarea' }
         ];
       default:
         return [];
     }
+  };
+
+  const handleSubmit = (values: z.infer<typeof formSchema>) => {
+    console.log('Form submitted with values:', values);
+    onConnectProvider(values);
   };
 
   return (
@@ -100,7 +106,7 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onConnectProvider)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="name"

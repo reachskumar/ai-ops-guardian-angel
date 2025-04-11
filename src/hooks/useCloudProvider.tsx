@@ -19,6 +19,8 @@ export const useCloudProvider = (onSuccess?: () => void) => {
   // Handle connecting a new cloud provider
   const handleConnectProvider = async (data: z.infer<typeof formSchema>) => {
     setConnecting(true);
+    console.log("Connecting provider:", data.provider);
+    
     try {
       const result = await connectCloudProvider(
         data.provider,
@@ -35,9 +37,11 @@ export const useCloudProvider = (onSuccess?: () => void) => {
         // Call the success callback if provided
         if (onSuccess) onSuccess();
       } else {
+        console.error("Connection failed:", result.error);
         throw new Error(result.error);
       }
     } catch (error: any) {
+      console.error("Connection error:", error);
       toast({
         title: "Connection Failed",
         description: error.message || "Failed to connect to cloud provider",

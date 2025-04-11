@@ -23,6 +23,8 @@ serve(async (req) => {
     // Parse request body
     const { provider, credentials, name } = await req.json();
     
+    console.log(`Connecting to ${provider} provider with name: ${name}`);
+    
     // Basic validation
     if (!provider || !credentials || !name) {
       throw new Error('Missing required parameters: provider, credentials, and name are required');
@@ -57,11 +59,21 @@ serve(async (req) => {
         break;
         
       case 'gcp':
-        if (credentials.serviceAccountKey) {
+        // Fix for GCP: Different field names might be used in the frontend
+        const projectId = credentials.projectId || credentials.gcpProjectId;
+        const serviceAccountKey = credentials.serviceAccountKey || credentials.gcpServiceAccountKey;
+        
+        if (projectId && serviceAccountKey) {
           validCredentials = true;
+          console.log("GCP credentials are valid");
           
           // TODO: Test GCP connection (simplified for this demo)
           testConnection = true;
+        } else {
+          console.error("GCP credentials validation failed:", { 
+            hasProjectId: !!projectId, 
+            hasServiceAccountKey: !!serviceAccountKey 
+          });
         }
         break;
     }
@@ -73,6 +85,8 @@ serve(async (req) => {
     if (!testConnection) {
       throw new Error(`Failed to connect to ${provider}`);
     }
+    
+    console.log(`Successfully validated credentials for ${provider}`);
     
     // Store cloud account in database
     const { data, error } = await supabase
@@ -89,8 +103,11 @@ serve(async (req) => {
       .single();
     
     if (error) {
+      console.error("Database error:", error);
       throw error;
     }
+    
+    console.log(`Cloud account created with ID: ${data.id}`);
     
     // Return success response with account ID
     return new Response(
@@ -110,7 +127,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message || 'Failed to connect cloud provider' 
       }),
       { 
         status: 400, 

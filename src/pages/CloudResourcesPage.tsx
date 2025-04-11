@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,7 +21,8 @@ import {
   MetricsTab,
   CostAnalysisTab,
   TagsTab,
-  IaCTab
+  IaCTab,
+  ConnectionErrorAlert
 } from '@/components/cloud';
 
 const CloudResourcesPage: React.FC = () => {
@@ -48,12 +50,18 @@ const CloudResourcesPage: React.FC = () => {
     fetchResourceMetrics
   } = useResourceDetails();
   
+  // State for connection errors
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  
   const {
     connectDialogOpen,
     setConnectDialogOpen,
     connecting,
     handleConnectProvider
-  } = useCloudProvider(fetchResources);
+  } = useCloudProvider(() => {
+    fetchResources();
+    setConnectionError(null);
+  });
 
   // State for new features
   const [activeTab, setActiveTab] = useState("inventory");
@@ -67,6 +75,20 @@ const CloudResourcesPage: React.FC = () => {
   const handleProvisioningSuccess = () => {
     setProvisioningDialogOpen(false);
     fetchResources(); // Refresh resources list
+  };
+  
+  // Handle connection error
+  const handleConnectionFailure = (error?: string) => {
+    setConnectionError(error || "Failed to connect to cloud provider");
+  };
+
+  // Wrapper for handleConnectProvider to catch errors
+  const safeHandleConnectProvider = async (data: any) => {
+    try {
+      await handleConnectProvider(data);
+    } catch (error: any) {
+      handleConnectionFailure(error.message);
+    }
   };
 
   return (
@@ -91,6 +113,13 @@ const CloudResourcesPage: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {/* Error Alert */}
+          <ConnectionErrorAlert 
+            isVisible={!!connectionError}
+            error={connectionError || undefined}
+            onRetry={() => setConnectionError(null)}
+          />
 
           {/* Connected Accounts Component */}
           <ConnectedAccounts 
@@ -177,7 +206,7 @@ const CloudResourcesPage: React.FC = () => {
           <ConnectProviderDialog
             open={connectDialogOpen}
             onOpenChange={setConnectDialogOpen}
-            onConnectProvider={handleConnectProvider}
+            onConnectProvider={safeHandleConnectProvider}
             connecting={connecting}
           />
         </div>
