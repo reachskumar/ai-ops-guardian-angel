@@ -3,18 +3,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-interface MetricDataPoint {
-  timestamp: string;
-  value: number;
-}
-
-interface ResourceMetric {
-  name: string;
-  data: MetricDataPoint[];
-  unit: string;
-  status?: string;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -22,18 +10,19 @@ serve(async (req) => {
   }
   
   try {
-    const { resourceId } = await req.json();
+    const { resourceId, timeRange } = await req.json();
     
     console.log(`Fetching metrics for resource: ${resourceId}`);
+    console.log(`Time range: ${timeRange || 'default'}`);
     
-    // Here you would:
-    // 1. Determine the cloud provider and account for this resource
-    // 2. Fetch credentials for the account
-    // 3. Connect to the cloud provider's metrics API
-    // 4. Get and format metrics data
+    // Here you would implement the actual metrics retrieval:
+    // 1. Get the cloud provider and account info for this resource
+    // 2. Connect to the appropriate metrics API (e.g., GCP Monitoring)
+    // 3. Retrieve and format the appropriate metrics
     
-    // For now, we'll return mock metrics that match the ResourceMetric interface
-    const metrics: ResourceMetric[] = [
+    // For demo purposes, we'll return mock metrics data
+    // In a real implementation, this would come from the cloud provider's API
+    const metrics = [
       {
         name: 'cpu',
         data: Array(24).fill(0).map((_, i) => ({
@@ -60,21 +49,12 @@ serve(async (req) => {
         })),
         unit: 'IOPS',
         status: 'normal'
-      },
-      {
-        name: 'network',
-        data: Array(24).fill(0).map((_, i) => ({
-          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-          value: Math.floor(Math.random() * 100)
-        })),
-        unit: 'Mbps',
-        status: 'normal'
       }
     ];
     
     return new Response(
       JSON.stringify(metrics),
-      { 
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
@@ -84,7 +64,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: `Failed to fetch metrics: ${error.message}`
+        error: `Failed to fetch resource metrics: ${error.message}`
       }),
       {
         status: 400,

@@ -139,6 +139,14 @@ export const syncCloudResources = async (
   accountId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Find the account to get its provider
+    const account = mockAccounts.find(a => a.id === accountId);
+    if (!account) {
+      return { success: false, error: 'Account not found' };
+    }
+
+    console.log(`Starting sync for account ${accountId} (${account.provider})`);
+    
     // For demo/testing purposes, update the last_synced_at timestamp locally
     // This allows us to continue even if the Edge Function call fails
     const accountIndex = mockAccounts.findIndex(a => a.id === accountId);
@@ -147,10 +155,13 @@ export const syncCloudResources = async (
       saveAccountsToStorage(mockAccounts);
     }
     
-    // In a real implementation, we'd make the Edge Function call
+    // Call the edge function with account provider information
     try {
       const { data, error } = await supabase.functions.invoke('sync-cloud-resources', {
-        body: { accountId }
+        body: { 
+          accountId, 
+          provider: account.provider // Include provider info for the edge function
+        }
       });
 
       if (error) {
@@ -160,6 +171,8 @@ export const syncCloudResources = async (
           error: "Edge function error, but local state updated" 
         };
       }
+      
+      console.log("Sync response:", data);
       
       return { 
         success: data?.success || true, 

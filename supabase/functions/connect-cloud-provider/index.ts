@@ -3,12 +3,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-interface CloudProviderCredentials {
-  provider: 'aws' | 'azure' | 'gcp';
-  credentials: Record<string, string>;
-  name: string;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -16,20 +10,20 @@ serve(async (req) => {
   }
   
   try {
-    const { provider, credentials, name } = await req.json() as CloudProviderCredentials;
+    const { provider, credentials, name } = await req.json();
     
-    console.log(`Connecting to ${provider} cloud provider with name: ${name}`);
+    console.log(`Connecting to ${provider} cloud provider for: ${name}`);
     
-    // Here you would implement the actual cloud provider connection logic
-    // For AWS, you would use AWS SDK
-    // For Azure, you would use Azure SDK
-    // For GCP, you would use GCP SDK
+    // Here you would:
+    // 1. Validate the credentials by making an actual API call to the provider
+    // 2. Store the credentials securely (e.g., in a vault service)
+    // 3. Create a record in your database linking the user to this cloud account
     
-    // For now, we'll simulate a successful connection
-    const accountId = `${provider}-${Date.now().toString(36)}`;
+    // Since this is a demonstration, we'll simulate a successful connection
+    // In a real implementation, this would verify the credentials with GCP
     
-    // In a real implementation, you'd store the credentials securely
-    // and create a connection to the cloud provider
+    // Generate a unique ID
+    const accountId = `${provider}-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`;
     
     return new Response(
       JSON.stringify({
@@ -37,12 +31,12 @@ serve(async (req) => {
         accountId,
         message: `Successfully connected to ${provider}`
       }),
-      {
+      { 
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   } catch (error) {
-    console.error("Error connecting to cloud provider:", error);
+    console.error(`Error connecting to cloud provider:`, error);
     
     return new Response(
       JSON.stringify({
