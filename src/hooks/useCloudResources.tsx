@@ -14,6 +14,7 @@ export const useCloudResources = () => {
   const [resources, setResources] = useState<CloudResource[]>([]);
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
   
   const { toast } = useToast();
 
@@ -30,6 +31,7 @@ export const useCloudResources = () => {
       
       setAccounts(accountsResult);
       setResources(resourcesResult.resources);
+      setLastRefresh(Date.now());
     } catch (error) {
       console.error("Error fetching cloud resources:", error);
       toast({
@@ -44,7 +46,6 @@ export const useCloudResources = () => {
 
   // Sync cloud resources for a specific account
   const syncResources = useCallback(async (accountId: string) => {
-    setLoading(true);
     try {
       console.log(`Syncing resources for account: ${accountId}`);
       const result = await syncCloudResources(accountId);
@@ -54,14 +55,17 @@ export const useCloudResources = () => {
           title: "Resources Synced",
           description: "Cloud resources have been synchronized"
         });
+        
         // Refresh the resources after sync
         fetchResources();
+        return true;
       } else {
         toast({
           title: "Sync Failed",
           description: result.error || "Failed to sync cloud resources",
           variant: "destructive"
         });
+        return false;
       }
     } catch (error) {
       console.error("Error syncing cloud resources:", error);
@@ -70,14 +74,31 @@ export const useCloudResources = () => {
         description: "An error occurred while syncing resources",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
+      return false;
     }
   }, [toast, fetchResources]);
 
+  // Initial load
   useEffect(() => {
     fetchResources();
   }, [fetchResources]);
 
-  return { resources, accounts, loading, fetchResources, syncResources };
+  // Setup periodic refresh (every 60 seconds)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log("Auto-refreshing cloud resources");
+      fetchResources();
+    }, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, [fetchResources]);
+
+  return { 
+    resources, 
+    accounts, 
+    loading, 
+    fetchResources, 
+    syncResources,
+    lastRefresh
+  };
 };

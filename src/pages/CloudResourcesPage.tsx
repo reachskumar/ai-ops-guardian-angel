@@ -25,6 +25,9 @@ import {
   ConnectionErrorAlert
 } from '@/components/cloud';
 
+// Import new ResourceProvisioningDialog
+import ResourceProvisioningDialog from '@/components/cloud/ResourceProvisioningDialog';
+
 const CloudResourcesPage: React.FC = () => {
   // Use our custom hooks
   const { resources, accounts, loading, fetchResources, syncResources } = useCloudResources();
@@ -230,6 +233,14 @@ const CloudResourcesPage: React.FC = () => {
             onOpenChange={setConnectDialogOpen}
             onConnectProvider={safeHandleConnectProvider}
             connecting={connecting}
+          />
+
+          {/* Resource Provisioning Dialog */}
+          <ResourceProvisioningDialog
+            open={provisioningDialogOpen}
+            onOpenChange={setProvisioningDialogOpen}
+            accounts={accounts}
+            onSuccess={handleProvisioningSuccess}
           />
         </div>
       </div>

@@ -1,25 +1,28 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CloudProvider, provisionResource } from "@/services/cloud";
+import { CloudProvider, CloudAccount, provisionResource } from "@/services/cloud";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-// Import our new components
+// Import our components
 import {
   ResourceNameField,
   ResourceTypeSelector,
   SizeSelector,
   RegionSelector,
-  TagsField
+  TagsField,
+  AccountSelector
 } from "./provisioning";
 
 // Define the schema for the form
 const resourceSchema = z.object({
+  accountId: z.string().min(1, "Please select an account"),
   name: z.string().min(3, "Resource name must be at least 3 characters"),
   type: z.string().min(1, "Please select a resource type"),
   size: z.string().min(1, "Please select a size"),
@@ -30,25 +33,25 @@ const resourceSchema = z.object({
 type ResourceFormValues = z.infer<typeof resourceSchema>;
 
 interface ResourceProvisioningFormProps {
-  accountId: string;
-  provider: CloudProvider;
+  accounts: CloudAccount[];
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
 const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
-  accountId,
-  provider,
+  accounts,
   onSuccess,
   onCancel,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("compute");
+  const [selectedProvider, setSelectedProvider] = useState<CloudProvider>("aws");
   const { toast } = useToast();
   
   const form = useForm<ResourceFormValues>({
     resolver: zodResolver(resourceSchema),
     defaultValues: {
+      accountId: "",
       name: "",
       type: "",
       size: "",
@@ -56,6 +59,17 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       tags: "",
     },
   });
+
+  // Update provider when account changes
+  useEffect(() => {
+    const accountId = form.watch("accountId");
+    if (accountId) {
+      const account = accounts.find(acc => acc.id === accountId);
+      if (account) {
+        setSelectedProvider(account.provider);
+      }
+    }
+  }, [form.watch("accountId"), accounts]);
 
   const handleSubmit = async (data: ResourceFormValues) => {
     setIsSubmitting(true);
@@ -80,8 +94,10 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         tags: tagsObj,
       };
       
+      console.log(`Provisioning resource on account ${data.accountId}`);
+      
       // Call the provisioning API
-      const result = await provisionResource(accountId, data.type, resourceConfig);
+      const result = await provisionResource(data.accountId, data.type, resourceConfig);
       
       if (result.success) {
         toast({
@@ -111,96 +127,115 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
     }
   };
 
+  // Show message if no accounts available
+  if (accounts.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Provision New Resource</CardTitle>
+          <CardDescription>
+            You need to connect a cloud provider account first
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center py-8 text-muted-foreground">
+            Please connect a cloud provider account to provision resources
+          </p>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={onCancel} className="w-full">Close</Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Provision New Resource</CardTitle>
-        <CardDescription>
-          Create and deploy a new {provider.toUpperCase()} cloud resource
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-4 mb-6">
-            <TabsTrigger value="compute">Compute</TabsTrigger>
-            <TabsTrigger value="storage">Storage</TabsTrigger>
-            <TabsTrigger value="database">Database</TabsTrigger>
-            <TabsTrigger value="network">Network</TabsTrigger>
-          </TabsList>
-          
-          {["compute", "storage", "database", "network"].map((category) => (
-            <TabsContent key={category} value={category}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <ResourceNameField 
-                      value={form.watch("name")} 
-                      onChange={(e) => form.setValue("name", e.target.value)}
-                      error={form.formState.errors.name?.message}
-                    />
-                    
-                    <ResourceTypeSelector
-                      provider={provider}
-                      category={category}
-                      value={form.watch("type")}
-                      onChange={(value) => form.setValue("type", value)}
-                      error={form.formState.errors.type?.message}
-                    />
-                  </div>
+    <div className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-4 mb-6">
+          <TabsTrigger value="compute">Compute</TabsTrigger>
+          <TabsTrigger value="storage">Storage</TabsTrigger>
+          <TabsTrigger value="database">Database</TabsTrigger>
+          <TabsTrigger value="network">Network</TabsTrigger>
+        </TabsList>
+        
+        {["compute", "storage", "database", "network"].map((category) => (
+          <TabsContent key={category} value={category}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+              <div className="space-y-4">
+                <AccountSelector
+                  accounts={accounts}
+                  value={form.watch("accountId")}
+                  onChange={(value) => form.setValue("accountId", value)}
+                  error={form.formState.errors.accountId?.message}
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <ResourceNameField 
+                    value={form.watch("name")} 
+                    onChange={(e) => form.setValue("name", e.target.value)}
+                    error={form.formState.errors.name?.message}
+                  />
                   
-                  <div className="grid grid-cols-2 gap-4">
-                    <SizeSelector
-                      provider={provider}
-                      resourceType={form.watch("type")}
-                      value={form.watch("size")}
-                      onChange={(value) => form.setValue("size", value)}
-                      error={form.formState.errors.size?.message}
-                    />
-                    
-                    <RegionSelector
-                      provider={provider}
-                      value={form.watch("region")}
-                      onChange={(value) => form.setValue("region", value)}
-                      error={form.formState.errors.region?.message}
-                    />
-                  </div>
-                  
-                  <TagsField
-                    value={form.watch("tags") || ""}
-                    onChange={(e) => form.setValue("tags", e.target.value)}
+                  <ResourceTypeSelector
+                    provider={selectedProvider}
+                    category={category}
+                    value={form.watch("type")}
+                    onChange={(value) => form.setValue("type", value)}
+                    error={form.formState.errors.type?.message}
                   />
                 </div>
                 
-                <CardFooter className="px-0 pt-4">
-                  <div className="flex justify-between w-full">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={onCancel}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Provisioning...
-                        </>
-                      ) : (
-                        "Provision Resource"
-                      )}
-                    </Button>
-                  </div>
-                </CardFooter>
-              </form>
-            </TabsContent>
-          ))}
-        </Tabs>
-      </CardContent>
-    </Card>
+                <div className="grid grid-cols-2 gap-4">
+                  <SizeSelector
+                    provider={selectedProvider}
+                    resourceType={form.watch("type")}
+                    value={form.watch("size")}
+                    onChange={(value) => form.setValue("size", value)}
+                    error={form.formState.errors.size?.message}
+                  />
+                  
+                  <RegionSelector
+                    provider={selectedProvider}
+                    value={form.watch("region")}
+                    onChange={(value) => form.setValue("region", value)}
+                    error={form.formState.errors.region?.message}
+                  />
+                </div>
+                
+                <TagsField
+                  value={form.watch("tags") || ""}
+                  onChange={(e) => form.setValue("tags", e.target.value)}
+                />
+              </div>
+              
+              <div className="flex justify-between pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={onCancel}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Provisioning...
+                    </>
+                  ) : (
+                    "Provision Resource"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
   );
 };
 
