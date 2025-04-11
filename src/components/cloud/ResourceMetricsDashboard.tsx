@@ -27,8 +27,8 @@ const ResourceMetricsDashboard: React.FC<ResourceMetricsDashboardProps> = ({
   const fetchMetrics = async () => {
     setIsLoading(true);
     try {
-      // Fixed function call with just one argument
-      const metricsData = await getResourceMetrics(resourceId);
+      // Call getResourceMetrics with resourceId and timeRange
+      const metricsData = await getResourceMetrics(resourceId, timeRange);
       setMetrics(metricsData);
     } catch (error) {
       console.error("Failed to fetch metrics:", error);
