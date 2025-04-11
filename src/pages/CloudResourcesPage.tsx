@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,7 +27,7 @@ import {
 
 const CloudResourcesPage: React.FC = () => {
   // Use our custom hooks
-  const { resources, accounts, loading, fetchResources } = useCloudResources();
+  const { resources, accounts, loading, fetchResources, syncResources } = useCloudResources();
   const {
     filters,
     filteredResources,
@@ -49,8 +50,9 @@ const CloudResourcesPage: React.FC = () => {
     fetchResourceMetrics
   } = useResourceDetails();
   
-  // State for connection errors
+  // State for connection errors and syncing
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   // Effect to log accounts whenever they change
   useEffect(() => {
@@ -102,6 +104,13 @@ const CloudResourcesPage: React.FC = () => {
     fetchResources();
   };
 
+  // Handle syncing resources for an account
+  const handleSyncResources = async (accountId: string) => {
+    setSyncing(true);
+    await syncResources(accountId);
+    setSyncing(false);
+  };
+
   return (
     <SidebarWithProvider>
       <div className="flex flex-col min-h-screen">
@@ -136,6 +145,8 @@ const CloudResourcesPage: React.FC = () => {
           <ConnectedAccounts 
             accounts={accounts} 
             onOpenConnectDialog={() => setConnectDialogOpen(true)} 
+            onSyncResources={handleSyncResources}
+            syncing={syncing}
           />
 
           {/* Main Tabs for Cloud Resources Features */}

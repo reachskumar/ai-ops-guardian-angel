@@ -68,6 +68,7 @@ export const getCloudAccounts = async (): Promise<CloudAccount[]> => {
     }
     
     // If no data from mock database, return our in-memory accounts
+    console.log("Returning in-memory accounts:", mockAccounts);
     return mockAccounts;
   } catch (error) {
     console.error("Get cloud accounts error:", error);

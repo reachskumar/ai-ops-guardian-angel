@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   getCloudAccounts,
   getCloudResources,
   CloudResource,
-  CloudAccount
+  CloudAccount,
+  syncCloudResources
 } from '@/services/cloud';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,7 +18,7 @@ export const useCloudResources = () => {
   const { toast } = useToast();
 
   // Fetch resources and accounts
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async () => {
     setLoading(true);
     try {
       console.log("Fetching cloud accounts...");
@@ -39,11 +40,44 @@ export const useCloudResources = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Sync cloud resources for a specific account
+  const syncResources = useCallback(async (accountId: string) => {
+    setLoading(true);
+    try {
+      console.log(`Syncing resources for account: ${accountId}`);
+      const result = await syncCloudResources(accountId);
+      
+      if (result.success) {
+        toast({
+          title: "Resources Synced",
+          description: "Cloud resources have been synchronized"
+        });
+        // Refresh the resources after sync
+        fetchResources();
+      } else {
+        toast({
+          title: "Sync Failed",
+          description: result.error || "Failed to sync cloud resources",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error syncing cloud resources:", error);
+      toast({
+        title: "Sync Failed",
+        description: "An error occurred while syncing resources",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast, fetchResources]);
 
   useEffect(() => {
     fetchResources();
-  }, []);
+  }, [fetchResources]);
 
-  return { resources, accounts, loading, fetchResources };
+  return { resources, accounts, loading, fetchResources, syncResources };
 };
