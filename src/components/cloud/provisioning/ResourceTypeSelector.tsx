@@ -19,7 +19,7 @@ const ResourceTypeSelector: React.FC<ResourceTypeSelectorProps> = ({
   onChange,
   error,
 }) => {
-  // Resource options based on provider and type
+  // Resource options based on provider and type with standardized naming
   const getResourceTypes = (provider: CloudProvider, category: string) => {
     switch (provider) {
       case "aws":
@@ -45,6 +45,8 @@ const ResourceTypeSelector: React.FC<ResourceTypeSelectorProps> = ({
     }
   };
 
+  const resourceTypes = getResourceTypes(provider, category);
+
   return (
     <div className="space-y-2">
       <Label htmlFor="type">Resource Type</Label>
@@ -53,11 +55,15 @@ const ResourceTypeSelector: React.FC<ResourceTypeSelectorProps> = ({
           <SelectValue placeholder="Select resource type" />
         </SelectTrigger>
         <SelectContent>
-          {getResourceTypes(provider, category).map((type) => (
-            <SelectItem key={type} value={type}>
-              {type}
-            </SelectItem>
-          ))}
+          {resourceTypes.length > 0 ? (
+            resourceTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem value="none" disabled>No resource types available</SelectItem>
+          )}
         </SelectContent>
       </Select>
       {error && <p className="text-sm text-red-500">{error}</p>}

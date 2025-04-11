@@ -75,6 +75,11 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       const account = accounts.find(acc => acc.id === accountId);
       if (account) {
         setSelectedProvider(account.provider);
+        
+        // Reset type, size, and region when provider changes
+        form.setValue("type", "");
+        form.setValue("size", "");
+        form.setValue("region", "");
       }
     }
   }, [form.watch("accountId"), accounts]);
@@ -109,6 +114,10 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       
       // Get account credentials
       const credentials = getAccountCredentials(data.accountId);
+      
+      if (!credentials && selectedProvider === 'gcp') {
+        throw new Error("No GCP credentials found for this account. Please verify your account configuration.");
+      }
       
       // Call the provisioning API with credentials
       const result = await provisionResource(data.accountId, data.type, resourceConfig, credentials);
@@ -168,6 +177,11 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
     );
   }
 
+  // Filter accounts to only show those with the provider we support
+  const availableAccounts = accounts.filter(account => 
+    ['aws', 'azure', 'gcp'].includes(account.provider)
+  );
+
   return (
     <div className="w-full">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -193,7 +207,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
               
               <div className="space-y-4">
                 <AccountSelector
-                  accounts={accounts}
+                  accounts={availableAccounts}
                   value={form.watch("accountId")}
                   onChange={(value) => form.setValue("accountId", value)}
                   error={form.formState.errors.accountId?.message}
@@ -248,7 +262,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !form.formState.isValid}
                 >
                   {isSubmitting ? (
                     <>
