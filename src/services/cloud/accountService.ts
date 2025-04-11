@@ -5,6 +5,7 @@ import { mockSelect } from "../mockDatabaseService";
 
 // Use localStorage to persist accounts between sessions
 const STORAGE_KEY = 'cloud_accounts';
+const CREDENTIALS_STORAGE_KEY = 'cloud_account_credentials';
 
 // Helper to load accounts from localStorage
 const loadAccountsFromStorage = (): CloudAccount[] => {
@@ -23,6 +24,38 @@ const saveAccountsToStorage = (accounts: CloudAccount[]): void => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
   } catch (error) {
     console.error("Error saving accounts to localStorage:", error);
+  }
+};
+
+// Helper to securely store credentials (in a real app, this would use a more secure method)
+const storeCredentials = (accountId: string, credentials: Record<string, string>): void => {
+  try {
+    // Get existing credentials
+    const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
+    const allCredentials = storedCredentials ? JSON.parse(storedCredentials) : {};
+    
+    // Update with new credentials
+    allCredentials[accountId] = credentials;
+    
+    // Store back
+    localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(allCredentials));
+    console.log(`Stored credentials for account ${accountId}`);
+  } catch (error) {
+    console.error("Error storing credentials:", error);
+  }
+};
+
+// Helper to retrieve credentials
+const getCredentials = (accountId: string): Record<string, string> | null => {
+  try {
+    const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
+    if (!storedCredentials) return null;
+    
+    const allCredentials = JSON.parse(storedCredentials);
+    return allCredentials[accountId] || null;
+  } catch (error) {
+    console.error("Error retrieving credentials:", error);
+    return null;
   }
 };
 
@@ -52,6 +85,9 @@ export const connectCloudProvider = async (
         created_at: new Date().toISOString(),
         last_synced_at: new Date().toISOString()
       };
+      
+      // Store the credentials securely
+      storeCredentials(data.accountId, credentials);
       
       // Add to mock accounts
       mockAccounts.push(newAccount);
@@ -147,6 +183,9 @@ export const syncCloudResources = async (
 
     console.log(`Starting sync for account ${accountId} (${account.provider})`);
     
+    // Get the credentials for this account
+    const credentials = getCredentials(accountId);
+    
     // For demo/testing purposes, update the last_synced_at timestamp locally
     // This allows us to continue even if the Edge Function call fails
     const accountIndex = mockAccounts.findIndex(a => a.id === accountId);
@@ -155,12 +194,13 @@ export const syncCloudResources = async (
       saveAccountsToStorage(mockAccounts);
     }
     
-    // Call the edge function with account provider information
+    // Call the edge function with account provider information and credentials
     try {
       const { data, error } = await supabase.functions.invoke('sync-cloud-resources', {
         body: { 
           accountId, 
-          provider: account.provider // Include provider info for the edge function
+          provider: account.provider,
+          credentials // Pass the credentials to the edge function
         }
       });
 
@@ -173,6 +213,29 @@ export const syncCloudResources = async (
       }
       
       console.log("Sync response:", data);
+      
+      // If we got resources back, store them locally
+      if (data?.resources && Array.isArray(data.resources)) {
+        // Update local storage with new resources
+        const RESOURCES_STORAGE_KEY = 'cloud_resources';
+        try {
+          // Get existing resources
+          const storedResources = localStorage.getItem(RESOURCES_STORAGE_KEY);
+          const existingResources = storedResources ? JSON.parse(storedResources) : [];
+          
+          // Filter out resources for this account
+          const otherResources = existingResources.filter((r: any) => r.cloud_account_id !== accountId);
+          
+          // Combine with new resources
+          const updatedResources = [...otherResources, ...data.resources];
+          
+          // Save back to storage
+          localStorage.setItem(RESOURCES_STORAGE_KEY, JSON.stringify(updatedResources));
+          console.log(`Updated resources in localStorage, now have ${updatedResources.length} resources`);
+        } catch (storageError) {
+          console.error("Error updating resources in localStorage:", storageError);
+        }
+      }
       
       return { 
         success: data?.success || true, 
@@ -190,4 +253,9 @@ export const syncCloudResources = async (
     console.error("Sync cloud resources error:", error);
     return { success: false, error: error.message || 'Failed to sync cloud resources' };
   }
+};
+
+// Get the stored credentials for an account
+export const getAccountCredentials = (accountId: string): Record<string, string> | null => {
+  return getCredentials(accountId);
 };

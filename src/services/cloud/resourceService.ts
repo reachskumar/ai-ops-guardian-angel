@@ -1,6 +1,8 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, CloudProvider, ResourceMetric } from "./types";
 import { mockSelect } from "../mockDatabaseService";
+import { getAccountCredentials } from "./accountService";
 
 // Storage for locally created/fetched resources
 const RESOURCES_STORAGE_KEY = 'cloud_resources';
@@ -272,130 +274,143 @@ export const getResourceMetrics = async (
   try {
     console.log(`Fetching metrics for resource ${resourceId} with timeRange ${timeRange || 'default'}`);
     
-    // Check if this is a mock resource
-    const mockResource = mockResources.find(r => r.id === resourceId);
-    if (mockResource) {
-      // Generate different mock metrics based on resource type
-      let cpuUtilization = 0;
-      let memoryUtilization = 0;
+    // Find the resource to get its account ID
+    let resource: CloudResource | undefined;
+    
+    // Check if this is in our mock resources
+    resource = mockResources.find(r => r.id === resourceId);
+    
+    if (!resource) {
+      // Try to load from localStorage in case it was added since last load
+      const freshResources = loadResourcesFromStorage();
+      resource = freshResources.find(r => r.id === resourceId);
       
-      // Adjust mock metrics based on resource status
-      if (mockResource.status === 'running') {
-        cpuUtilization = Math.floor(Math.random() * 80) + 10; // 10-90%
-        memoryUtilization = Math.floor(Math.random() * 70) + 20; // 20-90%
-      } else {
-        cpuUtilization = 0;
-        memoryUtilization = 0;
+      if (resource) {
+        // Update our in-memory resources
+        mockResources = freshResources;
       }
-      
-      // For VMs, provide more realistic metrics
-      if (mockResource.type === 'VM') {
-        const cpuMetric: ResourceMetric = {
-          name: 'cpu',
-          data: Array(24).fill(0).map((_, i) => ({
-            timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-            value: mockResource.status === 'running' ? 
-              Math.max(5, Math.min(95, cpuUtilization + (Math.random() * 20 - 10))) : 0
-          })),
-          unit: '%',
-          status: cpuUtilization > 80 ? 'warning' : 'normal'
-        };
-        
-        const memoryMetric: ResourceMetric = {
-          name: 'memory',
-          data: Array(24).fill(0).map((_, i) => ({
-            timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-            value: mockResource.status === 'running' ? 
-              Math.max(10, Math.min(95, memoryUtilization + (Math.random() * 15 - 7.5))) : 0
-          })),
-          unit: '%',
-          status: memoryUtilization > 85 ? 'warning' : 'normal'
-        };
-        
-        const networkMetric: ResourceMetric = {
-          name: 'network',
-          data: Array(24).fill(0).map((_, i) => ({
-            timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-            value: mockResource.status === 'running' ? Math.floor(Math.random() * 100) : 0
-          })),
-          unit: 'Mbps',
-          status: 'normal'
-        };
-        
-        const diskMetric: ResourceMetric = {
-          name: 'disk',
-          data: Array(24).fill(0).map((_, i) => ({
-            timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-            value: mockResource.status === 'running' ? Math.floor(Math.random() * 500) : 0
-          })),
-          unit: 'IOPS',
-          status: 'normal'
-        };
-        
-        return [cpuMetric, memoryMetric, networkMetric, diskMetric];
-      }
-      
-      // Default metrics for other resource types
-      const cpuMetric: ResourceMetric = {
-        name: 'cpu',
-        data: Array(24).fill(0).map((_, i) => ({
-          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-          value: Math.floor(Math.random() * 100)
-        })),
-        unit: '%',
-        status: 'normal'
-      };
-      
-      const memoryMetric: ResourceMetric = {
-        name: 'memory',
-        data: Array(24).fill(0).map((_, i) => ({
-          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-          value: Math.floor(Math.random() * 100)
-        })),
-        unit: '%',
-        status: 'normal'
-      };
-      
-      return [cpuMetric, memoryMetric];
     }
     
-    // Try to get real metrics from the edge function
-    try {
-      const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
-        body: { resourceId, timeRange }
-      });
+    if (resource) {
+      const accountId = resource.cloud_account_id;
+      // Get the credentials for this account
+      const credentials = getAccountCredentials(accountId);
+      
+      // Try to get real metrics from the edge function with credentials
+      try {
+        const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
+          body: { 
+            resourceId, 
+            timeRange, 
+            accountId,
+            credentials 
+          }
+        });
 
-      if (error) throw error;
-      return data || [];
-    } catch (edgeError) {
-      console.warn("Edge function error getting metrics, returning mock data:", edgeError);
-      // Fall back to mock metrics with proper structure
-      const cpuMetric: ResourceMetric = {
-        name: 'cpu',
-        data: Array(24).fill(0).map((_, i) => ({
-          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-          value: Math.floor(Math.random() * 100)
-        })),
-        unit: '%',
-        status: 'normal'
-      };
-      
-      const memoryMetric: ResourceMetric = {
-        name: 'memory',
-        data: Array(24).fill(0).map((_, i) => ({
-          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-          value: Math.floor(Math.random() * 100)
-        })),
-        unit: '%',
-        status: 'normal'
-      };
-      
-      return [cpuMetric, memoryMetric];
+        if (error) throw error;
+        return data || [];
+      } catch (edgeError) {
+        console.warn("Edge function error getting metrics, falling back to mock data:", edgeError);
+        return generateMockMetricsForResource(resource, timeRange);
+      }
+    } else {
+      // If resource not found, generate basic mock metrics
+      return generateMockMetrics(timeRange);
     }
   } catch (error) {
     console.error("Get resource metrics error:", error);
-    return [];
+    return generateMockMetrics(timeRange);
   }
+};
+
+// Generate mock metrics based on resource type and status
+const generateMockMetricsForResource = (resource: CloudResource, timeRange?: string): ResourceMetric[] => {
+  let cpuUtilization = 0;
+  let memoryUtilization = 0;
+  
+  // Adjust mock metrics based on resource status
+  if (resource.status === 'running') {
+    cpuUtilization = Math.floor(Math.random() * 80) + 10; // 10-90%
+    memoryUtilization = Math.floor(Math.random() * 70) + 20; // 20-90%
+  } else {
+    cpuUtilization = 0;
+    memoryUtilization = 0;
+  }
+  
+  // For VMs, provide more realistic metrics
+  if (resource.type === 'VM') {
+    const cpuMetric: ResourceMetric = {
+      name: 'cpu',
+      data: Array(24).fill(0).map((_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        value: resource.status === 'running' ? 
+          Math.max(5, Math.min(95, cpuUtilization + (Math.random() * 20 - 10))) : 0
+      })),
+      unit: '%',
+      status: cpuUtilization > 80 ? 'warning' : 'normal'
+    };
+    
+    const memoryMetric: ResourceMetric = {
+      name: 'memory',
+      data: Array(24).fill(0).map((_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        value: resource.status === 'running' ? 
+          Math.max(10, Math.min(95, memoryUtilization + (Math.random() * 15 - 7.5))) : 0
+      })),
+      unit: '%',
+      status: memoryUtilization > 85 ? 'warning' : 'normal'
+    };
+    
+    const networkMetric: ResourceMetric = {
+      name: 'network',
+      data: Array(24).fill(0).map((_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        value: resource.status === 'running' ? Math.floor(Math.random() * 100) : 0
+      })),
+      unit: 'Mbps',
+      status: 'normal'
+    };
+    
+    const diskMetric: ResourceMetric = {
+      name: 'disk',
+      data: Array(24).fill(0).map((_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        value: resource.status === 'running' ? Math.floor(Math.random() * 500) : 0
+      })),
+      unit: 'IOPS',
+      status: 'normal'
+    };
+    
+    return [cpuMetric, memoryMetric, networkMetric, diskMetric];
+  }
+  
+  // Default metrics for other resource types
+  return generateMockMetrics(timeRange);
+};
+
+// Generate generic mock metrics
+const generateMockMetrics = (timeRange?: string): ResourceMetric[] => {
+  const cpuMetric: ResourceMetric = {
+    name: 'cpu',
+    data: Array(24).fill(0).map((_, i) => ({
+      timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+      value: Math.floor(Math.random() * 100)
+    })),
+    unit: '%',
+    status: 'normal'
+  };
+  
+  const memoryMetric: ResourceMetric = {
+    name: 'memory',
+    data: Array(24).fill(0).map((_, i) => ({
+      timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+      value: Math.floor(Math.random() * 100)
+    })),
+    unit: '%',
+    status: 'normal'
+  };
+  
+  return [cpuMetric, memoryMetric];
 };
 
 // Update a cloud resource (e.g., start/stop instance)

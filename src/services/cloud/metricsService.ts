@@ -1,6 +1,7 @@
 
 import { ResourceMetric } from "./types";
 import { supabase } from "@/integrations/supabase/client";
+import { getAccountCredentials } from "./accountService";
 
 // Get resource metrics from the edge function
 export const getResourceMetrics = async (
@@ -10,8 +11,34 @@ export const getResourceMetrics = async (
   try {
     console.log(`Fetching metrics for resource ${resourceId} with timeRange ${timeRange || 'default'}`);
     
+    // Find which account this resource belongs to
+    // For simplicity, we're using a naming convention: gcp-vm-{vmId}
+    // In a real app, you'd look this up from a database
+    let accountId = null;
+    
+    // If it's a GCP resource, extract the account ID
+    if (resourceId.startsWith('gcp-')) {
+      try {
+        const resources = JSON.parse(localStorage.getItem('cloud_resources') || '[]');
+        const resource = resources.find((r: any) => r.id === resourceId);
+        if (resource) {
+          accountId = resource.cloud_account_id;
+        }
+      } catch (e) {
+        console.error("Error looking up resource account:", e);
+      }
+    }
+    
+    // Get credentials if we have an account ID
+    const credentials = accountId ? getAccountCredentials(accountId) : null;
+    
     const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
-      body: { resourceId, timeRange }
+      body: { 
+        resourceId, 
+        timeRange,
+        accountId,
+        credentials 
+      }
     });
 
     if (error) {
