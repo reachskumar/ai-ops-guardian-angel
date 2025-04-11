@@ -24,7 +24,12 @@ serve(async (req) => {
     const { provider, credentials, name } = await req.json();
     
     console.log(`Connecting to ${provider} provider with name: ${name}`);
-    console.log("Received credentials:", JSON.stringify(credentials));
+    console.log("Received credentials:", JSON.stringify({
+      ...credentials,
+      secretAccessKey: credentials.secretAccessKey ? "***" : undefined,
+      clientSecret: credentials.clientSecret ? "***" : undefined,
+      serviceAccountKey: credentials.serviceAccountKey ? "[REDACTED]" : undefined
+    }));
     
     // Basic validation
     if (!provider || !credentials || !name) {
@@ -60,24 +65,20 @@ serve(async (req) => {
         break;
         
       case 'gcp':
-        console.log("Validating GCP credentials:", JSON.stringify(credentials));
+        console.log("Validating GCP credentials");
+        console.log("Project ID:", credentials.projectId);
+        console.log("Service Account Key present:", !!credentials.serviceAccountKey);
         
-        // Accept multiple possible field names for GCP credentials
-        const projectId = credentials.projectId || credentials.gcpProjectId;
-        const serviceAccountKey = credentials.serviceAccountKey || credentials.gcpServiceAccountKey;
-        
-        console.log("Extracted GCP credentials:", { projectId, serviceAccountKey: !!serviceAccountKey });
-        
-        if (projectId && serviceAccountKey) {
+        if (credentials.projectId && credentials.serviceAccountKey) {
           validCredentials = true;
-          console.log("GCP credentials are valid");
+          console.log("GCP credentials validation passed");
           
           // TODO: Test GCP connection (simplified for this demo)
           testConnection = true;
         } else {
           console.error("GCP credentials validation failed:", { 
-            hasProjectId: !!projectId, 
-            hasServiceAccountKey: !!serviceAccountKey 
+            hasProjectId: !!credentials.projectId, 
+            hasServiceAccountKey: !!credentials.serviceAccountKey 
           });
         }
         break;

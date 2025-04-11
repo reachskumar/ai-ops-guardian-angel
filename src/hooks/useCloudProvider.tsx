@@ -20,7 +20,15 @@ export const useCloudProvider = (onSuccess?: () => void) => {
   const handleConnectProvider = async (data: z.infer<typeof formSchema>) => {
     setConnecting(true);
     console.log("Connecting provider:", data.provider);
-    console.log("Credentials:", data.credentials);
+    console.log("Credentials object:", data.credentials);
+    
+    // Log fields without showing sensitive values
+    const safeCredentials = { ...data.credentials };
+    if (safeCredentials.secretAccessKey) safeCredentials.secretAccessKey = "***";
+    if (safeCredentials.clientSecret) safeCredentials.clientSecret = "***";
+    if (safeCredentials.serviceAccountKey) safeCredentials.serviceAccountKey = "[REDACTED]";
+    
+    console.log("Filtered credentials:", safeCredentials);
     
     try {
       const result = await connectCloudProvider(

@@ -61,10 +61,14 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
       credentials: {}
     }
   });
+  
+  // State to track the current credentials
+  const [credentialValues, setCredentialValues] = useState<Record<string, string>>({});
 
   // Reset the form when the provider changes
   const watchProvider = form.watch('provider');
   useEffect(() => {
+    setCredentialValues({});
     form.setValue('credentials', {});
   }, [watchProvider, form]);
 
@@ -94,14 +98,22 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     console.log('Form submitted with values:', values);
-    onConnectProvider(values);
+    // Ensure the credentials from our state are included in the form submission
+    const formValues = {
+      ...values,
+      credentials: credentialValues
+    };
+    onConnectProvider(formValues);
   };
 
-  const updateCredentialField = (name: string, value: string) => {
-    const currentCreds = form.getValues('credentials');
-    form.setValue('credentials', {
-      ...currentCreds,
-      [name]: value
+  // Handle credential field changes
+  const handleCredentialChange = (name: string, value: string) => {
+    console.log(`Updating credential field ${name} with value:`, value);
+    setCredentialValues((prev) => {
+      const updated = { ...prev, [name]: value };
+      // Also update the form value
+      form.setValue('credentials', updated);
+      return updated;
     });
   };
 
@@ -171,15 +183,15 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
                     <Textarea 
                       placeholder={field.label}
                       className="min-h-[100px]"
-                      value={form.getValues('credentials')[field.name] || ''}
-                      onChange={(e) => updateCredentialField(field.name, e.target.value)}
+                      value={credentialValues[field.name] || ''}
+                      onChange={(e) => handleCredentialChange(field.name, e.target.value)}
                     />
                   ) : (
                     <Input 
                       type={field.type}
                       placeholder={field.label}
-                      value={form.getValues('credentials')[field.name] || ''}
-                      onChange={(e) => updateCredentialField(field.name, e.target.value)}
+                      value={credentialValues[field.name] || ''}
+                      onChange={(e) => handleCredentialChange(field.name, e.target.value)}
                     />
                   )}
                 </FormControl>
