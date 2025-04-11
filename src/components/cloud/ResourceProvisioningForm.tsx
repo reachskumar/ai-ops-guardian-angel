@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Info } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getAccountCredentials } from "@/services/cloud/accountService";
 
@@ -182,6 +182,12 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
     ['aws', 'azure', 'gcp'].includes(account.provider)
   );
 
+  // Helper function to check if an account has credentials for GCP
+  const hasGcpCredentials = (accountId: string) => {
+    const credentials = getAccountCredentials(accountId);
+    return !!credentials?.serviceAccountKey;
+  };
+
   return (
     <div className="w-full">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -212,6 +218,17 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                   onChange={(value) => form.setValue("accountId", value)}
                   error={form.formState.errors.accountId?.message}
                 />
+                
+                {selectedProvider === 'gcp' && form.watch("accountId") && !hasGcpCredentials(form.watch("accountId")) && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>GCP Credentials Required</AlertTitle>
+                    <AlertDescription>
+                      This account needs a GCP service account key for provisioning. 
+                      Please ensure you've uploaded a valid service account key during account setup.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 
                 <div className="grid grid-cols-2 gap-4">
                   <ResourceNameField 

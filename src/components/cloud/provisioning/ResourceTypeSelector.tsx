@@ -51,7 +51,7 @@ const ResourceTypeSelector: React.FC<ResourceTypeSelectorProps> = ({
     <div className="space-y-2">
       <Label htmlFor="type">Resource Type</Label>
       <Select onValueChange={onChange} value={value}>
-        <SelectTrigger>
+        <SelectTrigger id="type">
           <SelectValue placeholder="Select resource type" />
         </SelectTrigger>
         <SelectContent>

@@ -134,6 +134,7 @@ serve(async (req) => {
           throw new Error("Invalid service account key format: must be valid JSON");
         }
         
+        // Validate service account key has required fields
         if (!serviceAccountKey.project_id || !serviceAccountKey.private_key) {
           throw new Error("Invalid service account key: missing required fields");
         }
