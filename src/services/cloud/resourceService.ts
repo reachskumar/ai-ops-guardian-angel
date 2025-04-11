@@ -172,16 +172,30 @@ export const getResourceDetails = async (
     }
     
     // If not found in mock resources, try edge function
-    const { data, error } = await supabase.functions.invoke('get-resource-details', {
-      body: { resourceId }
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('get-resource-details', {
+        body: { resourceId }
+      });
 
-    if (error) throw error;
+      if (error) {
+        return { 
+          resource: null, 
+          metrics: [],
+          error: `Edge function error: ${error.message}`
+        };
+      }
     
-    return { 
-      resource: data.resource, 
-      metrics: data.metrics
-    };
+      return { 
+        resource: data.resource, 
+        metrics: data.metrics
+      };
+    } catch (edgeError: any) {
+      return {
+        resource: null,
+        metrics: [],
+        error: `Edge function unavailable: ${edgeError.message}`
+      };
+    }
   } catch (error: any) {
     console.error("Get resource details error:", error);
     return { 
@@ -189,6 +203,49 @@ export const getResourceDetails = async (
       metrics: [],
       error: error.message || 'Failed to get resource details' 
     };
+  }
+};
+
+// Get resource metrics
+export const getResourceMetrics = async (
+  resourceId: string
+): Promise<ResourceMetric[]> => {
+  try {
+    // Check if this is a mock resource
+    const mockResource = mockResources.find(r => r.id === resourceId);
+    if (mockResource) {
+      // Generate mock metrics for the last 24 hours
+      return Array(24).fill(0).map((_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        resource_id: resourceId,
+        metric_name: 'cpu',
+        metric_value: Math.floor(Math.random() * 100),
+        unit: '%'
+      }));
+    }
+    
+    // Try to get real metrics from the edge function
+    try {
+      const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
+        body: { resourceId }
+      });
+
+      if (error) throw error;
+      return data || [];
+    } catch (edgeError) {
+      console.warn("Edge function error getting metrics, returning mock data:", edgeError);
+      // Fall back to mock metrics
+      return Array(24).fill(0).map((_, i) => ({
+        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+        resource_id: resourceId,
+        metric_name: 'cpu',
+        metric_value: Math.floor(Math.random() * 100),
+        unit: '%'
+      }));
+    }
+  } catch (error) {
+    console.error("Get resource metrics error:", error);
+    return [];
   }
 };
 
@@ -237,16 +294,28 @@ export const updateResource = async (
     }
     
     // Fall back to edge function
-    const { data, error } = await supabase.functions.invoke('update-resource', {
-      body: { resourceId, action, params }
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('update-resource', {
+        body: { resourceId, action, params }
+      });
 
-    if (error) throw error;
+      if (error) {
+        return {
+          success: false,
+          error: `Edge function error: ${error.message}`
+        };
+      }
     
-    return { 
-      success: data.success, 
-      error: data.error
-    };
+      return { 
+        success: data?.success || false, 
+        error: data?.error
+      };
+    } catch (edgeError: any) {
+      return {
+        success: false,
+        error: `Edge function unavailable: ${edgeError.message}`
+      };
+    }
   } catch (error: any) {
     console.error("Update resource error:", error);
     return { success: false, error: error.message || 'Failed to update resource' };
@@ -267,16 +336,28 @@ export const deleteResource = async (
     }
     
     // Fall back to edge function
-    const { data, error } = await supabase.functions.invoke('delete-resource', {
-      body: { resourceId }
-    });
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-resource', {
+        body: { resourceId }
+      });
 
-    if (error) throw error;
+      if (error) {
+        return {
+          success: false,
+          error: `Edge function error: ${error.message}`
+        };
+      }
     
-    return { 
-      success: data.success, 
-      error: data.error
-    };
+      return { 
+        success: data?.success || false, 
+        error: data?.error
+      };
+    } catch (edgeError: any) {
+      return {
+        success: false,
+        error: `Edge function unavailable: ${edgeError.message}`
+      };
+    }
   } catch (error: any) {
     console.error("Delete resource error:", error);
     return { success: false, error: error.message || 'Failed to delete resource' };
