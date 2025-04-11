@@ -2,7 +2,6 @@
 // Get Resource Metrics Edge Function
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { Monitoring } from "https://cdn.jsdelivr.net/npm/@google-cloud/monitoring@3.1.1/+esm";
 
 const handleError = (error: any, message: string) => {
   console.error(message, error);
@@ -40,17 +39,11 @@ serve(async (req) => {
           throw new Error("Invalid service account key format: must be valid JSON");
         }
 
-        // Initialize the Google Cloud Monitoring client
-        const monitoring = new Monitoring({
-          projectId: credentials.projectId,
-          credentials: serviceAccountKey
-        });
-
-        // Parse the VM name from the resourceId
-        const vmName = resourceId.replace('gcp-vm-', '');
+        console.log("Successfully parsed service account key");
         
-        // For demonstration, we'll return a mix of real metrics if available and 
-        // simulated metrics since not all metrics may be available for all VMs
+        // Instead of using the Google Cloud Monitoring client directly,
+        // we'll generate simulated metrics for now, with realistic values
+        // based on the resourceId, timeRange, and other parameters.
         
         // Get the time range
         const endTime = new Date();
@@ -79,12 +72,22 @@ serve(async (req) => {
           new Date(startTime.getTime() + i * timeIncrement).toISOString()
         );
 
-        // Create simulated metrics data
+        // Extract VM name from resourceId for more targeted simulations
+        const vmName = resourceId.replace('gcp-vm-', '');
+        
+        // Get a deterministic but seemingly random value based on resourceId and timestamp
+        const getResourceValue = (base: number, variance: number, timestamp: string, seed: string) => {
+          // Create a simple hash from the seed and timestamp
+          const hash = [...seed, ...timestamp].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000, 0) / 1000;
+          return Math.floor(base + (hash * variance * 2) - variance);
+        };
+
+        // Create realistic metrics data based on VM name
         const cpuMetric = {
           name: 'cpu',
           data: timePoints.map(timestamp => ({
             timestamp,
-            value: Math.floor(Math.random() * 40) + 20 // Random value between 20-60%
+            value: getResourceValue(40, 20, timestamp, vmName) // Base 40%, variance ±20%
           })),
           unit: '%',
           status: 'normal'
@@ -94,7 +97,7 @@ serve(async (req) => {
           name: 'memory',
           data: timePoints.map(timestamp => ({
             timestamp,
-            value: Math.floor(Math.random() * 30) + 40 // Random value between 40-70%
+            value: getResourceValue(55, 15, timestamp, vmName + '1') // Base 55%, variance ±15%
           })),
           unit: '%',
           status: 'normal'
@@ -104,7 +107,7 @@ serve(async (req) => {
           name: 'disk',
           data: timePoints.map(timestamp => ({
             timestamp,
-            value: Math.floor(Math.random() * 200) + 100 // Random value between 100-300 IOPS
+            value: getResourceValue(200, 100, timestamp, vmName + '2') // Base 200, variance ±100 IOPS
           })),
           unit: 'IOPS',
           status: 'normal'
@@ -114,11 +117,15 @@ serve(async (req) => {
           name: 'network',
           data: timePoints.map(timestamp => ({
             timestamp,
-            value: Math.floor(Math.random() * 50) + 10 // Random value between 10-60 Mbps
+            value: getResourceValue(30, 20, timestamp, vmName + '3') // Base 30, variance ±20 Mbps
           })),
           unit: 'Mbps',
           status: 'normal'
         };
+
+        // Determine status based on highest values
+        cpuMetric.status = Math.max(...cpuMetric.data.map(d => d.value)) > 80 ? 'warning' : 'normal';
+        memoryMetric.status = Math.max(...memoryMetric.data.map(d => d.value)) > 85 ? 'warning' : 'normal';
 
         return new Response(
           JSON.stringify([cpuMetric, memoryMetric, diskMetric, networkMetric]),
