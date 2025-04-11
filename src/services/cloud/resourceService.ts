@@ -214,14 +214,44 @@ export const getResourceMetrics = async (
     // Check if this is a mock resource
     const mockResource = mockResources.find(r => r.id === resourceId);
     if (mockResource) {
-      // Generate mock metrics for the last 24 hours
-      return Array(24).fill(0).map((_, i) => ({
-        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-        resource_id: resourceId,
-        metric_name: 'cpu',
-        metric_value: Math.floor(Math.random() * 100),
+      // Generate mock metrics for the last 24 hours with proper structure matching ResourceMetric interface
+      const cpuMetric: ResourceMetric = {
+        name: 'cpu',
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 100)
+        })),
         unit: '%'
-      }));
+      };
+      
+      const memoryMetric: ResourceMetric = {
+        name: 'memory',
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 100)
+        })),
+        unit: '%'
+      };
+      
+      const diskMetric: ResourceMetric = {
+        name: 'disk',
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 500)
+        })),
+        unit: 'IOPS'
+      };
+      
+      const networkMetric: ResourceMetric = {
+        name: 'network',
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 100)
+        })),
+        unit: 'Mbps'
+      };
+      
+      return [cpuMetric, memoryMetric, diskMetric, networkMetric];
     }
     
     // Try to get real metrics from the edge function
@@ -234,14 +264,28 @@ export const getResourceMetrics = async (
       return data || [];
     } catch (edgeError) {
       console.warn("Edge function error getting metrics, returning mock data:", edgeError);
-      // Fall back to mock metrics
-      return Array(24).fill(0).map((_, i) => ({
-        timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-        resource_id: resourceId,
-        metric_name: 'cpu',
-        metric_value: Math.floor(Math.random() * 100),
-        unit: '%'
-      }));
+      // Fall back to mock metrics with proper structure
+      const cpuMetric: ResourceMetric = {
+        name: 'cpu',
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 100)
+        })),
+        unit: '%',
+        status: 'normal'
+      };
+      
+      const memoryMetric: ResourceMetric = {
+        name: 'memory',
+        data: Array(24).fill(0).map((_, i) => ({
+          timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
+          value: Math.floor(Math.random() * 100)
+        })),
+        unit: '%',
+        status: 'normal'
+      };
+      
+      return [cpuMetric, memoryMetric];
     }
   } catch (error) {
     console.error("Get resource metrics error:", error);
