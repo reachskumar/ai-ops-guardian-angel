@@ -2,6 +2,7 @@
 // Get Resource Metrics Edge Function
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { encode as base64url } from "https://deno.land/std@0.177.0/encoding/base64url.ts";
 
 const handleError = (error: any, message: string) => {
   console.error(message, error);
@@ -76,7 +77,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            assertion: generateJWT(serviceAccountKey)
+            assertion: await generateJWT(serviceAccountKey)
           })
         });
 
@@ -163,35 +164,69 @@ serve(async (req) => {
   }
 });
 
-// Function to generate a signed JWT for GCP authentication
-function generateJWT(serviceAccountKey) {
-  // Implementation of JWT signing for GCP authentication
-  // This is a simplified version - in production, use proper JWT libraries
+// Function to generate a properly signed JWT for GCP authentication
+async function generateJWT(serviceAccountKey) {
+  // Create JWT header
   const header = {
     alg: "RS256",
     typ: "JWT",
     kid: serviceAccountKey.private_key_id
   };
 
+  // Create JWT payload with required claims
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: serviceAccountKey.client_email,
     sub: serviceAccountKey.client_email,
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
-    exp: now + 3600,
+    exp: now + 3600, // Token expires in 1 hour
     scope: "https://www.googleapis.com/auth/cloud-platform"
   };
 
-  const encodedHeader = btoa(JSON.stringify(header)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const encodedPayload = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  // Encode the header and payload
+  const encodeObject = (obj) => base64url(new TextEncoder().encode(JSON.stringify(obj)));
+  const encodedHeader = encodeObject(header);
+  const encodedPayload = encodeObject(payload);
   
-  // In a real implementation, you would use proper RSA signing
-  // For now, we'll use a placeholder value, and this function will need a proper implementation
-  // with crypto libraries for RSA signing
-  const signature = "signature_placeholder";
+  // Create the signing input
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
   
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
+  // Sign the token using the private key from service account
+  const privateKey = serviceAccountKey.private_key;
+  
+  // Convert the PEM private key for use with Deno's crypto
+  const keyData = privateKey
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "");
+  
+  // Import the private key
+  const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey(
+    "pkcs8",
+    binaryKey,
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: "SHA-256"
+    },
+    false,
+    ["sign"]
+  );
+  
+  // Sign the data
+  const textEncoder = new TextEncoder();
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    cryptoKey,
+    textEncoder.encode(signingInput)
+  );
+  
+  // Encode the signature
+  const encodedSignature = base64url(new Uint8Array(signature));
+  
+  // Return the complete JWT
+  return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
 }
 
 // Function to fetch metrics from GCP Monitoring API
