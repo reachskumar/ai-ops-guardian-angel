@@ -225,7 +225,12 @@ serve(async (req) => {
                 name: vm.name,
                 zone: zone,
                 machineType: machineType,
-                project: serviceAccountKey.project_id
+                project: serviceAccountKey.project_id,
+                operation: {
+                  id: operation.id,
+                  name: operation.name,
+                  status: operation.status
+                }
               }
             }),
             { 

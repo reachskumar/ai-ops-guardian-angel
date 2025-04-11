@@ -19,7 +19,8 @@ import {
   SizeSelector,
   RegionSelector,
   TagsField,
-  AccountSelector
+  AccountSelector,
+  GcpCredentialStatus
 } from "./provisioning";
 
 // Define the schema for the form
@@ -49,6 +50,8 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
   const [activeTab, setActiveTab] = useState("compute");
   const [selectedProvider, setSelectedProvider] = useState<CloudProvider>("aws");
   const [provisioningError, setProvisioningError] = useState<string | null>(null);
+  const [gcpCredentialStatus, setGcpCredentialStatus] = useState<'valid' | 'invalid' | 'missing' | 'unknown'>('unknown');
+  const [gcpErrorMessage, setGcpErrorMessage] = useState<string | undefined>(undefined);
   const { toast } = useToast();
   
   const form = useForm<ResourceFormValues>({
@@ -80,9 +83,55 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         form.setValue("type", "");
         form.setValue("size", "");
         form.setValue("region", "");
+        
+        // Check GCP credentials if applicable
+        if (account.provider === 'gcp') {
+          validateGcpCredentials(accountId);
+        } else {
+          setGcpCredentialStatus('unknown');
+          setGcpErrorMessage(undefined);
+        }
       }
     }
   }, [form.watch("accountId"), accounts]);
+
+  // Validate GCP credentials
+  const validateGcpCredentials = (accountId: string) => {
+    try {
+      const credentials = getAccountCredentials(accountId);
+      
+      if (!credentials || !credentials.serviceAccountKey) {
+        setGcpCredentialStatus('missing');
+        return false;
+      }
+      
+      // Validate the service account key format
+      try {
+        const keyData = typeof credentials.serviceAccountKey === 'string' 
+          ? JSON.parse(credentials.serviceAccountKey)
+          : credentials.serviceAccountKey;
+        
+        if (!keyData.project_id || !keyData.private_key) {
+          setGcpCredentialStatus('invalid');
+          setGcpErrorMessage("Invalid service account key: missing required fields (project_id or private_key)");
+          return false;
+        }
+        
+        // Credentials look valid
+        setGcpCredentialStatus('valid');
+        setGcpErrorMessage(undefined);
+        return true;
+      } catch (parseError) {
+        setGcpCredentialStatus('invalid');
+        setGcpErrorMessage("Invalid service account key format. Please ensure it's valid JSON");
+        return false;
+      }
+    } catch (error) {
+      setGcpCredentialStatus('invalid');
+      setGcpErrorMessage("Error validating GCP credentials");
+      return false;
+    }
+  };
 
   const handleSubmit = async (data: ResourceFormValues) => {
     setIsSubmitting(true);
@@ -91,22 +140,9 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
     try {
       // Check if GCP account has credentials first
       if (selectedProvider === 'gcp') {
-        const credentials = getAccountCredentials(data.accountId);
-        if (!credentials || !credentials.serviceAccountKey) {
-          throw new Error("Missing GCP service account key. Please add one in the account settings.");
-        }
-        
-        // Validate the service account key format
-        try {
-          const keyData = typeof credentials.serviceAccountKey === 'string' 
-            ? JSON.parse(credentials.serviceAccountKey)
-            : credentials.serviceAccountKey;
-          
-          if (!keyData.project_id || !keyData.private_key) {
-            throw new Error("Invalid service account key: missing required fields (project_id or private_key)");
-          }
-        } catch (parseError) {
-          throw new Error("Invalid service account key format. Please ensure it's valid JSON");
+        const isValid = validateGcpCredentials(data.accountId);
+        if (!isValid) {
+          throw new Error(gcpErrorMessage || "Missing or invalid GCP service account key");
         }
       }
       
@@ -236,15 +272,13 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                   error={form.formState.errors.accountId?.message}
                 />
                 
-                {selectedProvider === 'gcp' && form.watch("accountId") && !hasGcpCredentials(form.watch("accountId")) && (
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>GCP Credentials Required</AlertTitle>
-                    <AlertDescription>
-                      This account needs a GCP service account key for provisioning. 
-                      Please ensure you've uploaded a valid service account key during account setup.
-                    </AlertDescription>
-                  </Alert>
+                {selectedProvider === 'gcp' && form.watch("accountId") && (
+                  <GcpCredentialStatus
+                    hasCredentials={hasGcpCredentials(form.watch("accountId"))}
+                    accountId={form.watch("accountId")}
+                    credentialStatus={gcpCredentialStatus}
+                    errorMessage={gcpErrorMessage}
+                  />
                 )}
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -296,7 +330,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting || !form.formState.isValid}
+                  disabled={isSubmitting || !form.formState.isValid || (selectedProvider === 'gcp' && gcpCredentialStatus !== 'valid')}
                 >
                   {isSubmitting ? (
                     <>
