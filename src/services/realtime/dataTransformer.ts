@@ -113,9 +113,10 @@ export const createTransformer = (dataSource: DataSource) => {
         raw: payload
       });
     default:
+      // Fix the type issue with a type assertion to tell TypeScript that dataSource has a name property
       return (data: any) => ({
         timestamp: new Date().toISOString(),
-        source: dataSource.name as string,
+        source: (dataSource as { name: string }).name,
         sourceType: 'unknown',
         data,
         raw: data
