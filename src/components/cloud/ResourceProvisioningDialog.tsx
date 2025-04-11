@@ -23,14 +23,20 @@ const ResourceProvisioningDialog: React.FC<ResourceProvisioningDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Provision New Resource</DialogTitle>
         </DialogHeader>
-        <ResourceProvisioningForm 
-          accounts={accounts}
-          onCancel={() => onOpenChange(false)}
-          onSuccess={() => {
-            onOpenChange(false);
-            if (onSuccess) onSuccess();
-          }}
-        />
+        {accounts.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-muted-foreground">No cloud accounts connected. Please connect an account first.</p>
+          </div>
+        ) : (
+          <ResourceProvisioningForm 
+            accounts={accounts}
+            onCancel={() => onOpenChange(false)}
+            onSuccess={() => {
+              onOpenChange(false);
+              if (onSuccess) onSuccess();
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

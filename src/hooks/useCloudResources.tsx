@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { 
   getCloudAccounts,
   getCloudResources,
+  deleteCloudAccount,
   CloudResource,
   CloudAccount,
   syncCloudResources
@@ -53,7 +54,9 @@ export const useCloudResources = () => {
       if (result.success) {
         toast({
           title: "Resources Synced",
-          description: "Cloud resources have been synchronized"
+          description: result.error 
+            ? `Resources synced with note: ${result.error}`
+            : "Cloud resources have been synchronized"
         });
         
         // Refresh the resources after sync
@@ -72,6 +75,40 @@ export const useCloudResources = () => {
       toast({
         title: "Sync Failed",
         description: "An error occurred while syncing resources",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [toast, fetchResources]);
+  
+  // Delete an account
+  const deleteAccount = useCallback(async (accountId: string) => {
+    try {
+      console.log(`Deleting account: ${accountId}`);
+      const result = await deleteCloudAccount(accountId);
+      
+      if (result.success) {
+        toast({
+          title: "Account Removed",
+          description: "The cloud account has been successfully disconnected"
+        });
+        
+        // Refresh the resources and accounts after deletion
+        fetchResources();
+        return true;
+      } else {
+        toast({
+          title: "Removal Failed",
+          description: result.error || "Failed to remove cloud account",
+          variant: "destructive"
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error removing cloud account:", error);
+      toast({
+        title: "Removal Failed",
+        description: "An error occurred while removing the account",
         variant: "destructive"
       });
       return false;
@@ -99,6 +136,7 @@ export const useCloudResources = () => {
     loading, 
     fetchResources, 
     syncResources,
+    deleteAccount,
     lastRefresh
   };
 };

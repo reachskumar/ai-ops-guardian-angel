@@ -30,7 +30,15 @@ import ResourceProvisioningDialog from '@/components/cloud/ResourceProvisioningD
 
 const CloudResourcesPage: React.FC = () => {
   // Use our custom hooks
-  const { resources, accounts, loading, fetchResources, syncResources } = useCloudResources();
+  const { 
+    resources, 
+    accounts, 
+    loading, 
+    fetchResources, 
+    syncResources, 
+    deleteAccount 
+  } = useCloudResources();
+  
   const {
     filters,
     filteredResources,
@@ -113,6 +121,11 @@ const CloudResourcesPage: React.FC = () => {
     await syncResources(accountId);
     setSyncing(false);
   };
+  
+  // Handle deleting an account
+  const handleDeleteAccount = async (accountId: string) => {
+    await deleteAccount(accountId);
+  };
 
   return (
     <SidebarWithProvider>
@@ -149,6 +162,7 @@ const CloudResourcesPage: React.FC = () => {
             accounts={accounts} 
             onOpenConnectDialog={() => setConnectDialogOpen(true)} 
             onSyncResources={handleSyncResources}
+            onDeleteAccount={handleDeleteAccount}
             syncing={syncing}
           />
 
