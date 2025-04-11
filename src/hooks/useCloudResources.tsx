@@ -16,6 +16,7 @@ export const useCloudResources = () => {
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
+  const [syncStatus, setSyncStatus] = useState<{[accountId: string]: 'idle' | 'syncing' | 'success' | 'error'}>({});
   
   const { toast } = useToast();
 
@@ -49,20 +50,30 @@ export const useCloudResources = () => {
   const syncResources = useCallback(async (accountId: string) => {
     try {
       console.log(`Syncing resources for account: ${accountId}`);
+      // Update sync status to syncing
+      setSyncStatus(prev => ({ ...prev, [accountId]: 'syncing' }));
+      
       const result = await syncCloudResources(accountId);
       
       if (result.success) {
+        setSyncStatus(prev => ({ ...prev, [accountId]: 'success' }));
+        
+        // Determine the toast variant based on whether there's a warning
+        const hasWarning = !!result.error;
+        
         toast({
-          title: "Resources Synced",
-          description: result.error 
-            ? `Resources synced with note: ${result.error}`
-            : "Cloud resources have been synchronized"
+          title: hasWarning ? "Resources Synced with Warning" : "Resources Synced",
+          description: hasWarning 
+            ? result.error 
+            : "Cloud resources have been synchronized successfully",
+          variant: hasWarning ? "default" : "default"
         });
         
         // Refresh the resources after sync
         fetchResources();
         return true;
       } else {
+        setSyncStatus(prev => ({ ...prev, [accountId]: 'error' }));
         toast({
           title: "Sync Failed",
           description: result.error || "Failed to sync cloud resources",
@@ -72,6 +83,7 @@ export const useCloudResources = () => {
       }
     } catch (error) {
       console.error("Error syncing cloud resources:", error);
+      setSyncStatus(prev => ({ ...prev, [accountId]: 'error' }));
       toast({
         title: "Sync Failed",
         description: "An error occurred while syncing resources",
@@ -107,9 +119,9 @@ export const useCloudResources = () => {
     } catch (error) {
       console.error("Error removing cloud account:", error);
       toast({
-        title: "Removal Failed",
-        description: "An error occurred while removing the account",
-        variant: "destructive"
+          title: "Removal Failed",
+          description: "An error occurred while removing the account",
+          variant: "destructive"
       });
       return false;
     }
@@ -137,6 +149,7 @@ export const useCloudResources = () => {
     fetchResources, 
     syncResources,
     deleteAccount,
-    lastRefresh
+    lastRefresh,
+    syncStatus
   };
 };

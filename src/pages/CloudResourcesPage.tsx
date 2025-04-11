@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,7 +24,7 @@ import {
   ConnectionErrorAlert
 } from '@/components/cloud';
 
-// Import new ResourceProvisioningDialog
+// Import ResourceProvisioningDialog
 import ResourceProvisioningDialog from '@/components/cloud/ResourceProvisioningDialog';
 
 const CloudResourcesPage: React.FC = () => {
@@ -36,7 +35,8 @@ const CloudResourcesPage: React.FC = () => {
     loading, 
     fetchResources, 
     syncResources, 
-    deleteAccount 
+    deleteAccount,
+    syncStatus
   } = useCloudResources();
   
   const {
@@ -63,8 +63,7 @@ const CloudResourcesPage: React.FC = () => {
   
   // State for connection errors and syncing
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
-
+  
   // Effect to log accounts whenever they change
   useEffect(() => {
     console.log("Accounts in CloudResourcesPage:", accounts);
@@ -117,9 +116,7 @@ const CloudResourcesPage: React.FC = () => {
 
   // Handle syncing resources for an account
   const handleSyncResources = async (accountId: string) => {
-    setSyncing(true);
     await syncResources(accountId);
-    setSyncing(false);
   };
   
   // Handle deleting an account
@@ -163,7 +160,7 @@ const CloudResourcesPage: React.FC = () => {
             onOpenConnectDialog={() => setConnectDialogOpen(true)} 
             onSyncResources={handleSyncResources}
             onDeleteAccount={handleDeleteAccount}
-            syncing={syncing}
+            syncStatus={syncStatus}
           />
 
           {/* Main Tabs for Cloud Resources Features */}

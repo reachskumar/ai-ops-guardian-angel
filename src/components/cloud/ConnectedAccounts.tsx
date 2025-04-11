@@ -4,7 +4,7 @@ import { CloudAccount } from '@/services/cloud';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, PlusCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { Cloud, PlusCircle, RefreshCw, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,7 @@ interface ConnectedAccountsProps {
   onOpenConnectDialog: () => void;
   onSyncResources?: (accountId: string) => void;
   onDeleteAccount?: (accountId: string) => void;
-  syncing?: boolean;
+  syncStatus?: {[accountId: string]: 'idle' | 'syncing' | 'success' | 'error'};
 }
 
 const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({ 
@@ -29,7 +29,7 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
   onOpenConnectDialog,
   onSyncResources,
   onDeleteAccount,
-  syncing = false
+  syncStatus = {}
 }) => {
   const [accountToDelete, setAccountToDelete] = React.useState<CloudAccount | null>(null);
   
@@ -72,55 +72,66 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {accounts.map(account => (
-                <div 
-                  key={account.id} 
-                  className="border rounded-md p-4"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold">{account.name}</h3>
-                    <Badge 
-                      variant={
-                        account.status === 'connected' ? 'default' : 'destructive'
-                      }
-                    >
-                      {account.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-2">ID: {account.id}</p>
-                  <p className="text-xs text-muted-foreground mb-2">Provider: {account.provider.toUpperCase()}</p>
-                  {account.last_synced_at && (
-                    <p className="text-xs text-muted-foreground">
-                      Last synced: {new Date(account.last_synced_at).toLocaleString()}
-                    </p>
-                  )}
-                  <div className="flex space-x-2 mt-3">
-                    {onSyncResources && (
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => onSyncResources(account.id)}
-                        disabled={syncing}
+              {accounts.map(account => {
+                const status = syncStatus[account.id] || 'idle';
+                return (
+                  <div 
+                    key={account.id} 
+                    className="border rounded-md p-4"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-semibold">{account.name}</h3>
+                      <Badge 
+                        variant={
+                          account.status === 'connected' ? 'default' : 'destructive'
+                        }
                       >
-                        <RefreshCw className={`mr-2 h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
-                        Sync
-                      </Button>
+                        {account.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">ID: {account.id}</p>
+                    <p className="text-xs text-muted-foreground mb-2">Provider: {account.provider.toUpperCase()}</p>
+                    {account.last_synced_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Last synced: {new Date(account.last_synced_at).toLocaleString()}
+                      </p>
                     )}
-                    {onDeleteAccount && (
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => setAccountToDelete(account)}
-                      >
-                        <Trash2 className="mr-2 h-3 w-3" />
-                        Remove
-                      </Button>
-                    )}
+                    <div className="flex space-x-2 mt-3">
+                      {onSyncResources && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => onSyncResources(account.id)}
+                          disabled={status === 'syncing'}
+                        >
+                          {status === 'syncing' ? (
+                            <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                          ) : status === 'success' ? (
+                            <CheckCircle className="mr-2 h-3 w-3 text-green-500" />
+                          ) : status === 'error' ? (
+                            <AlertCircle className="mr-2 h-3 w-3 text-red-500" />
+                          ) : (
+                            <RefreshCw className="mr-2 h-3 w-3" />
+                          )}
+                          Sync
+                        </Button>
+                      )}
+                      {onDeleteAccount && (
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => setAccountToDelete(account)}
+                        >
+                          <Trash2 className="mr-2 h-3 w-3" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
