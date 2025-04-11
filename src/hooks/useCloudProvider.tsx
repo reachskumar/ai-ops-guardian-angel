@@ -55,9 +55,20 @@ export const useCloudProvider = (onSuccess?: () => void) => {
       }
     } catch (error: any) {
       console.error("Connection error:", error);
+      
+      // More helpful error message
+      let errorMessage = "Failed to connect to cloud provider";
+      if (error.message) {
+        if (error.message.includes('non-2xx status code')) {
+          errorMessage = "Edge Function error: Database might be unavailable or credentials rejected";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Connection Failed",
-        description: error.message || "Failed to connect to cloud provider",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {

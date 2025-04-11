@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from 'react';
-import { CloudProvider } from '@/services/cloudProviderService';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { CloudProvider } from '@/services/cloudProviderService';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -62,15 +62,14 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
     }
   });
   
-  // State to track the current credentials
-  const [credentialValues, setCredentialValues] = useState<Record<string, string>>({});
+  // Separate state for credential fields
+  const [credentials, setCredentials] = useState<Record<string, string>>({});
 
-  // Reset the form when the provider changes
-  const watchProvider = form.watch('provider');
+  // Reset credentials when provider changes or dialog opens/closes
   useEffect(() => {
-    setCredentialValues({});
+    setCredentials({});
     form.setValue('credentials', {});
-  }, [watchProvider, form]);
+  }, [form.watch('provider'), open]);
 
   // Get credential fields based on the selected provider
   const getCredentialFields = (provider: CloudProvider) => {
@@ -96,22 +95,24 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
     }
   };
 
-  const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log('Form submitted with values:', values);
-    // Ensure the credentials from our state are included in the form submission
-    const formValues = {
+  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    console.log('Form submitted with values:', {
       ...values,
-      credentials: credentialValues
-    };
-    onConnectProvider(formValues);
+      credentials
+    });
+    
+    // Use the credentials from our state in the submission
+    await onConnectProvider({
+      ...values,
+      credentials
+    });
   };
 
-  // Handle credential field changes
-  const handleCredentialChange = (name: string, value: string) => {
-    console.log(`Updating credential field ${name} with value:`, value);
-    setCredentialValues((prev) => {
+  // Update credential values
+  const updateCredentialField = (name: string, value: string) => {
+    console.log(`Updating ${name} field with value:`, value.substring(0, 10) + '...');
+    setCredentials(prev => {
       const updated = { ...prev, [name]: value };
-      // Also update the form value
       form.setValue('credentials', updated);
       return updated;
     });
@@ -183,15 +184,15 @@ const ConnectProviderDialog: React.FC<ConnectProviderDialogProps> = ({
                     <Textarea 
                       placeholder={field.label}
                       className="min-h-[100px]"
-                      value={credentialValues[field.name] || ''}
-                      onChange={(e) => handleCredentialChange(field.name, e.target.value)}
+                      value={credentials[field.name] || ''}
+                      onChange={(e) => updateCredentialField(field.name, e.target.value)}
                     />
                   ) : (
                     <Input 
                       type={field.type}
                       placeholder={field.label}
-                      value={credentialValues[field.name] || ''}
-                      onChange={(e) => handleCredentialChange(field.name, e.target.value)}
+                      value={credentials[field.name] || ''}
+                      onChange={(e) => updateCredentialField(field.name, e.target.value)}
                     />
                   )}
                 </FormControl>
