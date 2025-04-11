@@ -26,7 +26,7 @@ export const createMockWebSocket = (config: MockWebSocketConfig) => {
   // Create the mock WebSocket
   const mockWs = {
     url,
-    readyState: WebSocket.CONNECTING,
+    readyState: WebSocket.CONNECTING, // Use WebSocket.CONNECTING (0) instead of the literal 0
     
     // Add an event listener
     addEventListener: (type: string, listener: Function) => {
@@ -58,11 +58,11 @@ export const createMockWebSocket = (config: MockWebSocketConfig) => {
     
     // Close the connection
     close: () => {
-      if (mockWs.readyState !== WebSocket.CLOSED) {
-        mockWs.readyState = WebSocket.CLOSING;
+      if (mockWs.readyState !== WebSocket.CLOSED) { // Use WebSocket.CLOSED (3) instead of the literal 3
+        mockWs.readyState = WebSocket.CLOSING; // Use WebSocket.CLOSING (2) instead of the literal 2
         
         setTimeout(() => {
-          mockWs.readyState = WebSocket.CLOSED;
+          mockWs.readyState = WebSocket.CLOSED; // Use WebSocket.CLOSED (3) instead of the literal 3
           mockWs.dispatchEvent(new CloseEvent('close', { wasClean: true, code: 1000 }));
         }, 100);
       }
@@ -88,14 +88,14 @@ export const createMockWebSocket = (config: MockWebSocketConfig) => {
   
   // Simulate connection establishment
   setTimeout(() => {
-    if (mockWs.readyState !== WebSocket.CLOSED) {
-      mockWs.readyState = WebSocket.OPEN;
+    if (mockWs.readyState !== WebSocket.CLOSED) { // Use WebSocket.CLOSED (3) instead of the literal 3
+      mockWs.readyState = WebSocket.OPEN; // Use WebSocket.OPEN (1) instead of the literal 1
       mockWs.dispatchEvent(new Event('open'));
       
       // Start sending mock data
       let dataIndex = 0;
       const dataInterval = setInterval(() => {
-        if (mockWs.readyState === WebSocket.OPEN) {
+        if (mockWs.readyState === WebSocket.OPEN) { // Use WebSocket.OPEN (1) instead of the literal 1
           const mockData = data.length > 0 
             ? data[dataIndex % data.length] 
             : { timestamp: new Date().toISOString(), value: Math.random() * 100 };
@@ -113,12 +113,12 @@ export const createMockWebSocket = (config: MockWebSocketConfig) => {
       // Simulate disconnection if configured
       if (simulateDisconnect) {
         setTimeout(() => {
-          if (mockWs.readyState === WebSocket.OPEN) {
+          if (mockWs.readyState === WebSocket.OPEN) { // Use WebSocket.OPEN (1) instead of the literal 1
             clearInterval(dataInterval);
-            mockWs.readyState = WebSocket.CLOSING;
+            mockWs.readyState = WebSocket.CLOSING; // Use WebSocket.CLOSING (2) instead of the literal 2
             
             setTimeout(() => {
-              mockWs.readyState = WebSocket.CLOSED;
+              mockWs.readyState = WebSocket.CLOSED; // Use WebSocket.CLOSED (3) instead of the literal 3
               mockWs.dispatchEvent(new CloseEvent('close', { wasClean: false, code: 1006 }));
             }, 100);
           }
