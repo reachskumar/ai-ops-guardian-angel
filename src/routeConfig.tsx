@@ -26,6 +26,7 @@ import InfrastructureOverviewPage from "./pages/InfrastructureOverviewPage";
 import DatabasesPage from "./pages/DatabasesPage";
 import ProjectKanbanPage from "./pages/ProjectKanbanPage";
 import WebSocketTestPage from "./pages/WebSocketTestPage";
+import DevOpsPage from "./pages/DevOpsPage";
 
 const routes: RouteObject[] = [
   {
@@ -112,6 +113,10 @@ const routes: RouteObject[] = [
   {
     path: "/websocket-test",
     element: <ProtectedRoute><WebSocketTestPage /></ProtectedRoute>
+  },
+  {
+    path: "/devops",
+    element: <ProtectedRoute><DevOpsPage /></ProtectedRoute>
   },
   {
     path: "*",
