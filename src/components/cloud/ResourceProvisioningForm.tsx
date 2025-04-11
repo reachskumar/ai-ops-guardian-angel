@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Import our components
 import {
@@ -46,6 +47,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("compute");
   const [selectedProvider, setSelectedProvider] = useState<CloudProvider>("aws");
+  const [provisioningError, setProvisioningError] = useState<string | null>(null);
   const { toast } = useToast();
   
   const form = useForm<ResourceFormValues>({
@@ -60,6 +62,11 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
     },
   });
 
+  // Reset error when form values change
+  useEffect(() => {
+    setProvisioningError(null);
+  }, [form.watch()]);
+  
   // Update provider when account changes
   useEffect(() => {
     const accountId = form.watch("accountId");
@@ -73,6 +80,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
 
   const handleSubmit = async (data: ResourceFormValues) => {
     setIsSubmitting(true);
+    setProvisioningError(null);
     
     try {
       // Parse tags string into an object
@@ -95,6 +103,8 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       };
       
       console.log(`Provisioning resource on account ${data.accountId}`);
+      console.log("Resource type:", data.type);
+      console.log("Resource config:", resourceConfig);
       
       // Call the provisioning API
       const result = await provisionResource(data.accountId, data.type, resourceConfig);
@@ -109,17 +119,22 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
           onSuccess();
         }
       } else {
+        console.error("Provisioning failed:", result.error);
+        setProvisioningError(result.error || "Failed to provision resource");
+        
         toast({
           title: "Provisioning failed",
           description: result.error || "Failed to provision resource",
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Resource provisioning error:", error);
+      setProvisioningError(error.message || "There was an error provisioning your resource");
+      
       toast({
         title: "Provisioning failed",
-        description: "There was an error provisioning your resource",
+        description: error.message || "There was an error provisioning your resource",
         variant: "destructive",
       });
     } finally {
@@ -162,6 +177,16 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         {["compute", "storage", "database", "network"].map((category) => (
           <TabsContent key={category} value={category}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+              {provisioningError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Provisioning Failed</AlertTitle>
+                  <AlertDescription>
+                    {provisioningError}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               <div className="space-y-4">
                 <AccountSelector
                   accounts={accounts}

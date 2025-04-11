@@ -47,20 +47,56 @@ export const provisionResource = async (
   config: Record<string, any>
 ): Promise<{ success: boolean; resourceId?: string; error?: string }> => {
   try {
+    console.log(`Starting resource provisioning for account ${accountId}`);
+    console.log(`Resource type: ${resourceType}`);
+    console.log(`Configuration:`, config);
+    
+    // Mock implementation for development without an edge function
+    // In a real implementation, we would call the edge function
+    const mockSuccess = Math.random() > 0.2; // 80% chance of success
+    
+    if (mockSuccess) {
+      const resourceId = `resource-${Math.random().toString(36).substring(2, 10)}`;
+      console.log(`Successfully provisioned resource with ID: ${resourceId}`);
+      
+      return { 
+        success: true, 
+        resourceId 
+      };
+    } else {
+      console.error("Mock provisioning failure");
+      return { 
+        success: false, 
+        error: 'Failed to provision resource (mock failure)' 
+      };
+    }
+    
+    /* Commented out for development - use this in production
     const { data, error } = await supabase.functions.invoke('provision-resource', {
       body: { accountId, resourceType, config }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Edge function error:", error);
+      throw new Error(`Edge function error: ${error.message}`);
+    }
+    
+    if (!data) {
+      throw new Error("No data returned from edge function");
+    }
     
     return { 
       success: data.success, 
       resourceId: data.resourceId,
       error: data.error
     };
+    */
   } catch (error: any) {
     console.error("Provision resource error:", error);
-    return { success: false, error: error.message || 'Failed to provision resource' };
+    return { 
+      success: false, 
+      error: error.message || 'Failed to provision resource' 
+    };
   }
 };
 

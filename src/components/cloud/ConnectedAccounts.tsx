@@ -4,7 +4,7 @@ import { CloudAccount } from '@/services/cloud';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, PlusCircle, RefreshCw, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Cloud, PlusCircle, RefreshCw, Trash2, CheckCircle, AlertCircle, Info } from 'lucide-react';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +15,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ConnectedAccountsProps {
   accounts: CloudAccount[];
@@ -22,6 +28,7 @@ interface ConnectedAccountsProps {
   onSyncResources?: (accountId: string) => void;
   onDeleteAccount?: (accountId: string) => void;
   syncStatus?: {[accountId: string]: 'idle' | 'syncing' | 'success' | 'error'};
+  syncErrorMessages?: {[accountId: string]: string | null};
 }
 
 const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({ 
@@ -29,7 +36,8 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
   onOpenConnectDialog,
   onSyncResources,
   onDeleteAccount,
-  syncStatus = {}
+  syncStatus = {},
+  syncErrorMessages = {}
 }) => {
   const [accountToDelete, setAccountToDelete] = React.useState<CloudAccount | null>(null);
   
@@ -74,6 +82,8 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {accounts.map(account => {
                 const status = syncStatus[account.id] || 'idle';
+                const errorMessage = syncErrorMessages?.[account.id];
+                
                 return (
                   <div 
                     key={account.id} 
@@ -96,37 +106,65 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
                         Last synced: {new Date(account.last_synced_at).toLocaleString()}
                       </p>
                     )}
+                    
+                    {status === 'error' && errorMessage && (
+                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-950/30 rounded-md text-xs text-red-500">
+                        {errorMessage}
+                      </div>
+                    )}
+                    
                     <div className="flex space-x-2 mt-3">
                       {onSyncResources && (
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => onSyncResources(account.id)}
-                          disabled={status === 'syncing'}
-                        >
-                          {status === 'syncing' ? (
-                            <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
-                          ) : status === 'success' ? (
-                            <CheckCircle className="mr-2 h-3 w-3 text-green-500" />
-                          ) : status === 'error' ? (
-                            <AlertCircle className="mr-2 h-3 w-3 text-red-500" />
-                          ) : (
-                            <RefreshCw className="mr-2 h-3 w-3" />
-                          )}
-                          Sync
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => onSyncResources(account.id)}
+                                disabled={status === 'syncing'}
+                              >
+                                {status === 'syncing' ? (
+                                  <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                                ) : status === 'success' ? (
+                                  <CheckCircle className="mr-2 h-3 w-3 text-green-500" />
+                                ) : status === 'error' ? (
+                                  <AlertCircle className="mr-2 h-3 w-3 text-red-500" />
+                                ) : (
+                                  <RefreshCw className="mr-2 h-3 w-3" />
+                                )}
+                                Sync
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {status === 'syncing' ? 'Syncing resources...' : 
+                              status === 'success' ? 'Resources successfully synced' :
+                              status === 'error' ? 'Sync failed - click to retry' :
+                              'Sync resources from provider'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                       {onDeleteAccount && (
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setAccountToDelete(account)}
-                        >
-                          <Trash2 className="mr-2 h-3 w-3" />
-                          Remove
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => setAccountToDelete(account)}
+                              >
+                                <Trash2 className="mr-2 h-3 w-3" />
+                                Remove
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Remove this cloud account
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                     </div>
                   </div>

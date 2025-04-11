@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -36,7 +37,8 @@ const CloudResourcesPage: React.FC = () => {
     fetchResources, 
     syncResources, 
     deleteAccount,
-    syncStatus
+    syncStatus,
+    syncErrorMessages
   } = useCloudResources();
   
   const {
@@ -161,6 +163,7 @@ const CloudResourcesPage: React.FC = () => {
             onSyncResources={handleSyncResources}
             onDeleteAccount={handleDeleteAccount}
             syncStatus={syncStatus}
+            syncErrorMessages={syncErrorMessages}
           />
 
           {/* Main Tabs for Cloud Resources Features */}
