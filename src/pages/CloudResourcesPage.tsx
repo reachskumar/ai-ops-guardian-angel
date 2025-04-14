@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -88,12 +87,20 @@ const CloudResourcesPage: React.FC = () => {
   
   // Handle resource provisioning dialog
   const handleOpenProvisioningDialog = () => {
+    if (accounts.length === 0) {
+      setConnectionError("You need to connect a cloud provider account before provisioning resources.");
+      setConnectDialogOpen(true);
+      return;
+    }
     setProvisioningDialogOpen(true);
   };
   
   const handleProvisioningSuccess = () => {
     setProvisioningDialogOpen(false);
-    fetchResources(); // Refresh resources list
+    // Wait briefly then fetch resources to allow backend to process
+    setTimeout(() => {
+      fetchResources();
+    }, 1000);
   };
   
   // Handle connection error
@@ -126,6 +133,9 @@ const CloudResourcesPage: React.FC = () => {
     await deleteAccount(accountId);
   };
 
+  // Check if any accounts are connected and ready
+  const hasConnectedAccounts = accounts.length > 0;
+
   return (
     <SidebarWithProvider>
       <div className="flex flex-col min-h-screen">
@@ -138,11 +148,15 @@ const CloudResourcesPage: React.FC = () => {
                 variant="outline" 
                 onClick={handleForceRefresh}
                 disabled={loading}
+                title="Refresh resources and accounts"
               >
                 <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
                 Refresh Resources
               </Button>
-              <Button onClick={handleOpenProvisioningDialog}>
+              <Button 
+                onClick={handleOpenProvisioningDialog}
+                title={hasConnectedAccounts ? "Provision a new resource" : "Connect an account first"}
+              >
                 <PlusCircle className="mr-2 h-4 w-4" /> 
                 Provision Resource
               </Button>

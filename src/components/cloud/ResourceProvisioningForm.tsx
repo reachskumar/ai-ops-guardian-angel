@@ -111,9 +111,19 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
           ? JSON.parse(credentials.serviceAccountKey)
           : credentials.serviceAccountKey;
         
-        if (!keyData.project_id || !keyData.private_key) {
+        // Check for required fields
+        const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
+        const missingFields = requiredFields.filter(field => !keyData[field]);
+        
+        if (missingFields.length > 0) {
           setGcpCredentialStatus('invalid');
-          setGcpErrorMessage("Invalid service account key: missing required fields (project_id or private_key)");
+          setGcpErrorMessage(`Invalid service account key: missing ${missingFields.join(', ')}`);
+          return false;
+        }
+        
+        if (keyData.type !== 'service_account') {
+          setGcpCredentialStatus('invalid');
+          setGcpErrorMessage("Invalid credential type: must be a service account key");
           return false;
         }
         

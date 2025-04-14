@@ -89,6 +89,22 @@ async function generateJWT(serviceAccountKey: any) {
   }
 }
 
+// Validate GCP service account key
+function validateGcpCredentials(serviceAccountKey: any) {
+  const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
+  const missingFields = requiredFields.filter(field => !serviceAccountKey[field]);
+  
+  if (missingFields.length > 0) {
+    throw new Error(`Invalid service account key: missing ${missingFields.join(', ')}`);
+  }
+  
+  if (serviceAccountKey.type !== 'service_account') {
+    throw new Error('Invalid credential type: must be a service account key');
+  }
+  
+  return true;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -131,14 +147,12 @@ serve(async (req) => {
           console.log("Successfully parsed service account key");
           console.log("Service account project ID:", serviceAccountKey.project_id);
           console.log("Service account client email:", serviceAccountKey.client_email);
+          
+          // Validate the service account key
+          validateGcpCredentials(serviceAccountKey);
         } catch (parseError) {
-          console.error("Failed to parse service account key:", parseError);
-          throw new Error("Invalid service account key format: must be valid JSON");
-        }
-        
-        // Validate service account key has required fields
-        if (!serviceAccountKey.project_id || !serviceAccountKey.private_key) {
-          throw new Error("Invalid service account key: missing required fields");
+          console.error("Failed to parse or validate service account key:", parseError);
+          throw new Error(`Invalid service account key: ${parseError.message}`);
         }
         
         // Get GCP OAuth token using JWT
