@@ -21,15 +21,18 @@ export const getProviderImplementation = (provider: CloudProvider) => {
 // Get provider-specific resource types
 export const getResourceTypes = (provider: CloudProvider, category?: string) => {
   const implementation = getProviderImplementation(provider);
-  
   let resourceTypes: { category: string; types: string[] }[] = [];
   
-  if (provider === 'aws' && implementation.getAwsResourceTypes) {
-    resourceTypes = implementation.getAwsResourceTypes();
-  } else if (provider === 'azure' && implementation.getAzureResourceTypes) {
-    resourceTypes = implementation.getAzureResourceTypes();
-  } else if (provider === 'gcp' && implementation.getGcpResourceTypes) {
-    resourceTypes = implementation.getGcpResourceTypes();
+  switch (provider) {
+    case 'aws':
+      resourceTypes = (implementation as typeof awsProvider).getAwsResourceTypes();
+      break;
+    case 'azure':
+      resourceTypes = (implementation as typeof azureProvider).getAzureResourceTypes();
+      break;
+    case 'gcp':
+      resourceTypes = (implementation as typeof gcpProvider).getGcpResourceTypes();
+      break;
   }
   
   if (category) {
@@ -43,30 +46,32 @@ export const getResourceTypes = (provider: CloudProvider, category?: string) => 
 export const getInstanceSizes = (provider: CloudProvider, resourceType: string) => {
   const implementation = getProviderImplementation(provider);
   
-  if (provider === 'aws' && implementation.getAwsInstanceSizes) {
-    return implementation.getAwsInstanceSizes(resourceType);
-  } else if (provider === 'azure' && implementation.getAzureInstanceSizes) {
-    return implementation.getAzureInstanceSizes(resourceType);
-  } else if (provider === 'gcp' && implementation.getGcpInstanceSizes) {
-    return implementation.getGcpInstanceSizes(resourceType);
+  switch (provider) {
+    case 'aws':
+      return (implementation as typeof awsProvider).getAwsInstanceSizes(resourceType);
+    case 'azure':
+      return (implementation as typeof azureProvider).getAzureInstanceSizes(resourceType);
+    case 'gcp':
+      return (implementation as typeof gcpProvider).getGcpInstanceSizes(resourceType);
+    default:
+      return ['small', 'medium', 'large']; // Default
   }
-  
-  return ['small', 'medium', 'large']; // Default
 };
 
 // Get provider-specific regions
 export const getRegions = (provider: CloudProvider) => {
   const implementation = getProviderImplementation(provider);
   
-  if (provider === 'aws' && implementation.getAwsRegions) {
-    return implementation.getAwsRegions();
-  } else if (provider === 'azure' && implementation.getAzureRegions) {
-    return implementation.getAzureRegions();
-  } else if (provider === 'gcp' && implementation.getGcpRegions) {
-    return implementation.getGcpRegions();
+  switch (provider) {
+    case 'aws':
+      return (implementation as typeof awsProvider).getAwsRegions();
+    case 'azure':
+      return (implementation as typeof azureProvider).getAzureRegions();
+    case 'gcp':
+      return (implementation as typeof gcpProvider).getGcpRegions();
+    default:
+      return []; // Empty list if not found
   }
-  
-  return []; // Empty list if not found
 };
 
 // Get provider-specific cost data
@@ -78,19 +83,20 @@ export const getProviderCostData = async (
 ) => {
   const implementation = getProviderImplementation(provider);
   
-  if (provider === 'aws' && implementation.getAwsCostData) {
-    return implementation.getAwsCostData(accountId, timeRange, credentials);
-  } else if (provider === 'azure' && implementation.getAzureCostData) {
-    return implementation.getAzureCostData(accountId, timeRange, credentials);
-  } else if (provider === 'gcp' && implementation.getGcpCostData) {
-    return implementation.getGcpCostData(accountId, timeRange, credentials);
+  switch (provider) {
+    case 'aws':
+      return (implementation as typeof awsProvider).getAwsCostData(accountId, timeRange, credentials);
+    case 'azure':
+      return (implementation as typeof azureProvider).getAzureCostData(accountId, timeRange, credentials);
+    case 'gcp':
+      return (implementation as typeof gcpProvider).getGcpCostData(accountId, timeRange, credentials);
+    default:
+      return {
+        costs: [],
+        total: 0,
+        error: `Cost data not available for provider: ${provider}`
+      };
   }
-  
-  return {
-    costs: [],
-    total: 0,
-    error: `Cost data not available for provider: ${provider}`
-  };
 };
 
 // Get provider-specific optimizations
@@ -101,18 +107,19 @@ export const getProviderOptimizations = async (
 ) => {
   const implementation = getProviderImplementation(provider);
   
-  if (provider === 'aws' && implementation.getAwsOptimizations) {
-    return implementation.getAwsOptimizations(accountId, credentials);
-  } else if (provider === 'azure' && implementation.getAzureOptimizations) {
-    return implementation.getAzureOptimizations(accountId, credentials);
-  } else if (provider === 'gcp' && implementation.getGcpOptimizations) {
-    return implementation.getGcpOptimizations(accountId, credentials);
+  switch (provider) {
+    case 'aws':
+      return (implementation as typeof awsProvider).getAwsOptimizations(accountId, credentials);
+    case 'azure':
+      return (implementation as typeof azureProvider).getAzureOptimizations(accountId, credentials);
+    case 'gcp':
+      return (implementation as typeof gcpProvider).getGcpOptimizations(accountId, credentials);
+    default:
+      return {
+        recommendations: [],
+        error: `Optimizations not available for provider: ${provider}`
+      };
   }
-  
-  return {
-    recommendations: [],
-    error: `Optimizations not available for provider: ${provider}`
-  };
 };
 
 // Get provider-specific resource metrics
@@ -125,16 +132,17 @@ export const getProviderResourceMetrics = async (
 ) => {
   const implementation = getProviderImplementation(provider);
   
-  if (provider === 'aws' && implementation.getAwsResourceMetrics) {
-    return implementation.getAwsResourceMetrics(resourceId, resourceType, timeRange, credentials);
-  } else if (provider === 'azure' && implementation.getAzureResourceMetrics) {
-    return implementation.getAzureResourceMetrics(resourceId, resourceType, timeRange, credentials);
-  } else if (provider === 'gcp' && implementation.getGcpResourceMetrics) {
-    return implementation.getGcpResourceMetrics(resourceId, resourceType, timeRange, credentials);
+  switch (provider) {
+    case 'aws':
+      return (implementation as typeof awsProvider).getAwsResourceMetrics(resourceId, resourceType, timeRange, credentials);
+    case 'azure':
+      return (implementation as typeof azureProvider).getAzureResourceMetrics(resourceId, resourceType, timeRange, credentials);
+    case 'gcp':
+      return (implementation as typeof gcpProvider).getGcpResourceMetrics(resourceId, resourceType, timeRange, credentials);
+    default:
+      return {
+        metrics: [],
+        error: `Metrics not available for provider: ${provider}`
+      };
   }
-  
-  return {
-    metrics: [],
-    error: `Metrics not available for provider: ${provider}`
-  };
 };

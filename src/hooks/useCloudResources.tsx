@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
   getCloudAccounts,
@@ -15,7 +16,7 @@ export const useCloudResources = () => {
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(Date.now());
-  const [syncStatus, setSyncStatus] = useState<{[accountId: string]: 'idle' | 'syncing' | 'success' | 'error'}>({});
+  const [syncStatus, setSyncStatus] = useState<{[accountId: string]: 'idle' | 'loading' | 'success' | 'error'}>({});
   const [syncErrorMessages, setSyncErrorMessages] = useState<{[accountId: string]: string | null}>({});
   
   const { toast } = useToast();
@@ -50,8 +51,8 @@ export const useCloudResources = () => {
   const syncResources = useCallback(async (accountId: string) => {
     try {
       console.log(`Syncing resources for account: ${accountId}`);
-      // Update sync status to syncing
-      setSyncStatus(prev => ({ ...prev, [accountId]: 'syncing' }));
+      // Update sync status to loading (was syncing)
+      setSyncStatus(prev => ({ ...prev, [accountId]: 'loading' }));
       setSyncErrorMessages(prev => ({ ...prev, [accountId]: null }));
       
       // When using local mocks, we want to handle the response even with edge function errors

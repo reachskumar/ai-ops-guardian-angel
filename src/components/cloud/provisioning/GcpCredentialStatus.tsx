@@ -42,7 +42,7 @@ const GcpCredentialStatus: React.FC<GcpCredentialStatusProps> = ({
   
   if (credentialStatus === 'missing') {
     return (
-      <Alert variant="warning" className="bg-amber-50 text-amber-800 border-amber-200">
+      <Alert variant="default" className="bg-amber-50 text-amber-800 border-amber-200">
         <AlertCircle className="h-4 w-4 text-amber-600" />
         <AlertTitle>Missing GCP Service Account Key</AlertTitle>
         <AlertDescription>
