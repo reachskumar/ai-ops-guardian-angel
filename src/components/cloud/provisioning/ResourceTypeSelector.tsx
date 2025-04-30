@@ -1,8 +1,9 @@
 
-import React from "react";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CloudProvider } from "@/services/cloud/types";
+import React from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { CloudProvider } from '@/services/cloud/types';
+import { getResourceTypes } from '@/services/cloud/providerFactory';
 
 interface ResourceTypeSelectorProps {
   provider: CloudProvider;
@@ -17,53 +18,25 @@ const ResourceTypeSelector: React.FC<ResourceTypeSelectorProps> = ({
   category,
   value,
   onChange,
-  error,
+  error
 }) => {
-  // Resource options based on provider and type with standardized naming
-  const getResourceTypes = (provider: CloudProvider, category: string) => {
-    switch (provider) {
-      case "aws":
-        if (category === "compute") return ["EC2", "Lambda"];
-        if (category === "storage") return ["S3", "EBS"];
-        if (category === "database") return ["RDS", "DynamoDB"];
-        if (category === "network") return ["VPC", "ELB"];
-        return [];
-      case "azure":
-        if (category === "compute") return ["Virtual Machine", "Functions"];
-        if (category === "storage") return ["Blob Storage", "Disk Storage"];
-        if (category === "database") return ["SQL Database", "Cosmos DB"];
-        if (category === "network") return ["Virtual Network", "Load Balancer"];
-        return [];
-      case "gcp":
-        if (category === "compute") return ["Compute Engine", "Cloud Functions"];
-        if (category === "storage") return ["Cloud Storage", "Persistent Disk"];
-        if (category === "database") return ["Cloud SQL", "Firestore"];
-        if (category === "network") return ["VPC", "Cloud Load Balancing"];
-        return [];
-      default:
-        return [];
-    }
-  };
-
-  const resourceTypes = getResourceTypes(provider, category);
-
+  // Get resource types for this provider and category
+  const resourceTypesData = getResourceTypes(provider, category);
+  const resourceTypes = resourceTypesData.length > 0 ? resourceTypesData[0]?.types || [] : [];
+  
   return (
     <div className="space-y-2">
-      <Label htmlFor="type">Resource Type</Label>
-      <Select onValueChange={onChange} value={value}>
-        <SelectTrigger id="type">
-          <SelectValue placeholder="Select resource type" />
+      <Label htmlFor="resource-type">Resource Type</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="resource-type" className={error ? 'border-red-500' : ''}>
+          <SelectValue placeholder="Select type" />
         </SelectTrigger>
         <SelectContent>
-          {resourceTypes.length > 0 ? (
-            resourceTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))
-          ) : (
-            <SelectItem value="none" disabled>No resource types available</SelectItem>
-          )}
+          {resourceTypes.map((type) => (
+            <SelectItem key={type} value={type}>
+              {type.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       {error && <p className="text-sm text-red-500">{error}</p>}

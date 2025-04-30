@@ -1,8 +1,9 @@
 
-import React from "react";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CloudProvider } from "@/services/cloudProviderService";
+import React from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { CloudProvider } from '@/services/cloud/types';
+import { getInstanceSizes } from '@/services/cloud/providerFactory';
 
 interface SizeSelectorProps {
   provider: CloudProvider;
@@ -17,31 +18,24 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
   resourceType,
   value,
   onChange,
-  error,
+  error
 }) => {
-  // Size options based on provider and resource type
-  const getSizeOptions = (provider: CloudProvider, type: string) => {
-    if (type.includes("EC2") || type.includes("Virtual Machine") || type.includes("Compute Engine")) {
-      return ["t2.micro", "t2.small", "t2.medium", "t2.large", "t2.xlarge"];
-    }
-    if (type.includes("RDS") || type.includes("SQL")) {
-      return ["db.t3.micro", "db.t3.small", "db.t3.medium", "db.t3.large"];
-    }
-    if (type.includes("S3") || type.includes("Blob") || type.includes("Storage")) {
-      return ["Standard", "Infrequent Access", "Archive"];
-    }
-    return ["Small", "Medium", "Large"];
-  };
-
+  // Get instance sizes for this provider and resource type
+  const sizes = resourceType ? getInstanceSizes(provider, resourceType) : [];
+  
   return (
     <div className="space-y-2">
-      <Label htmlFor="size">Size / Tier</Label>
-      <Select onValueChange={onChange} value={value}>
-        <SelectTrigger>
+      <Label htmlFor="resource-size">Size/Tier</Label>
+      <Select 
+        value={value} 
+        onValueChange={onChange}
+        disabled={!resourceType || sizes.length === 0}
+      >
+        <SelectTrigger id="resource-size" className={error ? 'border-red-500' : ''}>
           <SelectValue placeholder="Select size" />
         </SelectTrigger>
         <SelectContent>
-          {getSizeOptions(provider, resourceType).map((size) => (
+          {sizes.map((size) => (
             <SelectItem key={size} value={size}>
               {size}
             </SelectItem>

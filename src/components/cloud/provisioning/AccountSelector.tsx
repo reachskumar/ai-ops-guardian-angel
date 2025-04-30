@@ -1,8 +1,8 @@
 
-import React from "react";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CloudAccount } from "@/services/cloud";
+import React from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { CloudAccount } from '@/services/cloud/types';
 
 interface AccountSelectorProps {
   accounts: CloudAccount[];
@@ -15,13 +15,13 @@ const AccountSelector: React.FC<AccountSelectorProps> = ({
   accounts,
   value,
   onChange,
-  error,
+  error
 }) => {
   return (
     <div className="space-y-2">
       <Label htmlFor="account">Cloud Account</Label>
-      <Select onValueChange={onChange} value={value}>
-        <SelectTrigger>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id="account" className={error ? 'border-red-500' : ''}>
           <SelectValue placeholder="Select cloud account" />
         </SelectTrigger>
         <SelectContent>

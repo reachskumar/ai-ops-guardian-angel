@@ -1,7 +1,7 @@
 
-import React from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import React from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface TagsFieldProps {
   value: string;
@@ -10,19 +10,19 @@ interface TagsFieldProps {
 
 const TagsField: React.FC<TagsFieldProps> = ({
   value,
-  onChange,
+  onChange
 }) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor="tags">Tags (key=value,key=value)</Label>
+      <Label htmlFor="tags">Tags (optional)</Label>
       <Input
         id="tags"
-        placeholder="env=prod,project=web,owner=devops"
+        placeholder="key1=value1,key2=value2"
         value={value}
         onChange={onChange}
       />
       <p className="text-xs text-muted-foreground">
-        Separate multiple tags with commas, format as key=value
+        Enter comma-separated key=value pairs (e.g., env=prod,team=engineering)
       </p>
     </div>
   );

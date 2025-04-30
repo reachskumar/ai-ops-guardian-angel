@@ -1,7 +1,7 @@
 
-import React from "react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import React from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface ResourceNameFieldProps {
   value: string;
@@ -12,16 +12,17 @@ interface ResourceNameFieldProps {
 const ResourceNameField: React.FC<ResourceNameFieldProps> = ({
   value,
   onChange,
-  error,
+  error
 }) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor="name">Resource Name</Label>
+      <Label htmlFor="resource-name">Resource Name</Label>
       <Input
-        id="name"
+        id="resource-name"
         placeholder="Enter resource name"
         value={value}
         onChange={onChange}
+        className={error ? 'border-red-500' : ''}
       />
       {error && <p className="text-sm text-red-500">{error}</p>}
     </div>

@@ -1,8 +1,8 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, CloudProvider, ResourceMetric } from "./types";
 import { mockSelect } from "../mockDatabaseService";
 import { getAccountCredentials } from "./accountService";
+import { getCloudAccounts } from "./accountService";
 
 // Storage for locally created/fetched resources
 const RESOURCES_STORAGE_KEY = 'cloud_resources';
@@ -132,78 +132,46 @@ export const provisionResource = async (
     console.log(`Resource type: ${resourceType}`);
     console.log(`Configuration:`, config);
 
-    // Call the Supabase Edge Function for real provisioning
-    try {
-      const { data, error } = await supabase.functions.invoke('provision-resource', {
-        body: { 
-          accountId, 
-          resourceType, 
-          config,
-          credentials 
-        }
-      });
+    // Find the account to get its provider
+    const account = (await getCloudAccounts()).find(a => a.id === accountId);
+    if (!account) {
+      return { success: false, error: 'Account not found' };
+    }
 
-      if (error) {
-        console.error("Edge function error:", error);
-        throw new Error(`Edge function error: ${error.message}`);
+    const { provider } = account;
+    
+    // Import the provider factory and get the provider-specific implementation
+    const { getProviderImplementation } = await import('./providerFactory');
+    let result;
+    
+    try {
+      const providerImpl = getProviderImplementation(provider);
+      
+      // Call the provider-specific provision function
+      if (provider === 'aws' && providerImpl.provisionAwsResource) {
+        result = await providerImpl.provisionAwsResource(accountId, resourceType, config, credentials);
+      } else if (provider === 'azure' && providerImpl.provisionAzureResource) {
+        result = await providerImpl.provisionAzureResource(accountId, resourceType, config, credentials);
+      } else if (provider === 'gcp' && providerImpl.provisionGcpResource) {
+        result = await providerImpl.provisionGcpResource(accountId, resourceType, config, credentials);
+      } else {
+        throw new Error(`No provisioning function for provider: ${provider}`);
       }
       
-      if (!data) {
-        throw new Error("No data returned from edge function");
-      }
-      
-      console.log("Provisioning response:", data);
-      
-      // If the provisioning was successful, add a mock resource for immediate feedback
-      if (data.success && data.resourceId) {
-        const newResource: CloudResource = {
-          id: data.resourceId,
+      // On successful provisioning, add a mock resource for immediate feedback
+      if (result.success && result.resourceId) {
+        const newResource = {
+          id: result.resourceId,
           name: config.name || `New ${resourceType}`,
           type: resourceType,
           cloud_account_id: accountId,
-          resource_id: data.resourceId,
+          resource_id: result.resourceId,
           region: config.region || 'us-east-1',
           status: 'provisioning',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           tags: config.tags || {},
-          metadata: data.details || (config.size ? { size: config.size } : {})
-        };
-        
-        // Add to mock resources
-        mockResources.push(newResource);
-        console.log("Added new resource to mock storage:", newResource);
-        saveResourcesToStorage(mockResources);
-      }
-      
-      return { 
-        success: data.success, 
-        resourceId: data.resourceId,
-        error: data.error
-      };
-    } catch (edgeError: any) {
-      console.warn("Edge function unavailable, falling back to mock provisioning:", edgeError);
-      
-      // Fall back to mock provisioning for development
-      const mockSuccess = Math.random() > 0.2; // 80% chance of success
-      
-      if (mockSuccess) {
-        const resourceId = `${resourceType.toLowerCase()}-${Date.now().toString(36)}`;
-        console.log(`Successfully provisioned mock resource with ID: ${resourceId}`);
-        
-        // Create a mock resource and add it to our local store
-        const newResource: CloudResource = {
-          id: resourceId,
-          name: config.name || `New ${resourceType}`,
-          type: resourceType,
-          cloud_account_id: accountId,
-          resource_id: resourceId,
-          region: config.region || 'us-east-1',
-          status: 'provisioning',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          tags: config.tags || {},
-          metadata: config.size ? { size: config.size } : {}
+          metadata: result.details || (config.size ? { size: config.size } : {})
         };
         
         // Add to mock resources
@@ -213,25 +181,22 @@ export const provisionResource = async (
         
         // After a delay, update the status to "running"
         setTimeout(() => {
-          const index = mockResources.findIndex(r => r.id === resourceId);
+          const index = mockResources.findIndex(r => r.id === result.resourceId);
           if (index >= 0) {
             mockResources[index].status = 'running';
-            console.log(`Updated resource ${resourceId} status to running`);
+            console.log(`Updated resource ${result.resourceId} status to running`);
             saveResourcesToStorage(mockResources);
           }
         }, 5000);
-        
-        return { 
-          success: true, 
-          resourceId 
-        };
-      } else {
-        console.error("Mock provisioning failure");
-        return { 
-          success: false, 
-          error: 'Failed to provision resource (mock failure)' 
-        };
       }
+      
+      return result;
+    } catch (providerError: any) {
+      console.error(`Provider ${provider} provisioning error:`, providerError);
+      return { 
+        success: false, 
+        error: providerError.message || `Failed to provision resource on ${provider}` 
+      };
     }
   } catch (error: any) {
     console.error("Provision resource error:", error);
@@ -303,12 +268,13 @@ export const getResourceDetails = async (
 export const getResourceMetrics = async (
   resourceId: string,
   timeRange?: string
-): Promise<ResourceMetric[]> => {
+): Promise<any[]> => {
   try {
-    console.log(`Fetching metrics for resource ${resourceId} with timeRange ${timeRange || 'default'}`);
+    // Import getCloudAccounts function to ensure we can get the account
+    const { getCloudAccounts } = await import('./accountService');
     
-    // Find the resource to get its account ID
-    let resource: CloudResource | undefined;
+    // Find the resource to get its account ID and type
+    let resource;
     
     // Check if this is in our mock resources
     resource = mockResources.find(r => r.id === resourceId);
@@ -326,33 +292,43 @@ export const getResourceMetrics = async (
     
     if (resource) {
       const accountId = resource.cloud_account_id;
+      // Get the account to determine the provider
+      const accounts = await getCloudAccounts();
+      const account = accounts.find(a => a.id === accountId);
+      
+      if (!account) {
+        throw new Error(`Account not found for resource: ${resourceId}`);
+      }
+      
+      const provider = account.provider;
+      
       // Get the credentials for this account
+      const { getAccountCredentials } = await import('./accountService');
       const credentials = getAccountCredentials(accountId);
       
-      // Try to get real metrics from the edge function with credentials
-      try {
-        const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
-          body: { 
-            resourceId, 
-            timeRange, 
-            accountId,
-            credentials 
-          }
-        });
-
-        if (error) throw error;
-        return data || [];
-      } catch (edgeError) {
-        console.warn("Edge function error getting metrics, falling back to mock data:", edgeError);
-        return generateMockMetricsForResource(resource, timeRange);
+      // Import the provider factory
+      const { getProviderResourceMetrics } = await import('./providerFactory');
+      
+      // Get provider-specific metrics
+      const result = await getProviderResourceMetrics(
+        provider,
+        resourceId,
+        resource.type,
+        timeRange || '24h',
+        credentials
+      );
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
-    } else {
-      // If resource not found, generate basic mock metrics
-      return generateMockMetrics(timeRange);
+      
+      return result.metrics || [];
     }
-  } catch (error) {
+    
+    throw new Error(`Resource not found: ${resourceId}`);
+  } catch (error: any) {
     console.error("Get resource metrics error:", error);
-    return generateMockMetrics(timeRange);
+    return [];
   }
 };
 

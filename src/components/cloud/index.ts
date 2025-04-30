@@ -17,6 +17,7 @@ export { default as ResourceProvisioningForm } from './ResourceProvisioningForm'
 export { default as ConnectionErrorAlert } from './ConnectionErrorAlert';
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
 export { default as OpenSourceCostTools } from './OpenSourceCostTools';
+export { default as ProviderDashboard } from './ProviderDashboard';
 
 // Export cost panels
 export { default as CostAnalysisPanel } from './CostAnalysisPanel';
