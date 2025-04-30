@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, CloudProvider, ResourceMetric } from "./types";
 import { mockSelect } from "../mockDatabaseService";
@@ -147,13 +148,13 @@ export const provisionResource = async (
     try {
       const providerImpl = getProviderImplementation(provider);
       
-      // Call the provider-specific provision function
-      if (provider === 'aws' && providerImpl.provisionAwsResource) {
-        result = await providerImpl.provisionAwsResource(accountId, resourceType, config, credentials);
-      } else if (provider === 'azure' && providerImpl.provisionAzureResource) {
-        result = await providerImpl.provisionAzureResource(accountId, resourceType, config, credentials);
-      } else if (provider === 'gcp' && providerImpl.provisionGcpResource) {
-        result = await providerImpl.provisionGcpResource(accountId, resourceType, config, credentials);
+      // Call the provider-specific provision function with explicit type casting
+      if (provider === 'aws') {
+        result = await (providerImpl as any).provisionAwsResource(accountId, resourceType, config, credentials);
+      } else if (provider === 'azure') {
+        result = await (providerImpl as any).provisionAzureResource(accountId, resourceType, config, credentials);
+      } else if (provider === 'gcp') {
+        result = await (providerImpl as any).provisionGcpResource(accountId, resourceType, config, credentials);
       } else {
         throw new Error(`No provisioning function for provider: ${provider}`);
       }
