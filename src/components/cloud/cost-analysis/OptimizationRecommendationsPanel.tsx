@@ -9,23 +9,38 @@ import AppliedOptimizations from "./AppliedOptimizations";
 
 interface OptimizationRecommendationsPanelProps {
   isLoading: boolean;
-  optimizationRecommendations: OptimizationRecommendation[];
-  totalPotentialSavings: number;
-  isApplyingRecommendation: boolean;
-  dismissRecommendation: (id: string) => void;
-  applyRecommendation: (id: string) => void;
+  optimizationRecommendations?: OptimizationRecommendation[];
+  recommendations?: OptimizationRecommendation[]; // Add for compatibility
+  totalPotentialSavings?: number;
+  isApplyingRecommendation?: boolean;
+  dismissRecommendation?: (id: string) => void;
+  applyRecommendation?: (id: string) => void;
+  onApply?: (id: string) => Promise<boolean>;
 }
 
 export const OptimizationRecommendationsPanel: React.FC<OptimizationRecommendationsPanelProps> = ({
   isLoading,
   optimizationRecommendations,
-  totalPotentialSavings,
-  isApplyingRecommendation,
+  recommendations,
+  totalPotentialSavings = 0,
+  isApplyingRecommendation = false,
   dismissRecommendation,
-  applyRecommendation
+  applyRecommendation,
+  onApply
 }) => {
-  const pendingRecommendations = optimizationRecommendations.filter(rec => rec.status === 'pending');
-  const appliedRecommendations = optimizationRecommendations.filter(rec => rec.status === 'applied');
+  // Use recommendations prop if optimizationRecommendations is not provided
+  const allRecommendations = optimizationRecommendations || recommendations || [];
+  const pendingRecommendations = allRecommendations.filter(rec => rec.status === 'pending');
+  const appliedRecommendations = allRecommendations.filter(rec => rec.status === 'applied');
+
+  // Use the appropriate callback function
+  const handleApply = (id: string) => {
+    if (applyRecommendation) {
+      applyRecommendation(id);
+    } else if (onApply) {
+      onApply(id);
+    }
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -62,14 +77,19 @@ export const OptimizationRecommendationsPanel: React.FC<OptimizationRecommendati
                   key={recommendation.id}
                   recommendation={recommendation}
                   isApplyingRecommendation={isApplyingRecommendation}
-                  onDismiss={dismissRecommendation}
-                  onApply={applyRecommendation}
+                  onDismiss={dismissRecommendation || (() => {})}
+                  onApply={handleApply}
                   getDifficultyColor={getDifficultyColor}
                 />
               ))
             )}
             
-            <AppliedOptimizations recommendations={appliedRecommendations} />
+            {appliedRecommendations.length > 0 && (
+              <AppliedOptimizations 
+                recommendations={appliedRecommendations} 
+                optimizations={appliedRecommendations} 
+              />
+            )}
           </div>
         )}
       </CardContent>

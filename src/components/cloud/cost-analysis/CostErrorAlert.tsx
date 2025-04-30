@@ -5,11 +5,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 interface CostErrorAlertProps {
-  isVisible: boolean;
-  onRefresh: () => void;
+  isVisible?: boolean;
+  onRefresh?: () => void;
+  error?: string;
 }
 
-export const CostErrorAlert: React.FC<CostErrorAlertProps> = ({ isVisible, onRefresh }) => {
+export const CostErrorAlert: React.FC<CostErrorAlertProps> = ({ isVisible = true, onRefresh, error = "An error occurred" }) => {
   if (!isVisible) return null;
 
   return (
@@ -17,14 +18,16 @@ export const CostErrorAlert: React.FC<CostErrorAlertProps> = ({ isVisible, onRef
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>Connection Error</AlertTitle>
       <AlertDescription>
-        Failed to connect to the Edge Functions. Using simulated data instead. 
-        <Button 
-          variant="link" 
-          className="p-0 h-auto text-destructive-foreground underline ml-2" 
-          onClick={onRefresh}
-        >
-          Try again
-        </Button>
+        {error}
+        {onRefresh && (
+          <Button 
+            variant="link" 
+            className="p-0 h-auto text-destructive-foreground underline ml-2" 
+            onClick={onRefresh}
+          >
+            Try again
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

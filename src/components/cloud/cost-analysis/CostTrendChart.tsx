@@ -9,9 +9,9 @@ import { CostDataPoint } from "@/hooks/cost/types";
 interface CostTrendChartProps {
   isLoading: boolean;
   timeRange: "7d" | "30d" | "90d";
-  setTimeRange: (value: "7d" | "30d" | "90d") => void;
+  setTimeRange?: (value: "7d" | "30d" | "90d") => void; // Make optional
   costData: CostDataPoint[];
-  totalCost: number;
+  totalCost?: number; // Make optional
 }
 
 export const CostTrendChart: React.FC<CostTrendChartProps> = ({
@@ -19,8 +19,11 @@ export const CostTrendChart: React.FC<CostTrendChartProps> = ({
   timeRange,
   setTimeRange,
   costData,
-  totalCost
+  totalCost = 0
 }) => {
+  // Calculate total cost from data if not provided
+  const calculatedTotalCost = totalCost || costData.reduce((sum, item) => sum + item.amount, 0);
+
   return (
     <Card className="flex-1">
       <CardHeader className="pb-2">
@@ -29,22 +32,24 @@ export const CostTrendChart: React.FC<CostTrendChartProps> = ({
             <DollarSign className="h-5 w-5 text-primary" />
             Cost Trend
           </CardTitle>
-          <Select 
-            value={timeRange} 
-            onValueChange={(value: "7d" | "30d" | "90d") => setTimeRange(value)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Time range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-            </SelectContent>
-          </Select>
+          {setTimeRange && (
+            <Select 
+              value={timeRange} 
+              onValueChange={(value: "7d" | "30d" | "90d") => setTimeRange(value)}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Time range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
         <CardDescription>
-          Total spend: ${totalCost.toLocaleString()}
+          Total spend: ${calculatedTotalCost.toLocaleString()}
         </CardDescription>
       </CardHeader>
       <CardContent>

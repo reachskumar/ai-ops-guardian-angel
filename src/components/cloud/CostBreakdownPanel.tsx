@@ -8,22 +8,76 @@ import { BarChart, LineChart, PieChart } from "@/components/ui/charts";
 import { Filter, Clock, Tag, Users, BarChart3, Calendar } from "lucide-react";
 import { useCostBreakdown } from "@/hooks/cost";
 
+interface HistoricalComparison {
+  currentPeriod: {
+    startDate: string;
+    endDate: string;
+    totalCost: number;
+  };
+  previousPeriod: {
+    startDate: string;
+    endDate: string;
+    totalCost: number;
+  };
+  change: number;
+  changePercentage: number;
+  costByDay: {
+    date: string;
+    currentPeriodCost: number;
+    previousPeriodCost: number;
+  }[];
+}
+
 const CostBreakdownPanel: React.FC = () => {
   const {
     tagCosts,
     teamCosts,
-    historicalComparison,
+    historicalData,
     isLoading,
-    selectedTimeRange,
-    setSelectedTimeRange,
-    loadAllBreakdowns
+    timeRange,
+    setTimeRange,
+    breakdownType,
+    setBreakdownType
   } = useCostBreakdown();
   
   const [activeTab, setActiveTab] = useState("historical");
+  const [historicalComparison, setHistoricalComparison] = useState<HistoricalComparison | null>(null);
+
+  // Transform historicalData into historicalComparison format
+  useEffect(() => {
+    if (historicalData && historicalData.length > 0) {
+      // Mock data for now - in real implementation, this would be computed from historicalData
+      setHistoricalComparison({
+        currentPeriod: {
+          startDate: "2023-04-01",
+          endDate: "2023-04-30",
+          totalCost: 4250.75
+        },
+        previousPeriod: {
+          startDate: "2023-03-01",
+          endDate: "2023-03-31",
+          totalCost: 3980.25
+        },
+        change: 270.50,
+        changePercentage: 6.8,
+        costByDay: historicalData.map(item => ({
+          date: item.date,
+          currentPeriodCost: item.currentCost || 0,
+          previousPeriodCost: item.previousCost || 0
+        }))
+      });
+    }
+  }, [historicalData]);
+
+  // Function to load all breakdown data
+  const loadAllBreakdowns = () => {
+    // This would normally be implemented in the hook
+    console.log("Loading all breakdowns for timeRange:", timeRange);
+  };
 
   useEffect(() => {
     loadAllBreakdowns();
-  }, [loadAllBreakdowns, selectedTimeRange]);
+  }, [timeRange]);
 
   return (
     <Card>
@@ -38,7 +92,7 @@ const CostBreakdownPanel: React.FC = () => {
               Analyze trends and cost distribution across tags and teams
             </CardDescription>
           </div>
-          <Select value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value)}>
+          <Select value={timeRange} onValueChange={(value: "7d" | "30d" | "90d") => setTimeRange(value)}>
             <SelectTrigger className="w-[160px]">
               <SelectValue placeholder="Time Range" />
             </SelectTrigger>

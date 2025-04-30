@@ -12,9 +12,11 @@ export interface OptimizationRecommendation {
   resourceName: string;
   resourceType: string;
   description: string;
+  title?: string;
   impact: number;
+  potentialSavings?: number;
   difficulty: 'easy' | 'medium' | 'hard';
-  status: 'pending' | 'applied' | 'rejected';
+  status: 'pending' | 'applied' | 'dismissed' | 'rejected';
   details?: Record<string, any>;
 }
 
@@ -25,6 +27,13 @@ export const useOptimizationRecommendations = () => {
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Add aliases for property compatibility
+  const optimizationRecommendations = recommendations;
+  const isApplyingRecommendation = isApplying;
+  const totalPotentialSavings = recommendations.reduce((acc, rec) => acc + (rec.impact || 0), 0);
+  const totalSavings = totalPotentialSavings;
+  const appliedSavings = appliedOptimizations.reduce((acc, rec) => acc + (rec.impact || 0), 0);
 
   const loadRecommendations = useCallback(async () => {
     setIsLoading(true);
@@ -100,6 +109,22 @@ export const useOptimizationRecommendations = () => {
     }
   }, [recommendations, toast]);
 
+  // Add dismissRecommendation function
+  const dismissRecommendation = useCallback((recommendationId: string) => {
+    setRecommendations(prev => 
+      prev.map(rec => 
+        rec.id === recommendationId 
+          ? { ...rec, status: 'dismissed' as const } 
+          : rec
+      ).filter(rec => rec.status === 'pending')
+    );
+    
+    toast({
+      title: "Recommendation dismissed",
+      description: "The optimization suggestion has been dismissed",
+    });
+  }, [toast]);
+
   // Load recommendations on component mount
   useEffect(() => {
     loadRecommendations();
@@ -113,7 +138,12 @@ export const useOptimizationRecommendations = () => {
     error,
     loadRecommendations,
     applyRecommendation,
-    totalSavings: recommendations.reduce((acc, rec) => acc + rec.impact, 0),
-    appliedSavings: appliedOptimizations.reduce((acc, rec) => acc + rec.impact, 0),
+    dismissRecommendation,
+    totalSavings,
+    appliedSavings,
+    // Aliases for compatibility
+    optimizationRecommendations,
+    isApplyingRecommendation,
+    totalPotentialSavings
   };
 };

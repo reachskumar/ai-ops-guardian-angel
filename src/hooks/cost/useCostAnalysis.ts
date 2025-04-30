@@ -21,9 +21,12 @@ export const useCostAnalysis = () => {
   } = useCostData();
 
   const {
-    isApplyingRecommendation,
-    optimizationRecommendations,
-    totalPotentialSavings,
+    recommendations,
+    optimizationRecommendations, // Use the alias property
+    isApplying,
+    isApplyingRecommendation, // Use the alias property
+    totalSavings,
+    totalPotentialSavings, // Use the alias property
     loadRecommendations,
     applyRecommendation,
     dismissRecommendation,

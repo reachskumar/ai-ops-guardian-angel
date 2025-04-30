@@ -11,6 +11,7 @@ import {
 } from '@/components/cloud/cost-analysis';
 import { CostBreakdownPanel, CostBudgetPanel, CostForecastPanel } from '@/components/cloud';
 import { useCostData, useCostForecasting, useOptimizationRecommendations } from '@/hooks/cost';
+import { useCostAnalysis } from '@/hooks/cost';
 
 const CostAnalysisTab: React.FC = () => {
   const { 
@@ -47,7 +48,7 @@ const CostAnalysisTab: React.FC = () => {
   
   return (
     <div className="space-y-6">
-      {error && <CostErrorAlert error={error} />}
+      {error && <CostErrorAlert isVisible={true} error={error} />}
       
       <CostMetricCards 
         costData={costData}
@@ -74,6 +75,8 @@ const CostAnalysisTab: React.FC = () => {
               costData={costData}
               isLoading={isLoading}
               timeRange={timeRange}
+              setTimeRange={setTimeRange}
+              totalCost={costData.reduce((sum, item) => sum + item.amount, 0)}
             />
             <ServiceCostChart 
               serviceCostData={serviceCostData}
@@ -97,11 +100,14 @@ const CostAnalysisTab: React.FC = () => {
         <TabsContent value="optimize" className="space-y-4">
           <OptimizationRecommendationsPanel
             recommendations={recommendations}
+            optimizationRecommendations={recommendations}
             isLoading={isLoadingRecommendations}
+            totalPotentialSavings={totalSavings}
             onApply={applyRecommendation}
           />
           
           <AppliedOptimizations
+            recommendations={appliedOptimizations}
             optimizations={appliedOptimizations}
           />
         </TabsContent>

@@ -14,6 +14,9 @@ export { default as ResourceProvisioningDialog } from './ResourceProvisioningDia
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
 export { default as CostAnalysisPanel } from './CostAnalysisPanel';
 export { default as ResourceTagsManager } from './ResourceTagsManager';
+export { default as CostBreakdownPanel } from './CostBreakdownPanel';
+export { default as CostBudgetPanel } from './CostBudgetPanel';
+export { default as CostForecastPanel } from './CostForecastPanel';
 
 // Tab Components
 export { default as InventoryTab } from './tabs/InventoryTab';

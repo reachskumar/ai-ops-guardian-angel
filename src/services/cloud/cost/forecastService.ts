@@ -1,20 +1,20 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-// Get cost forecasts for future periods
-export const getCostForecast = async (
-  timeRange: string = '30d'
+export const getForecast = async (
+  timeRange: string = '90d',
+  options = { confidenceInterval: 80, includeRecommendations: true }
 ): Promise<{
-  forecast: any[];
+  forecast: Array<{ date: string; cost: number }>;
   forecastedTotal: number;
-  confidenceInterval?: { lower: number; upper: number };
+  confidenceInterval?: { upper: number; lower: number };
   error?: string;
 }> => {
   try {
     // Try to call the edge function if available
     try {
       const { data, error } = await supabase.functions.invoke('get-cost-forecast', {
-        body: { timeRange }
+        body: { timeRange, options }
       });
       
       if (error) throw error;
@@ -23,99 +23,52 @@ export const getCostForecast = async (
     } catch (edgeError: any) {
       console.warn("Edge function error, falling back to mock data:", edgeError);
       
-      // Generate mock forecast data
-      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 30 : 30;
-      const today = new Date();
-      const forecast = [];
-      let forecastedTotal = 0;
+      // Parse forecast period from timeRange
+      const days = parseInt(timeRange.replace('d', ''));
+      const months = Math.ceil(days / 30); // Approximate months
       
-      // Create forecast data starting from today
-      for (let i = 0; i < days; i++) {
+      // Generate mock forecast data
+      const forecast = [];
+      const today = new Date();
+      const baseAmount = 150; // Base daily cost
+      const monthlyGrowthRate = 0.05; // 5% growth per month
+      let totalCost = 0;
+      
+      for (let i = 1; i <= days; i++) {
         const date = new Date(today);
-        date.setDate(date.getDate() + i);
+        date.setDate(today.getDate() + i);
         
-        // Generate forecasted cost with slight upward trend
-        const baseCost = 8 + (Math.random() * 4); // Random cost between 8-12
-        const trendFactor = 1 + (i / days) * 0.15; // Increase by up to 15% over the period
-        const dayCost = baseCost * trendFactor;
+        // Calculate cost with growth factor
+        const growthFactor = 1 + (monthlyGrowthRate * (i / 30));
+        const dayCost = baseAmount * growthFactor * (0.9 + Math.random() * 0.2); // Add some variance
+        totalCost += dayCost;
         
         forecast.push({
           date: date.toISOString().split('T')[0],
-          cost: Number(dayCost.toFixed(2)),
-          forecasted: true
+          cost: parseFloat(dayCost.toFixed(2))
         });
-        
-        forecastedTotal += dayCost;
       }
       
-      // Add confidence interval
-      const confidenceInterval = {
-        lower: Number((forecastedTotal * 0.85).toFixed(2)),
-        upper: Number((forecastedTotal * 1.15).toFixed(2))
-      };
+      // Calculate confidence interval
+      const confidenceMultiplier = options.confidenceInterval / 100 * 0.5; // Map 80% -> 0.4 range
+      const lowerBound = totalCost * (1 - confidenceMultiplier);
+      const upperBound = totalCost * (1 + confidenceMultiplier);
       
       return {
         forecast,
-        forecastedTotal: Number(forecastedTotal.toFixed(2)),
-        confidenceInterval
+        forecastedTotal: parseFloat(totalCost.toFixed(2)),
+        confidenceInterval: {
+          lower: parseFloat(lowerBound.toFixed(2)),
+          upper: parseFloat(upperBound.toFixed(2))
+        }
       };
     }
   } catch (error: any) {
-    console.error("Get cost forecast error:", error);
+    console.error("Get forecast error:", error);
     return {
       forecast: [],
       forecastedTotal: 0,
-      error: error.message || 'Failed to retrieve cost forecast data'
-    };
-  }
-};
-
-// Get budget information
-export const getBudgetInfo = async (): Promise<{
-  budget: number;
-  currentSpend: number;
-  percentUsed: number;
-  daysLeft: number;
-  error?: string;
-}> => {
-  try {
-    // Try to call the edge function if available
-    try {
-      const { data, error } = await supabase.functions.invoke('get-budget-info', {
-        body: {}
-      });
-      
-      if (error) throw error;
-      
-      return data;
-    } catch (edgeError: any) {
-      console.warn("Edge function error, falling back to mock data:", edgeError);
-      
-      // Generate mock budget data
-      const budget = 250;
-      const currentSpend = 195.75;
-      const percentUsed = (currentSpend / budget) * 100;
-      
-      // Calculate days left in month
-      const today = new Date();
-      const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-      const daysLeft = lastDayOfMonth - today.getDate();
-      
-      return {
-        budget,
-        currentSpend,
-        percentUsed: Number(percentUsed.toFixed(1)),
-        daysLeft
-      };
-    }
-  } catch (error: any) {
-    console.error("Get budget info error:", error);
-    return {
-      budget: 0,
-      currentSpend: 0,
-      percentUsed: 0,
-      daysLeft: 0,
-      error: error.message || 'Failed to retrieve budget information'
+      error: error.message || 'Failed to retrieve forecast data'
     };
   }
 };
