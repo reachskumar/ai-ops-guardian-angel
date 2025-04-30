@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -101,6 +102,20 @@ const CloudResourcesPage: React.FC = () => {
     setTimeout(() => {
       fetchResources();
     }, 1000);
+  };
+  
+  // Handle resource action completion (start, stop, delete, etc.)
+  const handleResourceActionComplete = () => {
+    // Refresh resources to show updated status
+    fetchResources();
+    
+    // If the resource was deleted, close the details modal
+    if (selectedResource) {
+      const resourceStillExists = resources.some(r => r.id === selectedResource.id);
+      if (!resourceStillExists) {
+        setSelectedResource(null);
+      }
+    }
   };
   
   // Handle connection error
@@ -253,6 +268,7 @@ const CloudResourcesPage: React.FC = () => {
             detailsLoading={detailsLoading}
             resourceMetrics={resourceMetrics}
             metricsLoading={metricsLoading}
+            onActionComplete={handleResourceActionComplete}
           />
 
           {/* Connect Provider Dialog Component */}

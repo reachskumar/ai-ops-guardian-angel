@@ -1,134 +1,138 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { CostDataPoint, ServiceCostData, CostTrendData } from "@/hooks/cost/types";
+import { getAccountCredentials } from "../accountService";
 
-// Get cost data for a specific period
+// Get cost data for a given time range
 export const getCostData = async (
-  timeRange: string = '7d',
-  groupBy: 'day' | 'week' | 'month' = 'day'
-): Promise<{ 
-  costData: CostDataPoint[];
-  error?: string;
-}> => {
-  try {
-    const { data, error } = await supabase.functions.invoke('get-cost-data', {
-      body: { 
-        timeRange,
-        groupBy,
-        timestamp: new Date().toISOString() // For cache busting
-      }
-    });
-
-    if (error) throw error;
-    
-    return { costData: data.costs };
-  } catch (error: any) {
-    console.error("Get cost data error:", error);
-    return { 
-      costData: generateSimulatedCostData(timeRange),
-      error: error.message || 'Failed to fetch cost data' 
-    };
-  }
-};
-
-// Get service cost breakdown
-export const getServiceCostBreakdown = async (
-  timeRange: string = '7d'
-): Promise<{ 
-  serviceCosts: ServiceCostData[];
-  error?: string;
-}> => {
-  try {
-    const { data, error } = await supabase.functions.invoke('get-service-cost-breakdown', {
-      body: { 
-        timeRange,
-        timestamp: new Date().toISOString() // For cache busting
-      }
-    });
-
-    if (error) throw error;
-    
-    return { serviceCosts: data.serviceCosts };
-  } catch (error: any) {
-    console.error("Get service cost breakdown error:", error);
-    return { 
-      serviceCosts: generateSimulatedServiceCosts(),
-      error: error.message || 'Failed to fetch service cost breakdown' 
-    };
-  }
-};
-
-// Get cost trend summary
-export const getCostTrend = async (
   timeRange: string = '30d'
 ): Promise<{ 
-  trend: CostTrendData;
+  dailyCosts: any[]; 
+  totalCost: number;
+  previousPeriodCost?: number;
+  percentChange?: number;
   error?: string;
 }> => {
   try {
-    const { data, error } = await supabase.functions.invoke('get-cost-trend', {
-      body: { 
-        timeRange,
-        timestamp: new Date().toISOString()
+    // Try to call the edge function if available
+    try {
+      const { data, error } = await supabase.functions.invoke('get-cloud-costs', {
+        body: { timeRange }
+      });
+      
+      if (error) throw error;
+      
+      return {
+        dailyCosts: data.dailyCosts || [],
+        totalCost: data.totalCost || 0,
+        previousPeriodCost: data.previousPeriodCost,
+        percentChange: data.percentChange
+      };
+    } catch (edgeError: any) {
+      console.warn("Edge function error, falling back to mock data:", edgeError);
+      
+      // Generate mock data for demonstration purposes
+      const endDate = new Date();
+      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365;
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - days);
+      
+      const dailyCosts = [];
+      let totalCost = 0;
+      
+      for (let i = 0; i < days; i++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + i);
+        
+        // Generate some cost variation with a slight upward trend
+        const baseCost = 5 + (Math.random() * 5); // Random cost between 5-10
+        const trendFactor = 1 + (i / days) * 0.2; // Increase by up to 20% over the period
+        const dayCost = baseCost * trendFactor;
+        
+        dailyCosts.push({
+          date: date.toISOString().split('T')[0],
+          cost: Number(dayCost.toFixed(2))
+        });
+        
+        totalCost += dayCost;
       }
-    });
-
-    if (error) throw error;
-    
-    return { trend: data.trend };
+      
+      // Calculate a mock previous period cost
+      const previousPeriodCost = totalCost * 0.9; // 10% less than current
+      const percentChange = ((totalCost - previousPeriodCost) / previousPeriodCost) * 100;
+      
+      return {
+        dailyCosts,
+        totalCost: Number(totalCost.toFixed(2)),
+        previousPeriodCost: Number(previousPeriodCost.toFixed(2)),
+        percentChange: Number(percentChange.toFixed(1))
+      };
+    }
   } catch (error: any) {
-    console.error("Get cost trend error:", error);
-    return { 
-      trend: generateSimulatedCostTrend(),
-      error: error.message || 'Failed to fetch cost trend' 
+    console.error("Get cost data error:", error);
+    return {
+      dailyCosts: [],
+      totalCost: 0,
+      error: error.message || 'Failed to retrieve cost data'
     };
   }
 };
 
-// Generate simulated cost data for testing and fallback
-export const generateSimulatedCostData = (timeRange: string): CostDataPoint[] => {
-  const now = new Date();
-  const days = timeRange === '90d' ? 90 : timeRange === '30d' ? 30 : 7;
-  
-  return Array.from({ length: days }, (_, i) => {
-    const date = new Date(now);
-    date.setDate(date.getDate() - (days - i - 1));
-    const day = date.toISOString().split('T')[0];
-    
-    // Create some variation in the data
-    const randomFactor = 0.8 + (Math.random() * 0.4); // Between 0.8 and 1.2
-    const baseAmount = 230 + (i * 2); // Slight upward trend
-    
+// Get cost breakdown by various dimensions (service, region, etc.)
+export const getCostBreakdown = async (
+  timeRange: string = '30d',
+  dimension: string = 'service'
+): Promise<{
+  byService?: any[];
+  byRegion?: any[];
+  byAccount?: any[];
+  error?: string;
+}> => {
+  try {
+    // Try to call the edge function if available
+    try {
+      const { data, error } = await supabase.functions.invoke('get-cost-breakdown', {
+        body: { timeRange, dimension }
+      });
+      
+      if (error) throw error;
+      
+      return data;
+    } catch (edgeError: any) {
+      console.warn("Edge function error, falling back to mock data:", edgeError);
+      
+      // Generate mock breakdown data
+      const mockServiceBreakdown = [
+        { name: 'Compute Engine', cost: 125.45 },
+        { name: 'Cloud Storage', cost: 45.20 },
+        { name: 'Cloud SQL', cost: 32.80 },
+        { name: 'Networking', cost: 18.80 },
+        { name: 'Other Services', cost: 7.30 }
+      ];
+      
+      const mockRegionBreakdown = [
+        { name: 'us-central1', cost: 85.45 },
+        { name: 'us-east1', cost: 65.20 },
+        { name: 'europe-west1', cost: 38.80 },
+        { name: 'asia-east1', cost: 28.30 },
+        { name: 'australia-southeast1', cost: 11.80 }
+      ];
+      
+      const mockAccountBreakdown = [
+        { name: 'Main Project', cost: 156.45 },
+        { name: 'Dev Environment', cost: 62.30 },
+        { name: 'Test Environment', cost: 10.80 }
+      ];
+      
+      return {
+        byService: mockServiceBreakdown,
+        byRegion: mockRegionBreakdown,
+        byAccount: mockAccountBreakdown
+      };
+    }
+  } catch (error: any) {
+    console.error("Get cost breakdown error:", error);
     return {
-      date: day,
-      amount: Math.round(baseAmount * randomFactor)
+      error: error.message || 'Failed to retrieve cost breakdown data'
     };
-  });
-};
-
-// Generate simulated service cost data
-export const generateSimulatedServiceCosts = (): ServiceCostData[] => {
-  return [
-    { name: "EC2", value: 540, percentage: 42 },
-    { name: "RDS", value: 320, percentage: 25 },
-    { name: "S3", value: 180, percentage: 14 },
-    { name: "Lambda", value: 90, percentage: 7 },
-    { name: "Other", value: 150, percentage: 12 },
-  ];
-};
-
-// Generate simulated cost trend data
-export const generateSimulatedCostTrend = (): CostTrendData => {
-  const currentTotal = 5890;
-  const previousTotal = 5340;
-  const change = currentTotal - previousTotal;
-  const changePercentage = Math.round((change / previousTotal) * 100);
-  
-  return {
-    period: 'Current month',
-    total: currentTotal,
-    previousPeriod: previousTotal,
-    change,
-    changePercentage
-  };
+  }
 };

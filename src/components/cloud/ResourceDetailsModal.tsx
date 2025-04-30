@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CloudResource, getResourceMetrics, ResourceMetric } from '@/services/cloudProviderService';
 import {
@@ -19,6 +20,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ResourceMetrics from './ResourceMetrics';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ResourceActions from './ResourceActions';
 
 interface ResourceDetailsModalProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ interface ResourceDetailsModalProps {
   detailsLoading: boolean;
   resourceMetrics: ResourceMetric[];
   metricsLoading: boolean;
+  onActionComplete?: () => void;
 }
 
 const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
@@ -41,6 +44,7 @@ const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
   detailsLoading,
   resourceMetrics,
   metricsLoading,
+  onActionComplete = () => {}
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -65,6 +69,16 @@ const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
           </div>
         ) : (
           <>
+            {/* Resource Actions Bar */}
+            {selectedResource && (
+              <div className="mb-4 pb-4 border-b">
+                <ResourceActions 
+                  resource={selectedResource} 
+                  onActionComplete={onActionComplete}
+                />
+              </div>
+            )}
+          
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid grid-cols-2 mb-4">
                 <TabsTrigger value="overview" className="flex items-center gap-1">
@@ -97,7 +111,7 @@ const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
                         <div className="text-sm text-muted-foreground">Status</div>
                         <div className="font-medium">
                           <Badge 
-                            variant={resourceDetails.resource.status === 'healthy' ? 'default' : 'destructive'}
+                            variant={resourceDetails.resource.status === 'running' ? 'default' : 'secondary'}
                           >
                             {resourceDetails.resource.status}
                           </Badge>
@@ -132,6 +146,24 @@ const ResourceDetailsModal: React.FC<ResourceDetailsModalProps> = ({
                         <div className="text-sm">
                           <span className="text-muted-foreground">Estimated Monthly: </span>
                           ${(resourceDetails.resource.cost_per_day * 30).toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Metadata section */}
+                    {resourceDetails.resource.metadata && Object.keys(resourceDetails.resource.metadata).length > 0 && (
+                      <div>
+                        <div className="font-semibold flex items-center mb-2">
+                          <Server className="mr-2 h-4 w-4" />
+                          Resource Details
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(resourceDetails.resource.metadata).map(([key, value]) => (
+                            <div key={key} className="p-2 border rounded-md">
+                              <div className="text-xs text-muted-foreground capitalize">{key.replace('_', ' ')}</div>
+                              <div className="text-sm font-medium">{value?.toString() || 'N/A'}</div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

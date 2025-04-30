@@ -13,6 +13,7 @@ interface GcpCredentialStatusProps {
 
 const GcpCredentialStatus: React.FC<GcpCredentialStatusProps> = ({
   hasCredentials,
+  accountId,
   credentialStatus,
   errorMessage
 }) => {
@@ -26,7 +27,8 @@ const GcpCredentialStatus: React.FC<GcpCredentialStatusProps> = ({
         <CheckCircle className="h-4 w-4 text-green-600" />
         <AlertTitle className="text-green-800">GCP Credentials Valid</AlertTitle>
         <AlertDescription className="text-green-700">
-          Your GCP service account key has been validated successfully.
+          <p>Your GCP service account key has been validated successfully.</p>
+          <p className="text-xs mt-1">You can now provision and manage resources in your GCP project.</p>
         </AlertDescription>
       </Alert>
     );
