@@ -13,6 +13,7 @@ export { default as ConnectionErrorAlert } from './ConnectionErrorAlert';
 export { default as ResourceProvisioningDialog } from './ResourceProvisioningDialog';
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
 export { default as CostAnalysisPanel } from './CostAnalysisPanel';
+export { default as ResourceTagsManager } from './ResourceTagsManager';
 
 // Tab Components
 export { default as InventoryTab } from './tabs/InventoryTab';

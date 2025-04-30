@@ -1,144 +1,109 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { getCostByTag, getCostByTeam, getCostHistory } from '@/services/cloud/costService';
-import { CostDataPoint } from './types';
+import { 
+  getCostBreakdown, 
+  getResourceTagCosts, 
+  getCostDistributionByTeam, 
+  getCostHistoryData
+} from '@/services/cloud/costService';
 
-export interface TagCost {
-  tagKey: string;
-  tagValue: string;
-  cost: number;
-  percentage: number;
-}
-
-export interface TeamCost {
-  teamId: string;
-  teamName: string;
-  cost: number;
-  percentage: number;
-  resources: number;
-}
-
-export interface HistoricalCostComparison {
-  currentPeriod: {
-    startDate: string;
-    endDate: string;
-    totalCost: number;
-  };
-  previousPeriod: {
-    startDate: string;
-    endDate: string;
-    totalCost: number;
-  };
-  change: number;
-  changePercentage: number;
-  costByDay: Array<{
-    date: string;
-    currentPeriodCost: number;
-    previousPeriodCost: number;
-  }>;
-}
-
-export const useCostBreakdown = () => {
-  const [tagCosts, setTagCosts] = useState<TagCost[]>([]);
-  const [teamCosts, setTeamCosts] = useState<TeamCost[]>([]);
-  const [historicalComparison, setHistoricalComparison] = useState<HistoricalCostComparison | null>(null);
+export const useCostBreakdown = (initialTimeRange: '7d' | '30d' | '90d' = '30d') => {
+  const [timeRange, setTimeRange] = useState(initialTimeRange);
+  const [breakdownType, setBreakdownType] = useState<'service' | 'region' | 'account'>('service');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTimeRange, setSelectedTimeRange] = useState("30d");
+  const [breakdownData, setBreakdownData] = useState<any[]>([]);
+  const [tagCosts, setTagCosts] = useState<any[]>([]);
+  const [teamCosts, setTeamCosts] = useState<any[]>([]);
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
   const { toast } = useToast();
 
+  const loadBreakdownData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await getCostBreakdown(timeRange);
+      if (result.error) {
+        toast({
+          title: "Error loading cost breakdown",
+          description: result.error,
+          variant: "destructive"
+        });
+      } else {
+        switch (breakdownType) {
+          case 'service':
+            setBreakdownData(result.byService || []);
+            break;
+          case 'region':
+            setBreakdownData(result.byRegion || []);
+            break;
+          case 'account':
+            setBreakdownData(result.byAccount || []);
+            break;
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error loading data",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [timeRange, breakdownType, toast]);
+
+  // Load tag costs separately
   const loadTagCosts = useCallback(async () => {
-    setIsLoading(true);
     try {
-      const result = await getCostByTag(selectedTimeRange);
-      if (result.error) {
-        toast({
-          title: "Error loading tag costs",
-          description: result.error,
-          variant: "destructive"
-        });
-      } else {
-        setTagCosts(result.tagCosts);
+      const result = await getResourceTagCosts(timeRange);
+      if (!result.error) {
+        setTagCosts(result.tagCosts || []);
       }
-    } catch (error: any) {
-      toast({
-        title: "Error loading tag costs",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error("Error loading tag costs:", error);
     }
-  }, [selectedTimeRange, toast]);
+  }, [timeRange]);
 
+  // Load team costs separately
   const loadTeamCosts = useCallback(async () => {
-    setIsLoading(true);
     try {
-      const result = await getCostByTeam(selectedTimeRange);
-      if (result.error) {
-        toast({
-          title: "Error loading team costs",
-          description: result.error,
-          variant: "destructive"
-        });
-      } else {
-        setTeamCosts(result.teamCosts);
+      const result = await getCostDistributionByTeam(timeRange);
+      if (!result.error) {
+        setTeamCosts(result.teamCosts || []);
       }
-    } catch (error: any) {
-      toast({
-        title: "Error loading team costs",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error("Error loading team costs:", error);
     }
-  }, [selectedTimeRange, toast]);
+  }, [timeRange]);
 
-  const loadHistoricalComparison = useCallback(async () => {
-    setIsLoading(true);
+  // Load historical data separately
+  const loadHistoricalData = useCallback(async () => {
     try {
-      const result = await getCostHistory(selectedTimeRange);
-      if (result.error) {
-        toast({
-          title: "Error loading historical comparison",
-          description: result.error,
-          variant: "destructive"
-        });
-      } else {
-        setHistoricalComparison(result.historicalComparison);
+      const result = await getCostHistoryData(timeRange);
+      if (!result.error) {
+        setHistoricalData(result.history || []);
       }
-    } catch (error: any) {
-      toast({
-        title: "Error loading historical comparison",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error("Error loading historical data:", error);
     }
-  }, [selectedTimeRange, toast]);
+  }, [timeRange]);
 
-  const loadAllBreakdowns = async () => {
-    setIsLoading(true);
-    await Promise.all([
-      loadTagCosts(),
-      loadTeamCosts(),
-      loadHistoricalComparison()
-    ]);
-    setIsLoading(false);
-  };
+  useEffect(() => {
+    loadBreakdownData();
+    loadTagCosts();
+    loadTeamCosts();
+    loadHistoricalData();
+  }, [loadBreakdownData, loadTagCosts, loadTeamCosts, loadHistoricalData]);
 
   return {
+    timeRange,
+    setTimeRange,
+    breakdownType,
+    setBreakdownType,
+    breakdownData,
+    isLoading,
     tagCosts,
     teamCosts,
-    historicalComparison,
-    isLoading,
-    selectedTimeRange,
-    setSelectedTimeRange,
-    loadTagCosts,
-    loadTeamCosts,
-    loadHistoricalComparison,
-    loadAllBreakdowns
+    historicalData
   };
 };

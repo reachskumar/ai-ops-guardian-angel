@@ -1,14 +1,28 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { OptimizationRecommendation } from './types';
-import { getCostOptimizationRecommendations, applyCostOptimization } from '@/services/cloud/costService';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  getOptimizationRecommendations, 
+  applyOptimization 
+} from '@/services/cloud/costService';
+
+export interface OptimizationRecommendation {
+  id: string;
+  resourceId: string;
+  resourceName: string;
+  resourceType: string;
+  description: string;
+  impact: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  status: 'pending' | 'applied' | 'rejected';
+  details?: Record<string, any>;
+}
 
 export const useOptimizationRecommendations = () => {
-  const [isApplyingRecommendation, setIsApplyingRecommendation] = useState(false);
-  const [optimizationRecommendations, setOptimizationRecommendations] = useState<OptimizationRecommendation[]>([]);
-  const [totalPotentialSavings, setTotalPotentialSavings] = useState(0);
+  const [recommendations, setRecommendations] = useState<OptimizationRecommendation[]>([]);
+  const [appliedOptimizations, setAppliedOptimizations] = useState<OptimizationRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -17,29 +31,25 @@ export const useOptimizationRecommendations = () => {
     setError(null);
     
     try {
-      // Fetch optimization recommendations
-      const recommendationsResult = await getCostOptimizationRecommendations();
+      const result = await getOptimizationRecommendations();
       
-      if (recommendationsResult.error) {
-        console.error("Error fetching recommendations:", recommendationsResult.error);
-        setError(recommendationsResult.error);
+      if (result.error) {
+        setError(result.error);
         toast({
-          title: "Error fetching optimization recommendations",
-          description: "Using simulated data instead",
+          title: "Error loading recommendations",
+          description: result.error,
           variant: "destructive"
         });
+      } else {
+        setRecommendations(result.recommendations?.filter(r => r.status === 'pending') || []);
+        setAppliedOptimizations(result.recommendations?.filter(r => r.status === 'applied') || []);
       }
-      
-      // Set the recommendations data - even if there was an error, we'll use the simulated data
-      setOptimizationRecommendations(recommendationsResult.recommendations);
-      setTotalPotentialSavings(recommendationsResult.potentialSavings);
-      
     } catch (error: any) {
-      console.error("Error loading recommendations:", error);
-      setError(error.message || "An unexpected error occurred");
+      const errorMessage = error.message || "An unexpected error occurred";
+      setError(errorMessage);
       toast({
         title: "Error loading recommendations",
-        description: "Using simulated data instead",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -47,99 +57,63 @@ export const useOptimizationRecommendations = () => {
     }
   }, [toast]);
 
-  // Load recommendations when the component mounts
+  const applyRecommendation = useCallback(async (recommendationId: string) => {
+    setIsApplying(true);
+    
+    try {
+      const result = await applyOptimization(recommendationId);
+      
+      if (result.error) {
+        toast({
+          title: "Error applying optimization",
+          description: result.error,
+          variant: "destructive"
+        });
+        return false;
+      }
+      
+      // Update local state
+      setRecommendations(prev => prev.filter(r => r.id !== recommendationId));
+      
+      // Find the recommendation and update its status
+      const appliedRec = recommendations.find(r => r.id === recommendationId);
+      if (appliedRec) {
+        const updatedRec = { ...appliedRec, status: 'applied' as const };
+        setAppliedOptimizations(prev => [...prev, updatedRec]);
+      }
+      
+      toast({
+        title: "Optimization applied",
+        description: "The cost optimization has been successfully applied",
+      });
+      
+      return true;
+    } catch (error: any) {
+      toast({
+        title: "Error applying optimization",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsApplying(false);
+    }
+  }, [recommendations, toast]);
+
+  // Load recommendations on component mount
   useEffect(() => {
     loadRecommendations();
   }, [loadRecommendations]);
 
-  // Apply a recommendation
-  const applyRecommendation = async (recommendationId: string) => {
-    setIsApplyingRecommendation(true);
-    
-    try {
-      const result = await applyCostOptimization(recommendationId);
-      
-      if (result.success) {
-        toast({
-          title: "Recommendation applied",
-          description: "The cost optimization has been successfully applied",
-        });
-        
-        // Update the recommendation status locally
-        setOptimizationRecommendations(prev => 
-          prev.map(rec => 
-            rec.id === recommendationId 
-              ? { ...rec, status: 'applied' } 
-              : rec
-          )
-        );
-        
-        // Recalculate total potential savings
-        const newSavings = optimizationRecommendations
-          .filter(rec => rec.id !== recommendationId || rec.status !== 'pending')
-          .reduce((sum, rec) => rec.status === 'pending' ? sum + rec.potentialSavings : sum, 0);
-          
-        setTotalPotentialSavings(newSavings);
-      } else {
-        toast({
-          title: "Failed to apply recommendation",
-          description: result.error || "Unknown error occurred",
-          variant: "destructive"
-        });
-      }
-    } catch (error: any) {
-      console.error("Error applying recommendation:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred, but the UI has been updated",
-        variant: "destructive"
-      });
-      
-      // Still update the UI for better UX
-      setOptimizationRecommendations(prev => 
-        prev.map(rec => 
-          rec.id === recommendationId 
-            ? { ...rec, status: 'applied' } 
-            : rec
-        )
-      );
-    } finally {
-      setIsApplyingRecommendation(false);
-    }
-  };
-
-  // Dismiss a recommendation
-  const dismissRecommendation = (recommendationId: string) => {
-    // Update recommendation status locally
-    setOptimizationRecommendations(prev => 
-      prev.map(rec => 
-        rec.id === recommendationId 
-          ? { ...rec, status: 'dismissed' } 
-          : rec
-      )
-    );
-    
-    // Recalculate total potential savings
-    const newSavings = optimizationRecommendations
-      .filter(rec => rec.id !== recommendationId || rec.status !== 'pending')
-      .reduce((sum, rec) => rec.status === 'pending' ? sum + rec.potentialSavings : sum, 0);
-      
-    setTotalPotentialSavings(newSavings);
-    
-    toast({
-      title: "Recommendation dismissed",
-      description: "The recommendation has been dismissed from your list",
-    });
-  };
-
   return {
+    recommendations,
+    appliedOptimizations,
     isLoading,
-    isApplyingRecommendation,
+    isApplying,
     error,
-    optimizationRecommendations,
-    totalPotentialSavings,
     loadRecommendations,
     applyRecommendation,
-    dismissRecommendation
+    totalSavings: recommendations.reduce((acc, rec) => acc + rec.impact, 0),
+    appliedSavings: appliedOptimizations.reduce((acc, rec) => acc + rec.impact, 0),
   };
 };

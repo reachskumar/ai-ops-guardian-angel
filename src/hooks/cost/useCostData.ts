@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { CostDataPoint, ServiceCostData, CostTrendData } from './types';
-import { getCostData, getServiceCostBreakdown, getCostTrend } from '@/services/cloud/costService';
+import { getCostData, getCostBreakdown, getCostAnalysisTrend } from '@/services/cloud/costService';
 import { useToast } from '@/hooks/use-toast';
 
 export const useCostData = () => {
@@ -29,23 +29,23 @@ export const useCostData = () => {
         });
         setError(costResult.error);
       }
-      setCostData(costResult.costData);
+      setCostData(costResult.dailyCosts || []);
       
       // Fetch service cost breakdown
-      const serviceResult = await getServiceCostBreakdown(timeRange);
+      const serviceResult = await getCostBreakdown(timeRange);
       if (serviceResult.error) {
         console.error("Error fetching service cost breakdown:", serviceResult.error);
         setError(prevError => prevError || serviceResult.error);
       }
-      setServiceCostData(serviceResult.serviceCosts);
+      setServiceCostData(serviceResult.byService || []);
       
       // Fetch cost trend
-      const trendResult = await getCostTrend(timeRange);
+      const trendResult = await getCostAnalysisTrend(timeRange);
       if (trendResult.error) {
         console.error("Error fetching cost trend:", trendResult.error);
         setError(prevError => prevError || trendResult.error);
       }
-      setCostTrend(trendResult.trend);
+      setCostTrend(trendResult.trend || null);
       
     } catch (error: any) {
       console.error("Error loading cost data:", error);

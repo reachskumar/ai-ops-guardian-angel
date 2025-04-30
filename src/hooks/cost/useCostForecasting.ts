@@ -32,7 +32,10 @@ export const useCostForecasting = () => {
   const loadForecast = useCallback(async () => {
     setIsLoading(true);
     try {
-      const result = await getCostForecast(forecastOptions);
+      // Convert options to timeRange string for API compatibility
+      const timeRange = `${forecastOptions.months * 30}d`;
+      const result = await getCostForecast(timeRange);
+      
       if (result.error) {
         toast({
           title: "Error generating forecast",
@@ -40,7 +43,20 @@ export const useCostForecasting = () => {
           variant: "destructive"
         });
       } else {
-        setForecastData(result.forecastData);
+        // Transform the response to match our ForecastData interface
+        const forecastDataObj: ForecastData = {
+          forecastedCosts: result.forecast.map(item => ({
+            date: item.date,
+            amount: item.cost,
+            category: 'forecast'
+          })),
+          totalForecast: result.forecastedTotal,
+          averageMonthly: result.forecastedTotal / forecastOptions.months,
+          minEstimate: result.confidenceInterval?.lower || result.forecastedTotal * 0.9,
+          maxEstimate: result.confidenceInterval?.upper || result.forecastedTotal * 1.1,
+          confidenceInterval: forecastOptions.confidenceInterval
+        };
+        setForecastData(forecastDataObj);
       }
     } catch (error: any) {
       toast({
