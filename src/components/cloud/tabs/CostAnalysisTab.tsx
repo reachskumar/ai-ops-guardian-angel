@@ -12,6 +12,7 @@ import {
 import { CostBreakdownPanel, CostBudgetPanel, CostForecastPanel } from '@/components/cloud';
 import { useCostData, useCostForecasting, useOptimizationRecommendations } from '@/hooks/cost';
 import { useCostAnalysis } from '@/hooks/cost';
+import { OptimizationRecommendation } from '@/hooks/cost/types';
 
 const CostAnalysisTab: React.FC = () => {
   const { 
@@ -99,16 +100,16 @@ const CostAnalysisTab: React.FC = () => {
         
         <TabsContent value="optimize" className="space-y-4">
           <OptimizationRecommendationsPanel
-            recommendations={recommendations}
-            optimizationRecommendations={recommendations}
+            optimizationRecommendations={recommendations as OptimizationRecommendation[]}
+            recommendations={recommendations as OptimizationRecommendation[]}
             isLoading={isLoadingRecommendations}
             totalPotentialSavings={totalSavings}
             onApply={applyRecommendation}
           />
           
           <AppliedOptimizations
-            recommendations={appliedOptimizations}
-            optimizations={appliedOptimizations}
+            recommendations={appliedOptimizations as OptimizationRecommendation[]}
+            optimizations={appliedOptimizations as OptimizationRecommendation[]}
           />
         </TabsContent>
       </Tabs>

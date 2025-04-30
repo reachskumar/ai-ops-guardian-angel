@@ -9,4 +9,5 @@ export * from './useCostForecasting';
 export * from './useCostBreakdown';
 
 // Export types separately to avoid conflicts
-export { CostDataPoint, ServiceCostData, CostTrendData } from './types';
+export type { CostDataPoint, ServiceCostData, CostTrendData } from './types';
+export type { OptimizationRecommendation } from './types';

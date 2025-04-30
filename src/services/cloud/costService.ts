@@ -1,82 +1,61 @@
 
-// This file re-exports all cost-related services from the cost/ folder
-// to maintain backwards compatibility with existing imports
+import { OptimizationRecommendation } from '@/hooks/cost/types';
 
-export * from './cost';
+// Add getOptimizationRecommendations function for compatibility 
+export const getOptimizationRecommendations = async (): Promise<{
+  recommendations: OptimizationRecommendation[];
+  error?: string;
+}> => {
+  try {
+    const data = await import('./cost/optimizationService').then(module => {
+      return module.getOptimizationSuggestions();
+    });
 
-// Define additional methods for backwards compatibility
-export const getCostData = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getCostData } = require('./cost/costDataService');
-  return getCostData(timeRange);
-};
-
-export const getCostBreakdown = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getCostBreakdown } = require('./cost/breakdownService');
-  return getCostBreakdown(timeRange);
-};
-
-export const getCostAnalysisTrend = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getCostTrend } = require('./cost/costDataService');
-  return getCostTrend(timeRange);
-};
-
-export const getResourceTagCosts = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getCostByTag } = require('./cost/breakdownService');
-  return getCostByTag(timeRange);
-};
-
-export const getCostDistributionByTeam = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getCostByTeam } = require('./cost/breakdownService');
-  return getCostByTeam(timeRange);
-};
-
-export const getCostHistoryData = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getCostHistory } = require('./cost/breakdownService');
-  return getCostHistory(timeRange);
-};
-
-export const getOptimizationRecommendations = () => {
-  // Import from the proper module and call the function
-  const { getOptimizationSuggestions } = require('./cost/optimizationService');
-  return getOptimizationSuggestions().then((result: any) => {
-    if (result.error) return result;
-    
-    // Transform suggestions to recommendations format
-    const recommendations = result.suggestions.map((suggestion: any) => ({
+    // Convert suggestions to recommendations
+    const recommendations: OptimizationRecommendation[] = (data.suggestions || []).map(suggestion => ({
       id: suggestion.id,
-      resourceId: suggestion.resourceIds?.[0] || '',
-      resourceName: suggestion.resourceIds?.[0] || '',
-      resourceType: suggestion.category || '',
       title: suggestion.title,
       description: suggestion.description,
-      impact: suggestion.monthlySavings,
-      potentialSavings: suggestion.monthlySavings,
-      difficulty: suggestion.difficulty,
-      status: 'pending'
+      potentialSavings: suggestion.monthlySavings || 0,
+      impact: suggestion.monthlySavings || 0,
+      difficulty: suggestion.difficulty || 'medium',
+      status: 'pending',
+      resourceId: suggestion.resourceIds?.[0] || undefined,
+      resourceType: suggestion.category || undefined
     }));
-    
-    return { 
+
+    return {
       recommendations,
-      totalSavings: result.totalSavings,
-      error: result.error
+      error: data.error
     };
-  });
+  } catch (error: any) {
+    console.error("Error in getOptimizationRecommendations:", error);
+    return {
+      recommendations: [],
+      error: error.message || 'Failed to retrieve optimization recommendations'
+    };
+  }
 };
 
-export const applyOptimization = (recommendationId: string) => {
-  // Import from the proper module and call the function
-  const { applyOptimization } = require('./cost/optimizationService');
-  return applyOptimization(recommendationId);
+// Add applyOptimization function for compatibility
+export const applyOptimization = async (optimizationId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> => {
+  try {
+    const result = await import('./cost/optimizationService').then(module => {
+      return module.applyOptimization(optimizationId);
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error("Error in applyOptimization:", error);
+    return {
+      success: false,
+      error: error.message || 'Failed to apply optimization'
+    };
+  }
 };
 
-export const getCostForecast = (timeRange: string) => {
-  // Import from the proper module and call the function
-  const { getForecast } = require('./cost/forecastService');
-  return getForecast(timeRange);
-};
+// Re-export all cost-related functions from sub-modules
+export * from './cost';

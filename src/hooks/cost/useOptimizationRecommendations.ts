@@ -5,20 +5,7 @@ import {
   getOptimizationRecommendations, 
   applyOptimization 
 } from '@/services/cloud/costService';
-
-export interface OptimizationRecommendation {
-  id: string;
-  resourceId: string;
-  resourceName: string;
-  resourceType: string;
-  description: string;
-  title?: string;
-  impact: number;
-  potentialSavings?: number;
-  difficulty: 'easy' | 'medium' | 'hard';
-  status: 'pending' | 'applied' | 'dismissed' | 'rejected';
-  details?: Record<string, any>;
-}
+import { OptimizationRecommendation } from './types';
 
 export const useOptimizationRecommendations = () => {
   const [recommendations, setRecommendations] = useState<OptimizationRecommendation[]>([]);
@@ -31,9 +18,9 @@ export const useOptimizationRecommendations = () => {
   // Add aliases for property compatibility
   const optimizationRecommendations = recommendations;
   const isApplyingRecommendation = isApplying;
-  const totalPotentialSavings = recommendations.reduce((acc, rec) => acc + (rec.impact || 0), 0);
+  const totalPotentialSavings = recommendations.reduce((acc, rec) => acc + (rec.potentialSavings || rec.impact || 0), 0);
   const totalSavings = totalPotentialSavings;
-  const appliedSavings = appliedOptimizations.reduce((acc, rec) => acc + (rec.impact || 0), 0);
+  const appliedSavings = appliedOptimizations.reduce((acc, rec) => acc + (rec.potentialSavings || rec.impact || 0), 0);
 
   const loadRecommendations = useCallback(async () => {
     setIsLoading(true);
