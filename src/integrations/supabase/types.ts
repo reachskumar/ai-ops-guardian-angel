@@ -9,6 +9,91 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      cloud_account_credentials: {
+        Row: {
+          account_id: string
+          created_at: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cloud_account_credentials_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "users_cloud_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cloud_resources: {
+        Row: {
+          cloud_account_id: string
+          cost_per_day: number | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          name: string
+          region: string
+          resource_id: string
+          status: string
+          tags: Json | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          cloud_account_id: string
+          cost_per_day?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          name: string
+          region: string
+          resource_id: string
+          status: string
+          tags?: Json | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          cloud_account_id?: string
+          cost_per_day?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          name?: string
+          region?: string
+          resource_id?: string
+          status?: string
+          tags?: Json | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cloud_resources_cloud_account_id_fkey"
+            columns: ["cloud_account_id"]
+            isOneToOne: false
+            referencedRelation: "users_cloud_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_assessments: {
         Row: {
           assessor: string | null
@@ -351,6 +436,42 @@ export type Database = {
           },
         ]
       }
+      users_cloud_accounts: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          last_synced_at: string | null
+          metadata: Json | null
+          name: string
+          provider: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_synced_at?: string | null
+          metadata?: Json | null
+          name: string
+          provider: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          last_synced_at?: string | null
+          metadata?: Json | null
+          name?: string
+          provider?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       vulnerabilities: {
         Row: {
           affected_component: string | null
@@ -421,7 +542,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_account_credentials: {
+        Args: { account_id: string }
+        Returns: undefined
+      }
+      get_account_credentials: {
+        Args: { account_id: string }
+        Returns: {
+          key: string
+          value: string
+        }[]
+      }
+      store_credential: {
+        Args: {
+          account_id: string
+          credential_key: string
+          credential_value: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

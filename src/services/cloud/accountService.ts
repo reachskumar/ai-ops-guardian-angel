@@ -49,7 +49,7 @@ export const connectCloudProvider = async (
       // we'll use a try-catch and fallback to local storage
       try {
         // Add to users_cloud_accounts table in Supabase
-        const { error: insertError } = await supabase.from('users_cloud_accounts' as any)
+        const { error: insertError } = await supabase.from('users_cloud_accounts')
           .insert({
             id: data.accountId,
             user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -131,7 +131,8 @@ export const getCloudAccounts = async (): Promise<CloudAccount[]> => {
   try {
     // First try to get from Supabase
     try {
-      const { data, error } = await supabase.from('users_cloud_accounts' as any).select('*');
+      const { data, error } = await supabase.from('users_cloud_accounts')
+        .select('*');
       
       if (error) {
         console.warn("Supabase error getting accounts, falling back to mock data:", error);
@@ -162,7 +163,7 @@ export const deleteCloudAccount = async (
   try {
     // First try to delete from Supabase
     try {
-      const { error } = await supabase.from('users_cloud_accounts' as any)
+      const { error } = await supabase.from('users_cloud_accounts')
         .delete()
         .eq('id', accountId);
       
@@ -259,7 +260,7 @@ export const syncCloudResources = async (
     
     // Update the last_synced_at timestamp in Supabase
     try {
-      const { error: updateError } = await supabase.from('users_cloud_accounts' as any)
+      const { error: updateError } = await supabase.from('users_cloud_accounts')
         .update({ last_synced_at: new Date().toISOString() })
         .eq('id', accountId);
       
@@ -280,7 +281,7 @@ export const syncCloudResources = async (
     // Store resources in Supabase
     if (data?.resources && Array.isArray(data.resources)) {
       try {
-        const { error: resourceError } = await supabase.from('cloud_resources' as any)
+        const { error: resourceError } = await supabase.from('cloud_resources')
           .upsert(
             data.resources.map((resource: any) => ({
               ...resource,
@@ -324,10 +325,10 @@ export const getAccountCredentials = async (accountId: string): Promise<Record<s
         console.warn("Error getting credentials from vault, falling back to localStorage:", error);
       } else if (data && Array.isArray(data) && data.length > 0) {
         // Convert array of {key, value} pairs to a simple object
-        return data.reduce((acc, item) => {
+        return data.reduce((acc: Record<string, string>, item: any) => {
           acc[item.key] = item.value;
           return acc;
-        }, {} as Record<string, string>);
+        }, {});
       }
     } catch (vaultError) {
       console.error("Vault retrieval error:", vaultError);

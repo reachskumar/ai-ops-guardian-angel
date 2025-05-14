@@ -1,6 +1,7 @@
 
 // GCP-specific metrics collection
 import { ResourceMetric } from '../../../cloud/types';
+import { supabase } from "@/integrations/supabase/client";
 
 export const getGcpResourceMetrics = async (
   resourceId: string,
