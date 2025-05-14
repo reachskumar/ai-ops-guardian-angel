@@ -3,14 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { CloudProvider, CloudAccount } from "./types";
 import { mockSelect } from "../mockDatabaseService";
 
-// Use localStorage to persist accounts between sessions
-const STORAGE_KEY = 'cloud_accounts';
-const CREDENTIALS_STORAGE_KEY = 'cloud_account_credentials';
+// Use Supabase for storing cloud accounts and credentials
+// We'll still use localStorage as a fallback during development/transition
 
-// Helper to load accounts from localStorage
+// Helper to load accounts from localStorage (for development/transition period)
 const loadAccountsFromStorage = (): CloudAccount[] => {
   try {
-    const storedAccounts = localStorage.getItem(STORAGE_KEY);
+    const storedAccounts = localStorage.getItem('cloud_accounts');
     return storedAccounts ? JSON.parse(storedAccounts) : [];
   } catch (error) {
     console.error("Error loading accounts from localStorage:", error);
@@ -18,48 +17,7 @@ const loadAccountsFromStorage = (): CloudAccount[] => {
   }
 };
 
-// Helper to save accounts to localStorage
-const saveAccountsToStorage = (accounts: CloudAccount[]): void => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
-  } catch (error) {
-    console.error("Error saving accounts to localStorage:", error);
-  }
-};
-
-// Helper to securely store credentials (in a real app, this would use a more secure method)
-const storeCredentials = (accountId: string, credentials: Record<string, string>): void => {
-  try {
-    // Get existing credentials
-    const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
-    const allCredentials = storedCredentials ? JSON.parse(storedCredentials) : {};
-    
-    // Update with new credentials
-    allCredentials[accountId] = credentials;
-    
-    // Store back
-    localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(allCredentials));
-    console.log(`Stored credentials for account ${accountId}`);
-  } catch (error) {
-    console.error("Error storing credentials:", error);
-  }
-};
-
-// Helper to retrieve credentials
-const getCredentials = (accountId: string): Record<string, string> | null => {
-  try {
-    const storedCredentials = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
-    if (!storedCredentials) return null;
-    
-    const allCredentials = JSON.parse(storedCredentials);
-    return allCredentials[accountId] || null;
-  } catch (error) {
-    console.error("Error retrieving credentials:", error);
-    return null;
-  }
-};
-
-// Initialize mock accounts from localStorage for persistence
+// Mock accounts from localStorage for persistence during transition
 let mockAccounts: CloudAccount[] = loadAccountsFromStorage();
 
 // Connect to cloud providers via Edge Function
@@ -69,32 +27,77 @@ export const connectCloudProvider = async (
   name: string
 ): Promise<{ success: boolean; accountId?: string; error?: string }> => {
   try {
+    console.log(`Connecting to ${provider} with name "${name}"`);
+    
+    // Call the edge function to validate credentials and create account
     const { data, error } = await supabase.functions.invoke('connect-cloud-provider', {
       body: { provider, credentials, name }
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error(`Edge function error:`, error);
+      throw new Error(`Failed to connect to ${provider}: ${error.message}`);
+    }
     
-    // When successful, also add to our mock accounts
+    if (!data.success) {
+      throw new Error(data.error || `Unknown error connecting to ${provider}`);
+    }
+    
+    // If successful, store account in Supabase
     if (data.success && data.accountId) {
-      const newAccount: CloudAccount = {
-        id: data.accountId,
-        name,
-        provider,
-        status: 'connected',
-        created_at: new Date().toISOString(),
-        last_synced_at: new Date().toISOString()
-      };
+      // Add to users_cloud_accounts table in Supabase
+      const { error: insertError } = await supabase
+        .from('users_cloud_accounts')
+        .insert({
+          id: data.accountId,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          name,
+          provider,
+          status: 'connected',
+          last_synced_at: new Date().toISOString(),
+          // Don't store the credentials in this table
+        });
       
-      // Store the credentials securely
-      storeCredentials(data.accountId, credentials);
+      if (insertError) {
+        console.error("Error adding account to Supabase:", insertError);
+        // Fall back to local storage
+        mockAccounts.push({
+          id: data.accountId,
+          name,
+          provider,
+          status: 'connected',
+          created_at: new Date().toISOString(),
+          last_synced_at: new Date().toISOString()
+        });
+        localStorage.setItem('cloud_accounts', JSON.stringify(mockAccounts));
+      }
       
-      // Add to mock accounts
-      mockAccounts.push(newAccount);
-      console.log("Added new mock account:", newAccount);
-      
-      // Save to localStorage for persistence
-      saveAccountsToStorage(mockAccounts);
+      // Store the credentials securely in Supabase using the vault feature
+      try {
+        // Store each credential securely
+        for (const [key, value] of Object.entries(credentials)) {
+          const { error: vaultError } = await supabase.rpc('store_credential', {
+            account_id: data.accountId,
+            credential_key: key,
+            credential_value: value
+          });
+          
+          if (vaultError) {
+            console.error(`Error storing credential ${key}:`, vaultError);
+            // Fall back to localStorage as a temporary measure
+            try {
+              const storedCredentials = localStorage.getItem('cloud_account_credentials') || '{}';
+              const allCredentials = JSON.parse(storedCredentials);
+              allCredentials[data.accountId] = credentials;
+              localStorage.setItem('cloud_account_credentials', JSON.stringify(allCredentials));
+            } catch (storageError) {
+              console.error("Error storing credentials in localStorage:", storageError);
+            }
+          }
+        }
+      } catch (credError) {
+        console.error("Error storing credentials:", credError);
+      }
     }
     
     return { 
@@ -111,31 +114,21 @@ export const connectCloudProvider = async (
 // Get cloud accounts
 export const getCloudAccounts = async (): Promise<CloudAccount[]> => {
   try {
-    // First try to get from mock database
-    const { data, error } = mockSelect('cloud_accounts');
-
+    // First try to get from Supabase
+    const { data, error } = await supabase
+      .from('users_cloud_accounts')
+      .select('*');
+    
     if (error) {
-      console.warn("Mock database error, falling back to in-memory accounts");
+      console.warn("Supabase error getting accounts, falling back to mock data:", error);
       return mockAccounts;
     }
     
-    // If we have data from the mock database but our in-memory store has accounts,
-    // combine them to ensure we don't lose recently added accounts
     if (data && data.length > 0) {
-      // Only add accounts from mockAccounts that aren't in data already
-      const existingIds = new Set(data.map((account: CloudAccount) => account.id));
-      const newAccounts = mockAccounts.filter(account => !existingIds.has(account.id));
-      
-      const combinedAccounts = [...data, ...newAccounts] as CloudAccount[];
-      
-      // Update localStorage with the combined accounts
-      saveAccountsToStorage(combinedAccounts);
-      
-      return combinedAccounts;
+      return data as CloudAccount[];
     }
     
-    // If no data from mock database, return our in-memory accounts
-    console.log("Returning in-memory accounts:", mockAccounts);
+    // If no accounts in Supabase, check mock data
     return mockAccounts;
   } catch (error) {
     console.error("Get cloud accounts error:", error);
@@ -149,21 +142,56 @@ export const deleteCloudAccount = async (
   accountId: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    // Remove from local mock accounts
-    const initialLength = mockAccounts.length;
-    mockAccounts = mockAccounts.filter(account => account.id !== accountId);
+    // First try to delete from Supabase
+    const { error } = await supabase
+      .from('users_cloud_accounts')
+      .delete()
+      .eq('id', accountId);
     
-    // Save updated accounts to localStorage
-    saveAccountsToStorage(mockAccounts);
-    
-    // Check if account was actually removed
-    if (mockAccounts.length < initialLength) {
-      console.log(`Successfully removed account with ID: ${accountId}`);
-      return { success: true };
-    } else {
-      console.warn(`Account with ID: ${accountId} not found`);
-      return { success: false, error: 'Account not found' };
+    if (error) {
+      console.warn("Supabase error deleting account, falling back to mock deletion:", error);
+      // Remove from local mock accounts
+      const initialLength = mockAccounts.length;
+      mockAccounts = mockAccounts.filter(account => account.id !== accountId);
+      
+      // Save updated accounts to localStorage
+      localStorage.setItem('cloud_accounts', JSON.stringify(mockAccounts));
+      
+      return { 
+        success: mockAccounts.length < initialLength,
+        error: mockAccounts.length < initialLength ? undefined : 'Account not found'
+      };
     }
+    
+    // Also delete credentials from Supabase vault
+    try {
+      const { error: vaultError } = await supabase.rpc('delete_account_credentials', {
+        account_id: accountId
+      });
+      
+      if (vaultError) {
+        console.error("Error deleting credentials from vault:", vaultError);
+      }
+    } catch (credError) {
+      console.error("Error deleting credentials:", credError);
+    }
+    
+    // Also remove from local storage as backup
+    try {
+      mockAccounts = mockAccounts.filter(account => account.id !== accountId);
+      localStorage.setItem('cloud_accounts', JSON.stringify(mockAccounts));
+      
+      const storedCredentials = localStorage.getItem('cloud_account_credentials');
+      if (storedCredentials) {
+        const allCredentials = JSON.parse(storedCredentials);
+        delete allCredentials[accountId];
+        localStorage.setItem('cloud_account_credentials', JSON.stringify(allCredentials));
+      }
+    } catch (storageError) {
+      console.error("Error updating localStorage after deletion:", storageError);
+    }
+    
+    return { success: true };
   } catch (error: any) {
     console.error("Delete cloud account error:", error);
     return { success: false, error: error.message || 'Failed to delete cloud account' };
@@ -173,10 +201,12 @@ export const deleteCloudAccount = async (
 // Sync cloud resources for an account
 export const syncCloudResources = async (
   accountId: string
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<{ success: boolean; resources?: any[]; error?: string }> => {
   try {
     // Find the account to get its provider
-    const account = mockAccounts.find(a => a.id === accountId);
+    const accounts = await getCloudAccounts();
+    const account = accounts.find(a => a.id === accountId);
+    
     if (!account) {
       return { success: false, error: 'Account not found' };
     }
@@ -184,78 +214,108 @@ export const syncCloudResources = async (
     console.log(`Starting sync for account ${accountId} (${account.provider})`);
     
     // Get the credentials for this account
-    const credentials = getCredentials(accountId);
+    const credentials = await getAccountCredentials(accountId);
     
-    // For demo/testing purposes, update the last_synced_at timestamp locally
-    // This allows us to continue even if the Edge Function call fails
-    const accountIndex = mockAccounts.findIndex(a => a.id === accountId);
-    if (accountIndex >= 0) {
-      mockAccounts[accountIndex].last_synced_at = new Date().toISOString();
-      saveAccountsToStorage(mockAccounts);
+    if (!credentials) {
+      return { success: false, error: 'Credentials not found for account' };
     }
     
     // Call the edge function with account provider information and credentials
-    try {
-      const { data, error } = await supabase.functions.invoke('sync-cloud-resources', {
-        body: { 
-          accountId, 
-          provider: account.provider,
-          credentials // Pass the credentials to the edge function
-        }
-      });
+    const { data, error } = await supabase.functions.invoke('sync-cloud-resources', {
+      body: { 
+        accountId, 
+        provider: account.provider,
+        credentials
+      }
+    });
 
-      if (error) {
-        console.warn("Edge function error, but continuing with local mock update:", error);
-        return { 
-          success: true, 
-          error: "Edge function error, but local state updated" 
-        };
-      }
-      
-      console.log("Sync response:", data);
-      
-      // If we got resources back, store them locally
-      if (data?.resources && Array.isArray(data.resources)) {
-        // Update local storage with new resources
-        const RESOURCES_STORAGE_KEY = 'cloud_resources';
-        try {
-          // Get existing resources
-          const storedResources = localStorage.getItem(RESOURCES_STORAGE_KEY);
-          const existingResources = storedResources ? JSON.parse(storedResources) : [];
-          
-          // Filter out resources for this account
-          const otherResources = existingResources.filter((r: any) => r.cloud_account_id !== accountId);
-          
-          // Combine with new resources
-          const updatedResources = [...otherResources, ...data.resources];
-          
-          // Save back to storage
-          localStorage.setItem(RESOURCES_STORAGE_KEY, JSON.stringify(updatedResources));
-          console.log(`Updated resources in localStorage, now have ${updatedResources.length} resources`);
-        } catch (storageError) {
-          console.error("Error updating resources in localStorage:", storageError);
-        }
-      }
-      
-      return { 
-        success: data?.success || true, 
-        error: data?.error
-      };
-    } catch (edgeError: any) {
-      console.error("Edge function error:", edgeError);
-      // Return success anyway since we updated the local state
-      return { 
-        success: true, 
-        error: "Edge function unavailable, but local state updated"
-      };
+    if (error) {
+      throw new Error(`Edge function error: ${error.message}`);
     }
+    
+    console.log("Sync response:", data);
+    
+    // Update the last_synced_at timestamp in Supabase
+    const { error: updateError } = await supabase
+      .from('users_cloud_accounts')
+      .update({ last_synced_at: new Date().toISOString() })
+      .eq('id', accountId);
+    
+    if (updateError) {
+      console.warn("Error updating last_synced_at in Supabase:", updateError);
+      // Update local mock account too
+      const accountIndex = mockAccounts.findIndex(a => a.id === accountId);
+      if (accountIndex >= 0) {
+        mockAccounts[accountIndex].last_synced_at = new Date().toISOString();
+        localStorage.setItem('cloud_accounts', JSON.stringify(mockAccounts));
+      }
+    }
+    
+    // Store resources in Supabase
+    if (data?.resources && Array.isArray(data.resources)) {
+      const { error: resourceError } = await supabase
+        .from('cloud_resources')
+        .upsert(
+          data.resources.map((resource: any) => ({
+            ...resource,
+            updated_at: new Date().toISOString()
+          })),
+          { onConflict: 'id' }
+        );
+      
+      if (resourceError) {
+        console.error("Error storing resources in Supabase:", resourceError);
+      }
+    }
+    
+    return { 
+      success: data?.success || false, 
+      resources: data?.resources,
+      error: data?.error
+    };
   } catch (error: any) {
     console.error("Sync cloud resources error:", error);
-    return { success: false, error: error.message || 'Failed to sync cloud resources' };
+    return { 
+      success: false, 
+      error: error.message || 'Failed to sync cloud resources'
+    };
   }
 };
 
 // Get the stored credentials for an account
-export const getAccountCredentials = (accountId: string): Record<string, string> | null => {
-  return getCredentials(accountId);
+export const getAccountCredentials = async (accountId: string): Promise<Record<string, string> | null> => {
+  try {
+    // First try to get from Supabase vault
+    const { data, error } = await supabase.rpc('get_account_credentials', {
+      account_id: accountId
+    });
+    
+    if (error) {
+      console.warn("Error getting credentials from vault, falling back to localStorage:", error);
+      // Fall back to localStorage
+      try {
+        const storedCredentials = localStorage.getItem('cloud_account_credentials');
+        if (!storedCredentials) return null;
+        
+        const allCredentials = JSON.parse(storedCredentials);
+        return allCredentials[accountId] || null;
+      } catch (storageError) {
+        console.error("Error retrieving credentials from localStorage:", storageError);
+        return null;
+      }
+    }
+    
+    if (data && Array.isArray(data) && data.length > 0) {
+      // Convert array of {key, value} pairs to a simple object
+      return data.reduce((acc, item) => {
+        acc[item.key] = item.value;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error retrieving account credentials:", error);
+    return null;
+  }
 };
