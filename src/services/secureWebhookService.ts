@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeUrl, generateWebhookSecret, validateWebhookUrl } from './securityService';
 
@@ -18,25 +17,30 @@ export interface WebhookPayload {
 }
 
 // Create secure webhook signature
-const createWebhookSignature = (payload: string, secret: string): string => {
-  // Note: crypto.createHmac is not available in browsers, using Web Crypto API instead
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const messageData = encoder.encode(payload);
-  
-  return crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  ).then(key => 
-    crypto.subtle.sign('HMAC', key, messageData)
-  ).then(signature => 
-    Array.from(new Uint8Array(signature))
+const createWebhookSignature = async (payload: string, secret: string): Promise<string> => {
+  try {
+    // Note: crypto.createHmac is not available in browsers, using Web Crypto API instead
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const messageData = encoder.encode(payload);
+    
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signature = await crypto.subtle.sign('HMAC', key, messageData);
+    
+    return Array.from(new Uint8Array(signature))
       .map(b => b.toString(16).padStart(2, '0'))
-      .join('')
-  ).catch(() => 'signature-generation-failed');
+      .join('');
+  } catch (error) {
+    console.error('Signature generation failed:', error);
+    return 'signature-generation-failed';
+  }
 };
 
 // Send secure webhook with proper authentication
