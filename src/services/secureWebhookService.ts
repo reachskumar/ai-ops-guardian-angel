@@ -1,7 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeUrl, generateWebhookSecret, validateWebhookUrl } from './securityService';
-import { createHmac } from 'crypto';
 
 export interface SecureWebhookConfig {
   id?: string;
@@ -20,7 +19,24 @@ export interface WebhookPayload {
 
 // Create secure webhook signature
 const createWebhookSignature = (payload: string, secret: string): string => {
-  return createHmac('sha256', secret).update(payload).digest('hex');
+  // Note: crypto.createHmac is not available in browsers, using Web Crypto API instead
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(payload);
+  
+  return crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  ).then(key => 
+    crypto.subtle.sign('HMAC', key, messageData)
+  ).then(signature => 
+    Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+  ).catch(() => 'signature-generation-failed');
 };
 
 // Send secure webhook with proper authentication
@@ -39,7 +55,7 @@ export const sendSecureWebhook = async (
     };
     
     const payloadString = JSON.stringify(timestampedPayload);
-    const signature = createWebhookSignature(payloadString, config.secretKey);
+    const signature = await createWebhookSignature(payloadString, config.secretKey);
     
     const response = await fetch(sanitizedUrl, {
       method: 'POST',
@@ -78,6 +94,12 @@ export const storeWebhookConfig = async (
     const sanitizedUrl = sanitizeUrl(url);
     const secretKey = generateWebhookSecret();
     
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { success: false, error: 'User authentication required' };
+    }
+    
     // Validate webhook URL
     const validation = await validateWebhookUrl(sanitizedUrl, secretKey);
     if (!validation.isValid) {
@@ -88,6 +110,7 @@ export const storeWebhookConfig = async (
     const { data, error } = await supabase
       .from('webhook_configs')
       .insert({
+        user_id: user.id,
         webhook_url: sanitizedUrl,
         secret_key: secretKey,
         is_verified: true,

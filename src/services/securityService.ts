@@ -97,10 +97,26 @@ export const validateApiKey = async (apiKey: string): Promise<ApiKeyValidation> 
     }
     
     const keyData = data[0];
+    
+    // Safely handle permissions JSONB field
+    let permissions: string[] = [];
+    if (keyData.permissions) {
+      if (Array.isArray(keyData.permissions)) {
+        permissions = keyData.permissions as string[];
+      } else if (typeof keyData.permissions === 'string') {
+        try {
+          const parsed = JSON.parse(keyData.permissions);
+          permissions = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          permissions = [];
+        }
+      }
+    }
+    
     return {
       isValid: true,
       userId: keyData.user_id,
-      permissions: keyData.permissions || [],
+      permissions,
       rateLimit: keyData.rate_limit || 60
     };
   } catch (error) {
