@@ -11,4 +11,3 @@ export { default as DetailedMetricsPanel } from './DetailedMetricsPanel';
 
 export { default as RealTimeMonitoring } from './RealTimeMonitoring';
 export { default as PerformanceOptimizer } from './PerformanceOptimizer';
-export { default as RightSizingAnalyzer } from './RightSizingAnalyzer';
