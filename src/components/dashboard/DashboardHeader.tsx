@@ -32,10 +32,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
           <Activity className="h-8 w-8 text-primary" />
-          Cloud Infrastructure Dashboard
+          OrbitOps Dashboard
         </h1>
         <p className="text-muted-foreground mt-2">
-          Real-time monitoring and management of your cloud resources
+          Intelligent infrastructure monitoring and management platform
         </p>
         {lastRefreshed && (
           <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">

@@ -269,7 +269,7 @@ class EnhancedAuthService {
       try {
         const { data, error } = await supabase.auth.mfa.enroll({
           factorType: 'totp',
-          friendlyName: 'DevOps Guardian MFA'
+          friendlyName: 'OrbitOps MFA'
         });
 
         if (error) {
