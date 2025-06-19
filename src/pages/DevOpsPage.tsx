@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import AIChat from "@/components/AIChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InfrastructureRepoManager, ResourceProvisioner, AnsibleAutomation } from "@/components/devops";
+import { InfrastructureRepoManager, ResourceProvisioner, AnsibleAutomation, EnhancedResourceProvisioner } from "@/components/devops";
 
 const DevOpsPage: React.FC = () => {
   return (
@@ -21,9 +21,10 @@ const DevOpsPage: React.FC = () => {
           </div>
 
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="provision">Auto Provision</TabsTrigger>
+              <TabsTrigger value="enhanced">Enterprise</TabsTrigger>
               <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
               <TabsTrigger value="ansible">Ansible</TabsTrigger>
               <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
@@ -98,6 +99,10 @@ const DevOpsPage: React.FC = () => {
 
             <TabsContent value="provision">
               <ResourceProvisioner />
+            </TabsContent>
+
+            <TabsContent value="enhanced">
+              <EnhancedResourceProvisioner />
             </TabsContent>
 
             <TabsContent value="infrastructure">
