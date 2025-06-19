@@ -39,11 +39,8 @@ const LandingPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Main Heading */}
+          {/* Main Content */}
           <div className="mb-12">
-            <h2 className="text-5xl md:text-7xl font-serif font-light mb-6">
-              Launching Soon
-            </h2>
             <p className="text-xl md:text-2xl text-gray-200 max-w-3xl mx-auto leading-relaxed">
               Experience the future of cloud infrastructure monitoring and management. 
               AI-powered insights, real-time analytics, and intelligent automation.
