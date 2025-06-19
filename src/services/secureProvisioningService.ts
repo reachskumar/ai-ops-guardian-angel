@@ -1,8 +1,8 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { sanitizeInput, sanitizeEmail, sanitizeUrl } from './securityService';
 import { sendSecureWebhook, getUserWebhookConfigs } from './secureWebhookService';
 import { checkRateLimit } from './securityService';
+import { sendEmailViaSendGrid, sendSlackWebhook, sendTeamsWebhook } from './providers';
 
 export interface SecureNotificationChannel {
   type: 'email' | 'slack' | 'teams' | 'webhook';
@@ -37,16 +37,19 @@ export interface SecureProvisioningNotification {
   error?: string;
 }
 
-// Send notification with security validations
+// Send notification with security validations using real providers
 export const sendSecureProvisioningNotification = async (
   notification: SecureProvisioningNotification,
   channels: SecureNotificationChannel[],
-  userId: string
+  userId: string,
+  apiKeys?: {
+    sendGridApiKey?: string;
+  }
 ): Promise<{ success: boolean; errors: string[] }> => {
   const errors: string[] = [];
   
   // Rate limiting check
-  const rateLimitResult = await checkRateLimit(userId, 'notifications', 10); // 10 notifications per minute
+  const rateLimitResult = await checkRateLimit(userId, 'notifications', 10);
   if (!rateLimitResult.allowed) {
     return { success: false, errors: ['Rate limit exceeded for notifications'] };
   }
@@ -65,7 +68,7 @@ export const sendSecureProvisioningNotification = async (
     try {
       switch (channel.type) {
         case 'email':
-          await sendSecureEmailNotification(sanitizedNotification, channel.config.email!);
+          await sendSecureEmailNotification(sanitizedNotification, channel.config.email!, apiKeys?.sendGridApiKey);
           break;
         case 'slack':
           await sendSecureSlackNotification(sanitizedNotification, channel.config.slack!);
@@ -88,10 +91,11 @@ export const sendSecureProvisioningNotification = async (
   return { success: errors.length === 0, errors };
 };
 
-// Secure email notification
+// Secure email notification using SendGrid
 const sendSecureEmailNotification = async (
   notification: SecureProvisioningNotification,
-  config: { recipients: string[]; template?: string }
+  config: { recipients: string[]; template?: string },
+  sendGridApiKey?: string
 ): Promise<void> => {
   // Validate and sanitize email addresses
   const validRecipients = config.recipients
@@ -101,20 +105,30 @@ const sendSecureEmailNotification = async (
   if (validRecipients.length === 0) {
     throw new Error('No valid email recipients');
   }
-  
-  // In production, this would integrate with a real email service
-  console.log('Sending secure email notification:', {
+
+  if (!sendGridApiKey) {
+    // Fallback to console logging if no API key provided
+    console.log('SendGrid API key not provided, logging email notification:', {
+      to: validRecipients,
+      subject: getEmailSubject(notification),
+      body: getEmailBody(notification),
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+
+  const result = await sendEmailViaSendGrid({
     to: validRecipients,
     subject: getEmailSubject(notification),
-    body: getEmailBody(notification),
-    timestamp: new Date().toISOString()
-  });
-  
-  // Simulate API call with security headers
-  await new Promise(resolve => setTimeout(resolve, 500));
+    html: getEmailBody(notification).replace(/\n/g, '<br>')
+  }, sendGridApiKey);
+
+  if (!result.success) {
+    throw new Error(result.error || 'Email delivery failed');
+  }
 };
 
-// Secure Slack notification
+// Secure Slack notification using real webhook
 const sendSecureSlackNotification = async (
   notification: SecureProvisioningNotification,
   config: { webhookUrl: string; channel: string }
@@ -142,22 +156,14 @@ const sendSecureSlackNotification = async (
     ]
   };
   
-  const response = await fetch(sanitizedUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'DevOps-Provisioning-System/1.0'
-    },
-    body: JSON.stringify(message),
-    signal: AbortSignal.timeout(10000) // 10 second timeout
-  });
+  const result = await sendSlackWebhook(sanitizedUrl, message);
   
-  if (!response.ok) {
-    throw new Error(`Slack API error: ${response.status} ${response.statusText}`);
+  if (!result.success) {
+    throw new Error(result.error || 'Slack notification failed');
   }
 };
 
-// Secure Teams notification
+// Secure Teams notification using real webhook
 const sendSecureTeamsNotification = async (
   notification: SecureProvisioningNotification,
   config: { webhookUrl: string }
@@ -167,34 +173,26 @@ const sendSecureTeamsNotification = async (
   const message = {
     "@type": "MessageCard",
     "@context": "http://schema.org/extensions",
-    "themeColor": getTeamsColor(notification.type),
-    "summary": getTeamsMessage(notification),
-    "sections": [
+    themeColor: getTeamsColor(notification.type),
+    summary: getTeamsMessage(notification),
+    sections: [
       {
-        "activityTitle": getTeamsMessage(notification),
-        "facts": [
-          { "name": "Requester", "value": notification.requester },
-          { "name": "Resource Type", "value": notification.resourceType },
-          { "name": "Estimated Cost", "value": `$${notification.estimatedCost}/month` },
-          { "name": "Request ID", "value": notification.requestId },
-          { "name": "Timestamp", "value": new Date().toISOString() }
+        activityTitle: getTeamsMessage(notification),
+        facts: [
+          { name: "Requester", value: notification.requester },
+          { name: "Resource Type", value: notification.resourceType },
+          { name: "Estimated Cost", value: `$${notification.estimatedCost}/month` },
+          { name: "Request ID", value: notification.requestId },
+          { name: "Timestamp", value: new Date().toISOString() }
         ]
       }
     ]
   };
   
-  const response = await fetch(sanitizedUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'DevOps-Provisioning-System/1.0'
-    },
-    body: JSON.stringify(message),
-    signal: AbortSignal.timeout(10000)
-  });
+  const result = await sendTeamsWebhook(sanitizedUrl, message);
   
-  if (!response.ok) {
-    throw new Error(`Teams API error: ${response.status} ${response.statusText}`);
+  if (!result.success) {
+    throw new Error(result.error || 'Teams notification failed');
   }
 };
 
