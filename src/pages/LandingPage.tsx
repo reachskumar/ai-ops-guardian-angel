@@ -12,30 +12,71 @@ const LandingPage: React.FC = () => {
   };
 
   const handleContactUs = () => {
-    // Scroll to contact section
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <div 
-        className="relative min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)), url('/lovable-uploads/c4a65b5f-0523-4028-8ab1-0ec573324c91.png')`
-        }}
-      >
+      {/* Animated Night Sky Hero Section */}
+      <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-gray-900 via-blue-900 to-purple-900">
+        {/* Animated Stars Background */}
+        <div className="absolute inset-0">
+          {/* Static stars */}
+          {[...Array(100)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute bg-white rounded-full animate-pulse"
+              style={{
+                width: Math.random() * 3 + 1 + 'px',
+                height: Math.random() * 3 + 1 + 'px',
+                top: Math.random() * 100 + '%',
+                left: Math.random() * 100 + '%',
+                animationDelay: Math.random() * 3 + 's',
+                animationDuration: (Math.random() * 3 + 2) + 's'
+              }}
+            />
+          ))}
+          
+          {/* Shooting stars */}
+          {[...Array(5)].map((_, i) => (
+            <div
+              key={`shooting-${i}`}
+              className="absolute w-1 h-1 bg-white rounded-full opacity-80"
+              style={{
+                top: Math.random() * 50 + '%',
+                left: '-10px',
+                animation: `shootingStar ${3 + Math.random() * 2}s linear infinite`,
+                animationDelay: Math.random() * 5 + 's'
+              }}
+            />
+          ))}
+          
+          {/* Meteors */}
+          {[...Array(3)].map((_, i) => (
+            <div
+              key={`meteor-${i}`}
+              className="absolute w-2 h-2 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 rounded-full opacity-70"
+              style={{
+                top: Math.random() * 30 + '%',
+                right: '-20px',
+                animation: `meteorFall ${4 + Math.random() * 3}s linear infinite`,
+                animationDelay: Math.random() * 7 + 's'
+              }}
+            />
+          ))}
+        </div>
+
         {/* Content */}
         <div className="text-center text-white z-10 px-4 max-w-4xl mx-auto">
           {/* Logo/Brand */}
           <div className="mb-8">
-            <h1 className="text-4xl md:text-6xl font-bold tracking-wider mb-2">
+            <h1 className="text-4xl md:text-6xl font-bold tracking-wider mb-2 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent animate-pulse">
               ORBIT OPS
             </h1>
             <div className="flex items-center justify-center gap-2 text-lg md:text-xl text-gray-300">
-              <Star className="h-4 w-4" />
+              <Star className="h-4 w-4 animate-spin" style={{ animationDuration: '8s' }} />
               <span>Intelligent Infrastructure Management</span>
-              <Star className="h-4 w-4" />
+              <Star className="h-4 w-4 animate-spin" style={{ animationDuration: '8s', animationDirection: 'reverse' }} />
             </div>
           </div>
 
@@ -49,22 +90,22 @@ const LandingPage: React.FC = () => {
 
           {/* Feature Highlights */}
           <div className="grid md:grid-cols-3 gap-8 mb-12 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <div className="text-center transform hover:scale-105 transition-transform duration-300">
+              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center hover:bg-white/20 transition-colors">
                 <Rocket className="h-8 w-8" />
               </div>
               <h3 className="text-lg font-semibold mb-2">AI-Powered</h3>
               <p className="text-gray-300 text-sm">Intelligent insights and automated optimization</p>
             </div>
-            <div className="text-center">
-              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <div className="text-center transform hover:scale-105 transition-transform duration-300">
+              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center hover:bg-white/20 transition-colors">
                 <Shield className="h-8 w-8" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Secure</h3>
               <p className="text-gray-300 text-sm">Enterprise-grade security and compliance</p>
             </div>
-            <div className="text-center">
-              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <div className="text-center transform hover:scale-105 transition-transform duration-300">
+              <div className="bg-white/10 backdrop-blur-sm rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center hover:bg-white/20 transition-colors">
                 <Zap className="h-8 w-8" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Real-time</h3>
@@ -77,7 +118,7 @@ const LandingPage: React.FC = () => {
             <Button 
               onClick={handleGetStarted}
               size="lg" 
-              className="bg-primary hover:bg-primary/90 text-white px-8 py-3 text-lg"
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 text-lg transform hover:scale-105 transition-all duration-300 shadow-lg"
             >
               Get Early Access
             </Button>
@@ -85,14 +126,14 @@ const LandingPage: React.FC = () => {
               onClick={handleContactUs}
               variant="outline" 
               size="lg"
-              className="border-white/30 text-white hover:bg-white/10 px-8 py-3 text-lg"
+              className="border-white/30 text-white hover:bg-white/10 px-8 py-3 text-lg transform hover:scale-105 transition-all duration-300"
             >
               Contact Us
             </Button>
           </div>
 
           {/* Early Access Notice */}
-          <div className="mt-12 bg-white/5 backdrop-blur-sm rounded-lg p-6 max-w-2xl mx-auto">
+          <div className="mt-12 bg-white/5 backdrop-blur-sm rounded-lg p-6 max-w-2xl mx-auto border border-white/10">
             <p className="text-gray-200">
               🚀 <strong>Early Access Available</strong> - Join our beta program and be among the first to experience OrbitOps
             </p>
