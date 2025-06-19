@@ -4,6 +4,8 @@ import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import AIChat from "@/components/AIChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InfrastructureRepoManager } from "@/components/devops";
 
 const DevOpsPage: React.FC = () => {
   return (
@@ -18,72 +20,98 @@ const DevOpsPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="lg:col-span-1 space-y-6">
+          <Tabs defaultValue="overview" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
+              <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
+              <TabsTrigger value="assistant">Assistant</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>CI/CD Pipeline Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                          <span>Production Pipeline</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Last run: 35m ago</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                          <span>Staging Pipeline</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Last run: 2h ago</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-yellow-500 mr-2"></div>
+                          <span>Development Pipeline</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Running...</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Infrastructure Deployment</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                          <span>Terraform Modules</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">v1.2.0</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                          <span>Ansible Playbooks</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">Last run: Yesterday</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
+                          <span>Kubernetes Manifests</span>
+                        </div>
+                        <span className="text-sm text-muted-foreground">v2.4.1</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="infrastructure">
+              <InfrastructureRepoManager />
+            </TabsContent>
+
+            <TabsContent value="pipelines">
               <Card>
                 <CardHeader>
-                  <CardTitle>CI/CD Pipeline Status</CardTitle>
+                  <CardTitle>CI/CD Pipelines</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
-                        <span>Production Pipeline</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Last run: 35m ago</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
-                        <span>Staging Pipeline</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Last run: 2h ago</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-2.5 w-2.5 rounded-full bg-yellow-500 mr-2"></div>
-                        <span>Development Pipeline</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Running...</span>
-                    </div>
-                  </div>
+                  <p className="text-muted-foreground">
+                    Pipeline management and configuration will be available here.
+                  </p>
                 </CardContent>
               </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Infrastructure Deployment</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
-                        <span>Terraform Modules</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">v1.2.0</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
-                        <span>Ansible Playbooks</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Last run: Yesterday</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="h-2.5 w-2.5 rounded-full bg-green-500 mr-2"></div>
-                        <span>Kubernetes Manifests</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">v2.4.1</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <div className="lg:col-span-1 h-full">
+            </TabsContent>
+
+            <TabsContent value="assistant">
               <Card className="h-full">
                 <CardHeader>
                   <CardTitle>DevOps Assistant</CardTitle>
@@ -92,8 +120,8 @@ const DevOpsPage: React.FC = () => {
                   <AIChat />
                 </CardContent>
               </Card>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </SidebarWithProvider>
