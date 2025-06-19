@@ -31,10 +31,20 @@ export const validateGcpCredentials = async (accountId: string): Promise<{
       const parsedKey = JSON.parse(credentials.serviceAccountKey);
       
       // Validate required fields in service account key
-      if (!parsedKey.client_email || !parsedKey.project_id || !parsedKey.private_key) {
+      const requiredFields = ['client_email', 'project_id', 'private_key', 'type'];
+      const missingFields = requiredFields.filter(field => !parsedKey[field]);
+      
+      if (missingFields.length > 0) {
         return { 
           isValid: false, 
-          error: 'Invalid service account key format: missing required fields' 
+          error: `Invalid service account key format: missing required fields: ${missingFields.join(', ')}` 
+        };
+      }
+      
+      if (parsedKey.type !== 'service_account') {
+        return { 
+          isValid: false, 
+          error: 'Invalid service account key type: must be a service account key' 
         };
       }
       
@@ -45,7 +55,7 @@ export const validateGcpCredentials = async (accountId: string): Promise<{
         projectId: parsedKey.project_id
       };
     } catch (parseError) {
-      return { isValid: false, error: 'Invalid service account key format' };
+      return { isValid: false, error: 'Invalid service account key format: must be valid JSON' };
     }
   } catch (error: any) {
     return { isValid: false, error: error.message || 'Failed to validate credentials' };
@@ -61,6 +71,7 @@ export const validateAwsCredentials = async (accountId: string): Promise<{
   isValid: boolean;
   accessKeyId?: string;
   region?: string;
+  accountId?: string;
   error?: string;
 }> => {
   try {
@@ -73,13 +84,24 @@ export const validateAwsCredentials = async (accountId: string): Promise<{
     
     // Check for required AWS credentials
     if (!credentials.accessKeyId || !credentials.secretAccessKey) {
-      return { isValid: false, error: 'Missing required AWS credentials' };
+      return { isValid: false, error: 'Missing required AWS credentials (accessKeyId, secretAccessKey)' };
+    }
+    
+    // Validate format of access key ID (should be 20 characters, alphanumeric)
+    if (!credentials.accessKeyId.match(/^[A-Z0-9]{20}$/)) {
+      return { isValid: false, error: 'AWS Access Key ID format is invalid' };
+    }
+    
+    // Validate format of secret access key (should be 40 characters)
+    if (credentials.secretAccessKey.length !== 40) {
+      return { isValid: false, error: 'AWS Secret Access Key format is invalid' };
     }
     
     return { 
       isValid: true, 
       accessKeyId: credentials.accessKeyId,
-      region: credentials.region || 'us-east-1'
+      region: credentials.region || 'us-east-1',
+      accountId: credentials.accountId // This would be populated by the real validation
     };
   } catch (error: any) {
     return { isValid: false, error: error.message || 'Failed to validate credentials' };
@@ -109,6 +131,26 @@ export const validateAzureCredentials = async (accountId: string): Promise<{
     // Check for required Azure credentials
     if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) {
       return { isValid: false, error: 'Missing required Azure credentials (tenantId, clientId, clientSecret)' };
+    }
+    
+    // Validate GUID format for tenantId and clientId
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    
+    if (!guidRegex.test(credentials.tenantId)) {
+      return { isValid: false, error: 'Azure Tenant ID format is invalid' };
+    }
+    
+    if (!guidRegex.test(credentials.clientId)) {
+      return { isValid: false, error: 'Azure Client ID format is invalid' };
+    }
+    
+    // Validate subscription ID if provided
+    if (credentials.subscriptionId && !guidRegex.test(credentials.subscriptionId)) {
+      return { isValid: false, error: 'Azure Subscription ID format is invalid' };
+    }
+    
+    if (!credentials.subscriptionId) {
+      return { isValid: false, error: 'Azure Subscription ID is required' };
     }
     
     return { 

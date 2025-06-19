@@ -3,6 +3,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validateGcpCredentials, validateAwsCredentials, validateAzureCredentials } from "../_shared/credential-helpers.ts";
 
+// Import AWS SDK for credential validation
+import { STSClient, GetCallerIdentityCommand } from "https://esm.sh/@aws-sdk/client-sts@3.462.0";
+
+// Import Azure SDK for credential validation
+import { ClientSecretCredential } from "https://esm.sh/@azure/identity@4.0.0";
+import { ResourceManagementClient } from "https://esm.sh/@azure/arm-resources@5.2.0";
+
 const handleError = (error: any, message: string) => {
   console.error(message, error);
   return new Response(
@@ -15,6 +22,68 @@ const handleError = (error: any, message: string) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     }
   );
+};
+
+// Real AWS credential validation
+const validateAwsCredentialsReal = async (credentials: any): Promise<{ isValid: boolean; error?: string; accountId?: string }> => {
+  try {
+    const stsClient = new STSClient({
+      region: credentials.region || 'us-east-1',
+      credentials: {
+        accessKeyId: credentials.accessKeyId,
+        secretAccessKey: credentials.secretAccessKey,
+        ...(credentials.sessionToken && { sessionToken: credentials.sessionToken })
+      }
+    });
+
+    const command = new GetCallerIdentityCommand({});
+    const response = await stsClient.send(command);
+    
+    return {
+      isValid: true,
+      accountId: response.Account
+    };
+  } catch (error: any) {
+    console.error("AWS credential validation failed:", error);
+    return {
+      isValid: false,
+      error: `AWS credential validation failed: ${error.message}`
+    };
+  }
+};
+
+// Real Azure credential validation
+const validateAzureCredentialsReal = async (credentials: any): Promise<{ isValid: boolean; error?: string; subscriptionId?: string }> => {
+  try {
+    const credential = new ClientSecretCredential(
+      credentials.tenantId,
+      credentials.clientId,
+      credentials.clientSecret
+    );
+
+    // Test the credentials by trying to list subscriptions or resource groups
+    const subscriptionId = credentials.subscriptionId;
+    if (!subscriptionId) {
+      throw new Error("Subscription ID is required for Azure validation");
+    }
+
+    const resourceClient = new ResourceManagementClient(credential, subscriptionId);
+    
+    // Try to list resource groups as a validation test
+    const rgIterator = resourceClient.resourceGroups.list();
+    const firstResult = await rgIterator.next();
+    
+    return {
+      isValid: true,
+      subscriptionId: subscriptionId
+    };
+  } catch (error: any) {
+    console.error("Azure credential validation failed:", error);
+    return {
+      isValid: false,
+      error: `Azure credential validation failed: ${error.message}`
+    };
+  }
 };
 
 serve(async (req) => {
@@ -30,8 +99,9 @@ serve(async (req) => {
     
     let isValid = false;
     let validationError = '';
+    let additionalInfo: any = {};
     
-    // Validate credentials based on provider
+    // Validate credentials based on provider with real SDK validation
     switch (provider) {
       case 'gcp':
         if (!credentials.serviceAccountKey) {
@@ -42,6 +112,9 @@ serve(async (req) => {
             isValid = validateGcpCredentials(serviceAccountKey);
             if (!isValid) {
               validationError = 'Invalid GCP service account key format';
+            } else {
+              additionalInfo.projectId = serviceAccountKey.project_id;
+              additionalInfo.serviceAccountEmail = serviceAccountKey.client_email;
             }
           } catch (error) {
             validationError = 'Invalid JSON format for service account key';
@@ -50,16 +123,26 @@ serve(async (req) => {
         break;
         
       case 'aws':
-        isValid = validateAwsCredentials(credentials);
+        // Use real AWS STS validation
+        const awsValidation = await validateAwsCredentialsReal(credentials);
+        isValid = awsValidation.isValid;
         if (!isValid) {
-          validationError = 'Invalid AWS credentials';
+          validationError = awsValidation.error || 'Invalid AWS credentials';
+        } else {
+          additionalInfo.accountId = awsValidation.accountId;
+          additionalInfo.region = credentials.region || 'us-east-1';
         }
         break;
         
       case 'azure':
-        isValid = validateAzureCredentials(credentials);
+        // Use real Azure validation
+        const azureValidation = await validateAzureCredentialsReal(credentials);
+        isValid = azureValidation.isValid;
         if (!isValid) {
-          validationError = 'Invalid Azure credentials';
+          validationError = azureValidation.error || 'Invalid Azure credentials';
+        } else {
+          additionalInfo.subscriptionId = azureValidation.subscriptionId;
+          additionalInfo.tenantId = credentials.tenantId;
         }
         break;
         
@@ -91,7 +174,8 @@ serve(async (req) => {
         accountId: accountId,
         message: `Successfully connected to ${provider}`,
         provider: provider,
-        name: name
+        name: name,
+        additionalInfo: additionalInfo
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
