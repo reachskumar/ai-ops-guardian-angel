@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          key_name: string
+          last_used_at: string | null
+          permissions: Json | null
+          rate_limit_per_minute: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_name: string
+          last_used_at?: string | null
+          permissions?: Json | null
+          rate_limit_per_minute?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          key_name?: string
+          last_used_at?: string | null
+          permissions?: Json | null
+          rate_limit_per_minute?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cloud_account_credentials: {
         Row: {
           account_id: string
@@ -341,6 +383,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          endpoint: string
+          id: string
+          identifier: string
+          request_count: number | null
+          window_start: string
+        }
+        Insert: {
+          endpoint: string
+          id?: string
+          identifier: string
+          request_count?: number | null
+          window_start?: string
+        }
+        Update: {
+          endpoint?: string
+          id?: string
+          identifier?: string
+          request_count?: number | null
+          window_start?: string
+        }
+        Relationships: []
+      }
       security_scan_configurations: {
         Row: {
           created_at: string
@@ -537,11 +603,45 @@ export type Database = {
           },
         ]
       }
+      webhook_configs: {
+        Row: {
+          created_at: string
+          id: string
+          is_verified: boolean | null
+          last_verified_at: string | null
+          secret_key: string
+          user_id: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_verified?: boolean | null
+          last_verified_at?: string | null
+          secret_key: string
+          user_id: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_verified?: boolean | null
+          last_verified_at?: string | null
+          secret_key?: string
+          user_id?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: { p_identifier: string; p_endpoint: string; p_limit?: number }
+        Returns: boolean
+      }
       delete_account_credentials: {
         Args: { account_id: string }
         Returns: undefined
@@ -560,6 +660,14 @@ export type Database = {
           credential_value: string
         }
         Returns: undefined
+      }
+      validate_api_key: {
+        Args: { p_api_key: string }
+        Returns: {
+          user_id: string
+          permissions: Json
+          rate_limit: number
+        }[]
       }
     }
     Enums: {

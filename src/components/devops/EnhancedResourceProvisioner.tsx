@@ -31,6 +31,9 @@ import {
 import type { ProvisioningConfig } from './provisioning/ProvisioningRequest';
 import type { ProvisioningRequest as ProvisioningRequestType } from './provisioning/ApprovalWorkflow';
 import type { AuditEntry } from './provisioning/AuditLog';
+import { useAuthMiddleware } from '@/services/authMiddleware';
+import { sendSecureProvisioningNotification, type SecureNotificationChannel } from '@/services/secureProvisioningService';
+import SecureNotificationSettings from './provisioning/SecureNotificationSettings';
 
 const EnhancedResourceProvisioner: React.FC = () => {
   const [currentUser] = useState({
@@ -159,7 +162,14 @@ const EnhancedResourceProvisioner: React.FC = () => {
     }
   ]);
 
-  const [notificationChannels, setNotificationChannels] = useState<NotificationChannel[]>([
+  const { checkAuthentication, user, isAuthenticated } = useAuthMiddleware({
+    requireAuth: true,
+    requiredPermissions: ['provisioning:manage'],
+    rateLimit: 100,
+    endpoint: 'provisioning'
+  });
+
+  const [notificationChannels, setNotificationChannels] = useState<SecureNotificationChannel[]>([
     {
       type: 'email',
       enabled: true,
@@ -201,14 +211,33 @@ const EnhancedResourceProvisioner: React.FC = () => {
 
   const { toast } = useToast();
 
-  const sendNotification = async (notification: ProvisioningNotification) => {
+  const sendNotification = async (notification: any) => {
+    if (!user) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    const authResult = await checkAuthentication();
+    if (!authResult.allowed) {
+      toast({
+        title: 'Authentication Error',
+        description: authResult.error,
+        variant: 'destructive'
+      });
+      return;
+    }
+
     try {
-      const result = await sendProvisioningNotification(notification, notificationChannels);
+      const result = await sendSecureProvisioningNotification(
+        notification, 
+        notificationChannels,
+        user.id
+      );
       
       if (result.success) {
-        console.log('Notifications sent successfully');
+        console.log('Secure notifications sent successfully');
       } else {
-        console.warn('Some notifications failed:', result.errors);
+        console.warn('Some secure notifications failed:', result.errors);
         toast({
           title: 'Notification Warning',
           description: `Some notifications failed to send: ${result.errors.join(', ')}`,
@@ -216,7 +245,12 @@ const EnhancedResourceProvisioner: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to send notifications:', error);
+      console.error('Failed to send secure notifications:', error);
+      toast({
+        title: 'Notification Error',
+        description: 'Failed to send notifications due to security validation',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -419,6 +453,18 @@ const EnhancedResourceProvisioner: React.FC = () => {
     });
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Authentication Required</h3>
+          <p className="text-muted-foreground">Please sign in to access the provisioning system.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -494,11 +540,10 @@ const EnhancedResourceProvisioner: React.FC = () => {
 
       {/* Role-based Access Alert */}
       <Alert>
-        <Users className="h-4 w-4" />
+        <Shield className="h-4 w-4" />
         <AlertDescription>
           Logged in as <strong>{currentUser.name}</strong> with <strong>{currentUser.role}</strong> privileges.
-          {currentUser.role === 'requestor' && ' High-cost resources require approval.'}
-          {currentUser.role === 'viewer' && ' You have read-only access.'}
+          All actions are authenticated, rate-limited, and logged for security compliance.
         </AlertDescription>
       </Alert>
 
@@ -595,12 +640,12 @@ const EnhancedResourceProvisioner: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notification Channels
+                <Shield className="h-5 w-5" />
+                Secure Notification Channels
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <NotificationSettings
+              <SecureNotificationSettings
                 channels={notificationChannels}
                 onUpdateChannels={setNotificationChannels}
               />
