@@ -1,11 +1,10 @@
-
 import React from "react";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import AIChat from "@/components/AIChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InfrastructureRepoManager, ResourceProvisioner, AnsibleAutomation, EnhancedResourceProvisioner } from "@/components/devops";
+import { InfrastructureRepoManager, ResourceProvisioner, AnsibleAutomation, EnhancedResourceProvisioner, AIInfraAssistant } from "@/components/devops";
 
 const DevOpsPage: React.FC = () => {
   return (
@@ -16,19 +15,20 @@ const DevOpsPage: React.FC = () => {
           <div className="mb-6">
             <h1 className="text-3xl font-bold mb-2">DevOps Automation</h1>
             <p className="text-muted-foreground">
-              Streamline your infrastructure operations with CI/CD pipelines and automation tools
+              Streamline your infrastructure operations with AI-powered automation and CI/CD pipelines
             </p>
           </div>
 
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="ai-assistant">AI Assistant</TabsTrigger>
               <TabsTrigger value="provision">Auto Provision</TabsTrigger>
               <TabsTrigger value="enhanced">Advanced Provisioning</TabsTrigger>
               <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
               <TabsTrigger value="ansible">Ansible</TabsTrigger>
               <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
-              <TabsTrigger value="assistant">Assistant</TabsTrigger>
+              <TabsTrigger value="assistant">Chat</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -95,6 +95,10 @@ const DevOpsPage: React.FC = () => {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="ai-assistant">
+              <AIInfraAssistant />
             </TabsContent>
 
             <TabsContent value="provision">
