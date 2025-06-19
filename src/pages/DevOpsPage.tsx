@@ -24,7 +24,7 @@ const DevOpsPage: React.FC = () => {
             <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="provision">Auto Provision</TabsTrigger>
-              <TabsTrigger value="enhanced">Enterprise</TabsTrigger>
+              <TabsTrigger value="enhanced">Advanced Provisioning</TabsTrigger>
               <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
               <TabsTrigger value="ansible">Ansible</TabsTrigger>
               <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
