@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, CloudProvider, ResourceMetric } from "./types";
 import { mockSelect } from "../mockDatabaseService";
@@ -338,5 +337,118 @@ export const getResourceMetrics = async (
   } catch (error: any) {
     console.error("Get resource metrics error:", error);
     return [];
+  }
+};
+
+// Update resource status (start, stop, restart)
+export const updateResource = async (
+  resourceId: string,
+  action: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log(`Updating resource ${resourceId} with action: ${action}`);
+    
+    // Find the resource in mock storage
+    const resourceIndex = mockResources.findIndex(r => r.id === resourceId);
+    if (resourceIndex === -1) {
+      return { success: false, error: 'Resource not found' };
+    }
+    
+    const resource = mockResources[resourceIndex];
+    
+    // Update status based on action
+    let newStatus = resource.status;
+    switch (action) {
+      case 'start':
+        if (resource.status === 'stopped' || resource.status === 'terminated') {
+          newStatus = 'starting';
+          // Simulate async start process
+          setTimeout(() => {
+            const currentResource = mockResources.find(r => r.id === resourceId);
+            if (currentResource) {
+              currentResource.status = 'running';
+              currentResource.updated_at = new Date().toISOString();
+              saveResourcesToStorage(mockResources);
+            }
+          }, 3000);
+        }
+        break;
+      case 'stop':
+        if (resource.status === 'running' || resource.status === 'starting') {
+          newStatus = 'stopping';
+          // Simulate async stop process
+          setTimeout(() => {
+            const currentResource = mockResources.find(r => r.id === resourceId);
+            if (currentResource) {
+              currentResource.status = 'stopped';
+              currentResource.updated_at = new Date().toISOString();
+              saveResourcesToStorage(mockResources);
+            }
+          }, 2000);
+        }
+        break;
+      case 'restart':
+        if (resource.status === 'running') {
+          newStatus = 'restarting';
+          // Simulate async restart process
+          setTimeout(() => {
+            const currentResource = mockResources.find(r => r.id === resourceId);
+            if (currentResource) {
+              currentResource.status = 'running';
+              currentResource.updated_at = new Date().toISOString();
+              saveResourcesToStorage(mockResources);
+            }
+          }, 4000);
+        }
+        break;
+      default:
+        return { success: false, error: `Unknown action: ${action}` };
+    }
+    
+    // Update the resource
+    mockResources[resourceIndex] = {
+      ...resource,
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+    
+    saveResourcesToStorage(mockResources);
+    console.log(`Resource ${resourceId} status updated to: ${newStatus}`);
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update resource error:", error);
+    return { 
+      success: false, 
+      error: error.message || 'Failed to update resource' 
+    };
+  }
+};
+
+// Delete a resource
+export const deleteResource = async (
+  resourceId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log(`Deleting resource ${resourceId}`);
+    
+    // Find the resource in mock storage
+    const resourceIndex = mockResources.findIndex(r => r.id === resourceId);
+    if (resourceIndex === -1) {
+      return { success: false, error: 'Resource not found' };
+    }
+    
+    // Remove the resource
+    mockResources.splice(resourceIndex, 1);
+    saveResourcesToStorage(mockResources);
+    
+    console.log(`Resource ${resourceId} deleted successfully`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Delete resource error:", error);
+    return { 
+      success: false, 
+      error: error.message || 'Failed to delete resource' 
+    };
   }
 };
