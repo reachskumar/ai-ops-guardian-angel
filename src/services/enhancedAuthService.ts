@@ -1,7 +1,16 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session, Provider } from "@supabase/supabase-js";
 import { toast } from "@/hooks/use-toast";
+import { 
+  withRetry, 
+  RetryableError, 
+  AuthenticationError, 
+  NetworkError,
+  logError,
+  isNetworkError,
+  isAuthError,
+  formatErrorMessage
+} from './errorHandling';
 
 export interface EnhancedAuthOptions {
   enableMFA?: boolean;
@@ -31,54 +40,111 @@ class EnhancedAuthService {
 
   // Social Login Methods
   async signInWithGoogle(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
 
-      if (error) throw error;
-      return { success: true };
-    } catch (error: any) {
-      console.error("Google sign in error:", error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isAuthError(error)) {
+            throw new AuthenticationError(error.message);
+          }
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        logError(error, {
+          operation: 'signInWithGoogle',
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 3,
+      shouldRetry: (error) => !(error instanceof AuthenticationError)
+    });
   }
 
   async signInWithGitHub(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'github',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
 
-      if (error) throw error;
-      return { success: true };
-    } catch (error: any) {
-      console.error("GitHub sign in error:", error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isAuthError(error)) {
+            throw new AuthenticationError(error.message);
+          }
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        logError(error, {
+          operation: 'signInWithGitHub',
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 3,
+      shouldRetry: (error) => !(error instanceof AuthenticationError)
+    });
   }
 
   async signInWithProvider(provider: Provider): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+          }
+        });
 
-      if (error) throw error;
-      return { success: true };
-    } catch (error: any) {
-      console.error(`${provider} sign in error:`, error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isAuthError(error)) {
+            throw new AuthenticationError(error.message);
+          }
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        logError(error, {
+          operation: `signInWith${provider}`,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 3,
+      shouldRetry: (error) => !(error instanceof AuthenticationError)
+    });
   }
 
   // Enhanced Email/Password Login with Rate Limiting
@@ -94,75 +160,143 @@ class EnhancedAuthService {
         };
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      return await withRetry(async () => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          if (isAuthError(error)) {
+            this.recordFailedAttempt(email);
+            throw new AuthenticationError(error.message);
+          }
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        // Clear failed attempts on successful login
+        this.loginAttempts.delete(email);
+        this.saveLoginAttempts();
+
+        return { success: true };
+      }, {
+        maxAttempts: 2, // Lower retry count for auth errors
+        shouldRetry: (error) => !(error instanceof AuthenticationError)
+      });
+    } catch (error: any) {
+      logError(error, {
+        operation: 'signInWithEmail',
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        userId: email
       });
 
-      if (error) {
-        this.recordFailedAttempt(email);
-        throw error;
-      }
-
-      // Clear failed attempts on successful login
-      this.loginAttempts.delete(email);
-      this.saveLoginAttempts();
-
-      return { success: true };
-    } catch (error: any) {
-      console.error("Enhanced email sign in error:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: formatErrorMessage(error) };
     }
   }
 
   // Password Reset Functionality
   async resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`
-      });
+    return withRetry(async () => {
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/reset-password`
+        });
 
-      if (error) throw error;
-      return { success: true };
-    } catch (error: any) {
-      console.error("Password reset error:", error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        logError(error, {
+          operation: 'resetPassword',
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          userId: email
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 3,
+      baseDelay: 2000
+    });
   }
 
   async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
+    return withRetry(async () => {
+      try {
+        const { error } = await supabase.auth.updateUser({
+          password: newPassword
+        });
 
-      if (error) throw error;
-      return { success: true };
-    } catch (error: any) {
-      console.error("Update password error:", error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isAuthError(error)) {
+            throw new AuthenticationError(error.message);
+          }
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        return { success: true };
+      } catch (error: any) {
+        logError(error, {
+          operation: 'updatePassword',
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 2,
+      shouldRetry: (error) => !(error instanceof AuthenticationError)
+    });
   }
 
   // Multi-Factor Authentication
   async enrollMFA(): Promise<{ success: boolean; qrCode?: string; secret?: string; error?: string }> {
-    try {
-      const { data, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        friendlyName: 'DevOps Guardian MFA'
-      });
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.enroll({
+          factorType: 'totp',
+          friendlyName: 'DevOps Guardian MFA'
+        });
 
-      if (error) throw error;
-      
-      return { 
-        success: true, 
-        qrCode: data.totp.qr_code,
-        secret: data.totp.secret 
-      };
-    } catch (error: any) {
-      console.error("MFA enrollment error:", error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+        
+        return { 
+          success: true, 
+          qrCode: data.totp.qr_code,
+          secret: data.totp.secret 
+        };
+      } catch (error: any) {
+        logError(error, {
+          operation: 'enrollMFA',
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 3,
+      baseDelay: 1500
+    });
   }
 
   async verifyMFA(factorId: string, challengeId: string, code: string): Promise<{ success: boolean; error?: string }> {
@@ -173,29 +307,59 @@ class EnhancedAuthService {
         code
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message?.includes('invalid') || error.message?.includes('expired')) {
+          throw new AuthenticationError(error.message);
+        }
+        if (isNetworkError(error)) {
+          throw new NetworkError(error.message);
+        }
+        throw new RetryableError(error.message);
+      }
+      
       return { success: true };
     } catch (error: any) {
-      console.error("MFA verification error:", error);
-      return { success: false, error: error.message };
+      logError(error, {
+        operation: 'verifyMFA',
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      });
+
+      return { success: false, error: formatErrorMessage(error) };
     }
   }
 
   async challengeMFA(factorId: string): Promise<{ success: boolean; challengeId?: string; error?: string }> {
-    try {
-      const { data, error } = await supabase.auth.mfa.challenge({
-        factorId
-      });
+    return withRetry(async () => {
+      try {
+        const { data, error } = await supabase.auth.mfa.challenge({
+          factorId
+        });
 
-      if (error) throw error;
-      return { 
-        success: true, 
-        challengeId: data.id 
-      };
-    } catch (error: any) {
-      console.error("MFA challenge error:", error);
-      return { success: false, error: error.message };
-    }
+        if (error) {
+          if (isNetworkError(error)) {
+            throw new NetworkError(error.message);
+          }
+          throw new RetryableError(error.message);
+        }
+
+        return { 
+          success: true, 
+          challengeId: data.id 
+        };
+      } catch (error: any) {
+        logError(error, {
+          operation: 'challengeMFA',
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent
+        });
+
+        return { success: false, error: formatErrorMessage(error) };
+      }
+    }, {
+      maxAttempts: 3,
+      baseDelay: 1000
+    });
   }
 
   // Session Timeout Management
