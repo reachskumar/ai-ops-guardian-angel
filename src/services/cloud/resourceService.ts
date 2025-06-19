@@ -340,10 +340,11 @@ export const getResourceMetrics = async (
   }
 };
 
-// Update resource status (start, stop, restart)
+// Update resource status (start, stop, restart) and handle other actions like tag updates
 export const updateResource = async (
   resourceId: string,
-  action: string
+  action: string,
+  data?: Record<string, any>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log(`Updating resource ${resourceId} with action: ${action}`);
@@ -356,7 +357,22 @@ export const updateResource = async (
     
     const resource = mockResources[resourceIndex];
     
-    // Update status based on action
+    // Handle different types of updates
+    if (action === 'update-tags' && data?.tags) {
+      // Update tags
+      mockResources[resourceIndex] = {
+        ...resource,
+        tags: data.tags,
+        updated_at: new Date().toISOString()
+      };
+      
+      saveResourcesToStorage(mockResources);
+      console.log(`Resource ${resourceId} tags updated`);
+      
+      return { success: true };
+    }
+    
+    // Handle status updates (start, stop, restart)
     let newStatus = resource.status;
     switch (action) {
       case 'start':
@@ -405,7 +421,7 @@ export const updateResource = async (
         return { success: false, error: `Unknown action: ${action}` };
     }
     
-    // Update the resource
+    // Update the resource status
     mockResources[resourceIndex] = {
       ...resource,
       status: newStatus,
