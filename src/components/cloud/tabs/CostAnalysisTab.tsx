@@ -7,7 +7,8 @@ import {
   ServiceCostChart,
   OptimizationRecommendationsPanel,
   AppliedOptimizations,
-  CostErrorAlert
+  CostErrorAlert,
+  RightSizingPanel
 } from '@/components/cloud/cost-analysis';
 import { CostBreakdownPanel, CostBudgetPanel, CostForecastPanel } from '@/components/cloud';
 import { useCostData, useCostForecasting, useOptimizationRecommendations } from '@/hooks/cost';
@@ -68,6 +69,7 @@ const CostAnalysisTab: React.FC = () => {
           <TabsTrigger value="forecast">Cost Forecast</TabsTrigger>
           <TabsTrigger value="budget">Budget</TabsTrigger>
           <TabsTrigger value="optimize">Optimize</TabsTrigger>
+          <TabsTrigger value="rightsizing">Right-Sizing</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="space-y-4">
@@ -111,6 +113,10 @@ const CostAnalysisTab: React.FC = () => {
             recommendations={appliedOptimizations as OptimizationRecommendation[]}
             optimizations={appliedOptimizations as OptimizationRecommendation[]}
           />
+        </TabsContent>
+
+        <TabsContent value="rightsizing">
+          <RightSizingPanel />
         </TabsContent>
       </Tabs>
     </div>

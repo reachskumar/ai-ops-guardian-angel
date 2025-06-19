@@ -7,3 +7,4 @@ export { default as OptimizationRecommendationsPanel } from './OptimizationRecom
 export { default as OptimizationItem } from './OptimizationItem';
 export { default as EmptyOptimizations } from './EmptyOptimizations';
 export { default as AppliedOptimizations } from './AppliedOptimizations';
+export { default as RightSizingPanel } from './RightSizingPanel';

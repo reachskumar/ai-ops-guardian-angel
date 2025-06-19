@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MonitoringOverview, RealTimeMonitoring, PerformanceOptimizer, RightSizingAnalyzer } from "@/components/monitoring";
+import { MonitoringOverview, RealTimeMonitoring, PerformanceOptimizer } from "@/components/monitoring";
 
 const MonitoringPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -42,16 +42,15 @@ const MonitoringPage: React.FC = () => {
           <div>
             <h1 className="text-3xl font-bold">Infrastructure Monitoring</h1>
             <p className="text-muted-foreground">
-              Real-time monitoring, performance optimization, and intelligent right-sizing
+              Real-time monitoring and performance optimization
             </p>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="realtime">Real-Time</TabsTrigger>
               <TabsTrigger value="optimization">Optimization</TabsTrigger>
-              <TabsTrigger value="rightsizing">Right-Sizing</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
@@ -64,10 +63,6 @@ const MonitoringPage: React.FC = () => {
 
             <TabsContent value="optimization">
               <PerformanceOptimizer />
-            </TabsContent>
-
-            <TabsContent value="rightsizing">
-              <RightSizingAnalyzer />
             </TabsContent>
           </Tabs>
         </div>
