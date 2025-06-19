@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,7 +43,28 @@ const EnhancedResourceProvisioner: React.FC = () => {
       businessJustification: 'Need additional capacity for expected traffic increase during product launch',
       status: 'pending',
       submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      config: {}
+      config: {
+        cloudProvider: 'aws',
+        resourceType: 'EC2 Instance',
+        region: 'us-east-1',
+        osType: 'amazon-linux-2023',
+        baseImage: 'ami-12345678',
+        instanceType: 't3.medium',
+        instanceCount: 1,
+        vpc: 'vpc-12345678',
+        subnet: 'subnet-12345678',
+        securityGroups: ['sg-web'],
+        networkTags: { Environment: 'Production' },
+        storageType: 'gp3',
+        storageSize: 30,
+        encryption: true,
+        estimatedCost: 245.50,
+        budgetLimit: 500,
+        autoDeprovision: false,
+        tags: { Environment: 'Production', Team: 'Frontend' },
+        description: 'Web server for new product launch',
+        businessJustification: 'Need additional capacity for expected traffic increase during product launch'
+      }
     },
     {
       id: 'req-002',
@@ -57,7 +77,30 @@ const EnhancedResourceProvisioner: React.FC = () => {
       submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       approver: 'John Doe',
       approvedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-      comments: 'Approved with 7-day TTL for testing'
+      comments: 'Approved with 7-day TTL for testing',
+      config: {
+        cloudProvider: 'aws',
+        resourceType: 'RDS Database',
+        region: 'us-west-2',
+        osType: 'mysql-8.0',
+        baseImage: 'mysql:8.0',
+        instanceType: 'db.t3.micro',
+        instanceCount: 1,
+        vpc: 'vpc-87654321',
+        subnet: 'subnet-87654321',
+        securityGroups: ['sg-database'],
+        networkTags: { Environment: 'Production' },
+        storageType: 'gp3',
+        storageSize: 20,
+        encryption: true,
+        estimatedCost: 180.00,
+        budgetLimit: 300,
+        ttl: 7,
+        autoDeprovision: true,
+        tags: { Environment: 'Production', Team: 'Analytics' },
+        description: 'MySQL database for analytics',
+        businessJustification: 'Analytics team needs dedicated database for reporting queries'
+      }
     }
   ]);
 
