@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Send, Loader, Cloud, Shield, Terminal, AlertTriangle, Users, Bot } from "lucide-react";
 import { useAIChat } from "./AIChatContext";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AIChatInputForm: React.FC = () => {
   const { 
