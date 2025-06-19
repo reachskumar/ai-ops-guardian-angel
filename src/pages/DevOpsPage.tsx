@@ -1,10 +1,11 @@
+
 import React from "react";
 import { SidebarWithProvider } from "@/components/Sidebar";
 import Header from "@/components/Header";
 import AIChat from "@/components/AIChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InfrastructureRepoManager, ResourceProvisioner } from "@/components/devops";
+import { InfrastructureRepoManager, ResourceProvisioner, AnsibleAutomation } from "@/components/devops";
 
 const DevOpsPage: React.FC = () => {
   return (
@@ -20,10 +21,11 @@ const DevOpsPage: React.FC = () => {
           </div>
 
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="provision">Auto Provision</TabsTrigger>
               <TabsTrigger value="infrastructure">Infrastructure</TabsTrigger>
+              <TabsTrigger value="ansible">Ansible</TabsTrigger>
               <TabsTrigger value="pipelines">Pipelines</TabsTrigger>
               <TabsTrigger value="assistant">Assistant</TabsTrigger>
             </TabsList>
@@ -100,6 +102,10 @@ const DevOpsPage: React.FC = () => {
 
             <TabsContent value="infrastructure">
               <InfrastructureRepoManager />
+            </TabsContent>
+
+            <TabsContent value="ansible">
+              <AnsibleAutomation />
             </TabsContent>
 
             <TabsContent value="pipelines">
