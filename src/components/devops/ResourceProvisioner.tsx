@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
 import { 
   Cloud, 
   Server, 
@@ -18,10 +19,39 @@ import {
   FileCode,
   CheckCircle,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  HardDrive,
+  Settings,
+  Shield,
+  Monitor
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generateIaCTemplate, applyIaCTemplate } from '@/services/cloud/infrastructureService';
+
+interface NetworkConfig {
+  vpcCidr: string;
+  subnetCidr: string;
+  enablePublicIp: boolean;
+  securityGroups: string[];
+  loadBalancer: boolean;
+}
+
+interface StorageConfig {
+  volumeType: 'gp3' | 'gp2' | 'io1' | 'io2' | 'st1' | 'sc1';
+  volumeSize: number;
+  iops?: number;
+  encrypted: boolean;
+  backupRetention: number;
+}
+
+interface DatabaseConfig {
+  engine: 'mysql' | 'postgresql' | 'mongodb' | 'redis';
+  version: string;
+  instanceClass: string;
+  storage: number;
+  multiAz: boolean;
+  backupWindow: string;
+}
 
 interface ResourceConfig {
   type: string;
@@ -31,6 +61,16 @@ interface ResourceConfig {
   size?: string;
   environment: string;
   tags: Record<string, string>;
+  // Enhanced configurations
+  osImage?: string;
+  instanceCount: number;
+  network?: NetworkConfig;
+  storage?: StorageConfig;
+  database?: DatabaseConfig;
+  monitoring: boolean;
+  autoScaling: boolean;
+  minInstances?: number;
+  maxInstances?: number;
 }
 
 const ResourceProvisioner: React.FC = () => {
@@ -38,7 +78,31 @@ const ResourceProvisioner: React.FC = () => {
   const [currentResource, setCurrentResource] = useState<Partial<ResourceConfig>>({
     provider: 'aws',
     environment: 'dev',
-    tags: {}
+    tags: {},
+    instanceCount: 1,
+    monitoring: true,
+    autoScaling: false,
+    network: {
+      vpcCidr: '10.0.0.0/16',
+      subnetCidr: '10.0.1.0/24',
+      enablePublicIp: true,
+      securityGroups: [],
+      loadBalancer: false
+    },
+    storage: {
+      volumeType: 'gp3',
+      volumeSize: 20,
+      encrypted: true,
+      backupRetention: 7
+    },
+    database: {
+      engine: 'mysql',
+      version: '8.0',
+      instanceClass: 'db.t3.micro',
+      storage: 20,
+      multiAz: false,
+      backupWindow: '03:00-04:00'
+    }
   });
   const [generatedTemplate, setGeneratedTemplate] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -48,35 +112,61 @@ const ResourceProvisioner: React.FC = () => {
 
   const resourceTypes = {
     aws: [
-      { value: 'ec2', label: 'EC2 Instance', icon: Server },
-      { value: 'rds', label: 'RDS Database', icon: Database },
-      { value: 'vpc', label: 'VPC Network', icon: Network },
-      { value: 's3', label: 'S3 Bucket', icon: Cloud }
+      { value: 'ec2', label: 'EC2 Instance', icon: Server, category: 'compute' },
+      { value: 'rds', label: 'RDS Database', icon: Database, category: 'database' },
+      { value: 'vpc', label: 'VPC Network', icon: Network, category: 'network' },
+      { value: 's3', label: 'S3 Bucket', icon: Cloud, category: 'storage' },
+      { value: 'elb', label: 'Load Balancer', icon: Network, category: 'network' },
+      { value: 'efs', label: 'EFS Storage', icon: HardDrive, category: 'storage' }
     ],
     azure: [
-      { value: 'vm', label: 'Virtual Machine', icon: Server },
-      { value: 'sql', label: 'SQL Database', icon: Database },
-      { value: 'vnet', label: 'Virtual Network', icon: Network },
-      { value: 'storage', label: 'Storage Account', icon: Cloud }
+      { value: 'vm', label: 'Virtual Machine', icon: Server, category: 'compute' },
+      { value: 'sql', label: 'SQL Database', icon: Database, category: 'database' },
+      { value: 'vnet', label: 'Virtual Network', icon: Network, category: 'network' },
+      { value: 'storage', label: 'Storage Account', icon: Cloud, category: 'storage' },
+      { value: 'lb', label: 'Load Balancer', icon: Network, category: 'network' }
     ],
     gcp: [
-      { value: 'compute', label: 'Compute Engine', icon: Server },
-      { value: 'sql', label: 'Cloud SQL', icon: Database },
-      { value: 'vpc', label: 'VPC Network', icon: Network },
-      { value: 'storage', label: 'Cloud Storage', icon: Cloud }
+      { value: 'compute', label: 'Compute Engine', icon: Server, category: 'compute' },
+      { value: 'sql', label: 'Cloud SQL', icon: Database, category: 'database' },
+      { value: 'vpc', label: 'VPC Network', icon: Network, category: 'network' },
+      { value: 'storage', label: 'Cloud Storage', icon: Cloud, category: 'storage' },
+      { value: 'lb', label: 'Load Balancer', icon: Network, category: 'network' }
+    ]
+  };
+
+  const osImages = {
+    aws: [
+      { value: 'ami-0abcdef1234567890', label: 'Amazon Linux 2023' },
+      { value: 'ami-0123456789abcdef0', label: 'Ubuntu 22.04 LTS' },
+      { value: 'ami-0fedcba0987654321', label: 'CentOS 8' },
+      { value: 'ami-0987654321fedcba0', label: 'Windows Server 2022' },
+      { value: 'ami-0456789012345678a', label: 'Red Hat Enterprise Linux 9' }
+    ],
+    azure: [
+      { value: 'canonical:0001-com-ubuntu-server-focal:20_04-lts-gen2:latest', label: 'Ubuntu 20.04 LTS' },
+      { value: 'MicrosoftWindowsServer:WindowsServer:2022-datacenter-g2:latest', label: 'Windows Server 2022' },
+      { value: 'RedHat:RHEL:8-gen2:latest', label: 'Red Hat Enterprise Linux 8' },
+      { value: 'OpenLogic:CentOS:8_5-gen2:latest', label: 'CentOS 8.5' }
+    ],
+    gcp: [
+      { value: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2204-lts', label: 'Ubuntu 22.04 LTS' },
+      { value: 'projects/centos-cloud/global/images/family/centos-8', label: 'CentOS 8' },
+      { value: 'projects/windows-cloud/global/images/family/windows-2022', label: 'Windows Server 2022' },
+      { value: 'projects/rhel-cloud/global/images/family/rhel-9', label: 'Red Hat Enterprise Linux 9' }
     ]
   };
 
   const regions = {
-    aws: ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1'],
-    azure: ['East US', 'West Europe', 'Southeast Asia', 'Australia East'],
-    gcp: ['us-central1', 'europe-west1', 'asia-southeast1', 'australia-southeast1']
+    aws: ['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1', 'ap-northeast-1'],
+    azure: ['East US', 'West Europe', 'Southeast Asia', 'Australia East', 'Japan East'],
+    gcp: ['us-central1', 'europe-west1', 'asia-southeast1', 'australia-southeast1', 'asia-northeast1']
   };
 
   const sizes = {
-    aws: ['t3.micro', 't3.small', 't3.medium', 'm5.large', 'm5.xlarge'],
-    azure: ['Standard_B1s', 'Standard_B2s', 'Standard_D2s_v3', 'Standard_D4s_v3'],
-    gcp: ['e2-micro', 'e2-small', 'e2-medium', 'n1-standard-1', 'n1-standard-2']
+    aws: ['t3.nano', 't3.micro', 't3.small', 't3.medium', 't3.large', 't3.xlarge', 'm5.large', 'm5.xlarge', 'm5.2xlarge', 'c5.large', 'c5.xlarge'],
+    azure: ['Standard_B1ls', 'Standard_B1s', 'Standard_B2s', 'Standard_D2s_v3', 'Standard_D4s_v3', 'Standard_D8s_v3'],
+    gcp: ['e2-micro', 'e2-small', 'e2-medium', 'e2-standard-2', 'e2-standard-4', 'n1-standard-1', 'n1-standard-2', 'n1-standard-4']
   };
 
   const addResource = () => {
@@ -96,14 +186,47 @@ const ResourceProvisioner: React.FC = () => {
       region: currentResource.region!,
       size: currentResource.size,
       environment: currentResource.environment!,
-      tags: currentResource.tags || {}
+      tags: currentResource.tags || {},
+      osImage: currentResource.osImage,
+      instanceCount: currentResource.instanceCount || 1,
+      network: currentResource.network,
+      storage: currentResource.storage,
+      database: currentResource.database,
+      monitoring: currentResource.monitoring || false,
+      autoScaling: currentResource.autoScaling || false,
+      minInstances: currentResource.minInstances,
+      maxInstances: currentResource.maxInstances
     };
 
     setSelectedResources(prev => [...prev, newResource]);
     setCurrentResource({
       provider: currentResource.provider,
       environment: currentResource.environment,
-      tags: {}
+      tags: {},
+      instanceCount: 1,
+      monitoring: true,
+      autoScaling: false,
+      network: {
+        vpcCidr: '10.0.0.0/16',
+        subnetCidr: '10.0.1.0/24',
+        enablePublicIp: true,
+        securityGroups: [],
+        loadBalancer: false
+      },
+      storage: {
+        volumeType: 'gp3',
+        volumeSize: 20,
+        encrypted: true,
+        backupRetention: 7
+      },
+      database: {
+        engine: 'mysql',
+        version: '8.0',
+        instanceClass: 'db.t3.micro',
+        storage: 20,
+        multiAz: false,
+        backupWindow: '03:00-04:00'
+      }
     });
 
     toast({
@@ -191,13 +314,14 @@ const ResourceProvisioner: React.FC = () => {
   const currentResourceTypes = resourceTypes[currentResource.provider as keyof typeof resourceTypes] || [];
   const currentRegions = regions[currentResource.provider as keyof typeof regions] || [];
   const currentSizes = sizes[currentResource.provider as keyof typeof sizes] || [];
+  const currentOsImages = osImages[currentResource.provider as keyof typeof osImages] || [];
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold">Automated Resource Provisioning</h2>
         <p className="text-muted-foreground">
-          Deploy cloud resources without writing infrastructure code
+          Deploy cloud resources with comprehensive configuration options
         </p>
       </div>
 
@@ -209,10 +333,14 @@ const ResourceProvisioner: React.FC = () => {
         </TabsList>
 
         <TabsContent value="configure" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Basic Configuration */}
             <Card>
               <CardHeader>
-                <CardTitle>Add Resource</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Basic Configuration
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -220,7 +348,7 @@ const ResourceProvisioner: React.FC = () => {
                     <Label>Cloud Provider</Label>
                     <Select 
                       value={currentResource.provider} 
-                      onValueChange={(value) => setCurrentResource(prev => ({ ...prev, provider: value as any, type: '', region: '', size: '' }))}
+                      onValueChange={(value) => setCurrentResource(prev => ({ ...prev, provider: value as any, type: '', region: '', size: '', osImage: '' }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -273,16 +401,16 @@ const ResourceProvisioner: React.FC = () => {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Resource Name</Label>
-                    <Input
-                      placeholder="e.g., web-server"
-                      value={currentResource.name || ''}
-                      onChange={(e) => setCurrentResource(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Resource Name</Label>
+                  <Input
+                    placeholder="e.g., web-server"
+                    value={currentResource.name || ''}
+                    onChange={(e) => setCurrentResource(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
 
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Region</Label>
                     <Select 
@@ -301,71 +429,424 @@ const ResourceProvisioner: React.FC = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Instance Count</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={currentResource.instanceCount || 1}
+                      onChange={(e) => setCurrentResource(prev => ({ ...prev, instanceCount: parseInt(e.target.value) || 1 }))}
+                    />
+                  </div>
                 </div>
 
                 {currentResource.type && ['ec2', 'vm', 'compute'].includes(currentResource.type) && (
-                  <div className="space-y-2">
-                    <Label>Instance Size</Label>
-                    <Select 
-                      value={currentResource.size} 
-                      onValueChange={(value) => setCurrentResource(prev => ({ ...prev, size: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select instance size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {currentSizes.map((size) => (
-                          <SelectItem key={size} value={size}>
-                            {size}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <Label>Instance Size</Label>
+                      <Select 
+                        value={currentResource.size} 
+                        onValueChange={(value) => setCurrentResource(prev => ({ ...prev, size: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select instance size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentSizes.map((size) => (
+                            <SelectItem key={size} value={size}>
+                              {size}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Operating System / Image</Label>
+                      <Select 
+                        value={currentResource.osImage} 
+                        onValueChange={(value) => setCurrentResource(prev => ({ ...prev, osImage: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select OS image" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currentOsImages.map((image) => (
+                            <SelectItem key={image.value} value={image.value}>
+                              {image.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
                 )}
 
-                <Button onClick={addResource} className="w-full">
-                  Add Resource
-                </Button>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="monitoring"
+                      checked={currentResource.monitoring}
+                      onCheckedChange={(checked) => setCurrentResource(prev => ({ ...prev, monitoring: checked as boolean }))}
+                    />
+                    <Label htmlFor="monitoring">Enable Monitoring</Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="autoScaling"
+                      checked={currentResource.autoScaling}
+                      onCheckedChange={(checked) => setCurrentResource(prev => ({ ...prev, autoScaling: checked as boolean }))}
+                    />
+                    <Label htmlFor="autoScaling">Enable Auto Scaling</Label>
+                  </div>
+
+                  {currentResource.autoScaling && (
+                    <div className="grid grid-cols-2 gap-4 ml-6">
+                      <div className="space-y-2">
+                        <Label>Min Instances</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={currentResource.minInstances || 1}
+                          onChange={(e) => setCurrentResource(prev => ({ ...prev, minInstances: parseInt(e.target.value) || 1 }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Max Instances</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={currentResource.maxInstances || 10}
+                          onChange={(e) => setCurrentResource(prev => ({ ...prev, maxInstances: parseInt(e.target.value) || 10 }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
+            {/* Network Configuration */}
             <Card>
               <CardHeader>
-                <CardTitle>Selected Resources ({selectedResources.length})</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Network className="h-5 w-5" />
+                  Network Configuration
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                {selectedResources.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    No resources selected yet
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {selectedResources.map((resource, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">{resource.provider.toUpperCase()}</Badge>
-                            <span className="font-medium">{resource.name}</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {resource.type} • {resource.region} • {resource.environment}
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeResource(index)}
-                        >
-                          Remove
-                        </Button>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>VPC CIDR</Label>
+                  <Input
+                    placeholder="10.0.0.0/16"
+                    value={currentResource.network?.vpcCidr || ''}
+                    onChange={(e) => setCurrentResource(prev => ({ 
+                      ...prev, 
+                      network: { ...prev.network!, vpcCidr: e.target.value }
+                    }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Subnet CIDR</Label>
+                  <Input
+                    placeholder="10.0.1.0/24"
+                    value={currentResource.network?.subnetCidr || ''}
+                    onChange={(e) => setCurrentResource(prev => ({ 
+                      ...prev, 
+                      network: { ...prev.network!, subnetCidr: e.target.value }
+                    }))}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="publicIp"
+                      checked={currentResource.network?.enablePublicIp}
+                      onCheckedChange={(checked) => setCurrentResource(prev => ({ 
+                        ...prev, 
+                        network: { ...prev.network!, enablePublicIp: checked as boolean }
+                      }))}
+                    />
+                    <Label htmlFor="publicIp">Enable Public IP</Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="loadBalancer"
+                      checked={currentResource.network?.loadBalancer}
+                      onCheckedChange={(checked) => setCurrentResource(prev => ({ 
+                        ...prev, 
+                        network: { ...prev.network!, loadBalancer: checked as boolean }
+                      }))}
+                    />
+                    <Label htmlFor="loadBalancer">Add Load Balancer</Label>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Security Groups (comma-separated)</Label>
+                  <Input
+                    placeholder="web-sg, app-sg"
+                    value={currentResource.network?.securityGroups.join(', ') || ''}
+                    onChange={(e) => setCurrentResource(prev => ({ 
+                      ...prev, 
+                      network: { 
+                        ...prev.network!, 
+                        securityGroups: e.target.value.split(',').map(sg => sg.trim()).filter(sg => sg)
+                      }
+                    }))}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Storage & Database Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <HardDrive className="h-5 w-5" />
+                  Storage & Database
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {currentResource.type && ['ec2', 'vm', 'compute'].includes(currentResource.type) && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium">EBS Configuration</h4>
+                    
+                    <div className="space-y-2">
+                      <Label>Volume Type</Label>
+                      <Select 
+                        value={currentResource.storage?.volumeType} 
+                        onValueChange={(value) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          storage: { ...prev.storage!, volumeType: value as any }
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gp3">GP3 (General Purpose SSD)</SelectItem>
+                          <SelectItem value="gp2">GP2 (General Purpose SSD)</SelectItem>
+                          <SelectItem value="io1">IO1 (Provisioned IOPS SSD)</SelectItem>
+                          <SelectItem value="io2">IO2 (Provisioned IOPS SSD)</SelectItem>
+                          <SelectItem value="st1">ST1 (Throughput Optimized HDD)</SelectItem>
+                          <SelectItem value="sc1">SC1 (Cold HDD)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Volume Size (GB): {currentResource.storage?.volumeSize}</Label>
+                      <Slider
+                        value={[currentResource.storage?.volumeSize || 20]}
+                        onValueChange={(value) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          storage: { ...prev.storage!, volumeSize: value[0] }
+                        }))}
+                        max={1000}
+                        min={8}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {['io1', 'io2'].includes(currentResource.storage?.volumeType || '') && (
+                      <div className="space-y-2">
+                        <Label>IOPS</Label>
+                        <Input
+                          type="number"
+                          min="100"
+                          max="64000"
+                          value={currentResource.storage?.iops || 3000}
+                          onChange={(e) => setCurrentResource(prev => ({ 
+                            ...prev, 
+                            storage: { ...prev.storage!, iops: parseInt(e.target.value) || 3000 }
+                          }))}
+                        />
                       </div>
-                    ))}
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="encrypted"
+                        checked={currentResource.storage?.encrypted}
+                        onCheckedChange={(checked) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          storage: { ...prev.storage!, encrypted: checked as boolean }
+                        }))}
+                      />
+                      <Label htmlFor="encrypted">Enable Encryption</Label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Backup Retention (days)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="365"
+                        value={currentResource.storage?.backupRetention || 7}
+                        onChange={(e) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          storage: { ...prev.storage!, backupRetention: parseInt(e.target.value) || 7 }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {currentResource.type && ['rds', 'sql'].includes(currentResource.type) && (
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Database Configuration</h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Database Engine</Label>
+                        <Select 
+                          value={currentResource.database?.engine} 
+                          onValueChange={(value) => setCurrentResource(prev => ({ 
+                            ...prev, 
+                            database: { ...prev.database!, engine: value as any }
+                          }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="mysql">MySQL</SelectItem>
+                            <SelectItem value="postgresql">PostgreSQL</SelectItem>
+                            <SelectItem value="mongodb">MongoDB</SelectItem>
+                            <SelectItem value="redis">Redis</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Version</Label>
+                        <Input
+                          value={currentResource.database?.version || ''}
+                          onChange={(e) => setCurrentResource(prev => ({ 
+                            ...prev, 
+                            database: { ...prev.database!, version: e.target.value }
+                          }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Instance Class</Label>
+                      <Select 
+                        value={currentResource.database?.instanceClass} 
+                        onValueChange={(value) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          database: { ...prev.database!, instanceClass: value }
+                        }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="db.t3.micro">db.t3.micro</SelectItem>
+                          <SelectItem value="db.t3.small">db.t3.small</SelectItem>
+                          <SelectItem value="db.t3.medium">db.t3.medium</SelectItem>
+                          <SelectItem value="db.r5.large">db.r5.large</SelectItem>
+                          <SelectItem value="db.r5.xlarge">db.r5.xlarge</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Storage (GB)</Label>
+                      <Input
+                        type="number"
+                        min="20"
+                        max="65536"
+                        value={currentResource.database?.storage || 20}
+                        onChange={(e) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          database: { ...prev.database!, storage: parseInt(e.target.value) || 20 }
+                        }))}
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="multiAz"
+                        checked={currentResource.database?.multiAz}
+                        onCheckedChange={(checked) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          database: { ...prev.database!, multiAz: checked as boolean }
+                        }))}
+                      />
+                      <Label htmlFor="multiAz">Multi-AZ Deployment</Label>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Backup Window</Label>
+                      <Input
+                        placeholder="03:00-04:00"
+                        value={currentResource.database?.backupWindow || ''}
+                        onChange={(e) => setCurrentResource(prev => ({ 
+                          ...prev, 
+                          database: { ...prev.database!, backupWindow: e.target.value }
+                        }))}
+                      />
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
           </div>
+
+          <div className="flex justify-center">
+            <Button onClick={addResource} className="px-8">
+              Add Resource Configuration
+            </Button>
+          </div>
+
+          {/* Selected Resources Display */}
+          {selectedResources.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Selected Resources ({selectedResources.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {selectedResources.map((resource, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{resource.provider.toUpperCase()}</Badge>
+                          <span className="font-medium">{resource.name}</span>
+                          <Badge>{resource.type}</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {resource.region} • {resource.environment} • {resource.instanceCount} instance(s)
+                        </div>
+                        {resource.size && (
+                          <div className="text-sm text-muted-foreground">
+                            Size: {resource.size}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeResource(index)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="template" className="space-y-4">
@@ -440,6 +921,7 @@ const ResourceProvisioner: React.FC = () => {
                   <h4 className="font-medium mb-2">Deployment Summary</h4>
                   <div className="space-y-2 text-sm">
                     <p><strong>Resources to deploy:</strong> {selectedResources.length}</p>
+                    <p><strong>Total instances:</strong> {selectedResources.reduce((sum, r) => sum + (r.instanceCount || 1), 0)}</p>
                     <p><strong>Template generated:</strong> {generatedTemplate ? 'Yes' : 'No'}</p>
                     <p><strong>Estimated time:</strong> 5-15 minutes</p>
                   </div>
