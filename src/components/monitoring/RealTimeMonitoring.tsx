@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +48,7 @@ const RealTimeMonitoring: React.FC = () => {
 
   // Mock WebSocket data source for real-time metrics
   const dataSource = {
+    id: 'performance-metrics-ws',
     type: 'websocket' as const,
     name: 'performance-metrics',
     url: 'wss://your-websocket-endpoint.com/metrics',
