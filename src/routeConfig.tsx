@@ -28,6 +28,7 @@ import DatabasesPage from "./pages/DatabasesPage";
 import ProjectKanbanPage from "./pages/ProjectKanbanPage";
 import WebSocketTestPage from "./pages/WebSocketTestPage";
 import DevOpsPage from "./pages/DevOpsPage";
+import MultiCloudPage from "./pages/MultiCloudPage";
 
 const routes: RouteObject[] = [
   {
@@ -122,6 +123,10 @@ const routes: RouteObject[] = [
   {
     path: "/devops",
     element: <ProtectedRoute><DevOpsPage /></ProtectedRoute>
+  },
+  {
+    path: "/multi-cloud",
+    element: <ProtectedRoute><MultiCloudPage /></ProtectedRoute>
   },
   {
     path: "*",

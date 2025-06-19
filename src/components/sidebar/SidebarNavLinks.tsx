@@ -19,7 +19,8 @@ import {
   Layers,
   KanbanSquare,
   GitBranch,
-  GitPullRequest
+  GitPullRequest,
+  CloudDrizzle
 } from "lucide-react";
 
 interface NavItem {
@@ -59,6 +60,11 @@ const navItems: NavItem[] = [
     path: "/cloud-resources",
     label: "Cloud Resources",
     icon: Cloud,
+  },
+  {
+    path: "/multi-cloud",
+    label: "Multi-Cloud",
+    icon: CloudDrizzle,
   },
   {
     path: "/cost-analysis",
