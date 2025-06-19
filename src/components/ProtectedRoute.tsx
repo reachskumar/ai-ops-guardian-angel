@@ -1,7 +1,7 @@
 
 import React, { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/providers/AuthProvider";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/services/authService";
 
@@ -55,7 +55,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       <div className="h-screen w-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-          <p className="text-sm text-muted-foreground">Checking authentication...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -67,7 +67,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (requiredRole && !hasRequiredRole()) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

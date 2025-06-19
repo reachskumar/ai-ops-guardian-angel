@@ -1,7 +1,7 @@
 
 import React from "react";
 import { useRoutes } from "react-router-dom";
-import routes from "./routeConfig"; // Updated import to use the renamed file
+import routes from "./routeConfig";
 
 const Routes = () => {
   const routeElements = useRoutes(routes);

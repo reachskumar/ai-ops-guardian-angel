@@ -61,7 +61,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Profile fetch error:", error);
+        return null;
+      }
 
       setProfile(data);
       setIsAdmin(data?.role === 'admin');
@@ -80,7 +83,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', user.id)
         .single();
 
-      if (error || !data) {
+      if (error && error.code !== 'PGRST116') {
+        console.error("Profile check error:", error);
+        return null;
+      }
+
+      if (!data) {
         const { error: insertError } = await supabase.from('profiles').insert({
           id: user.id,
           username: user.email?.split('@')[0],
@@ -88,7 +96,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: 'viewer'
         });
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error("Profile creation error:", insertError);
+          return null;
+        }
         
         return await fetchUserProfile(user.id);
       }
@@ -107,15 +118,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, fetchUserProfile]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        console.log("Initializing auth...");
+        
+        // Get current session
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session error:", error);
+          if (mounted) {
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (mounted) {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+        }
+        
+        if (currentSession?.user && mounted) {
+          // Ensure profile exists and fetch it
+          const profileData = await ensureProfileExists(currentSession.user);
+          if (profileData && mounted) {
+            setProfile(profileData);
+            setIsAdmin(profileData.role === 'admin');
+          }
+        }
+        
+        if (mounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
         console.log("Auth state change:", event);
+        
+        if (!mounted) return;
+        
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
+          // Defer profile fetching to avoid blocking the auth state change
           setTimeout(async () => {
-            await fetchUserProfile(currentSession.user!.id);
+            if (mounted) {
+              const profileData = await fetchUserProfile(currentSession.user!.id);
+              if (profileData && mounted) {
+                setProfile(profileData);
+                setIsAdmin(profileData.role === 'admin');
+              }
+            }
           }, 0);
         } else {
           setProfile(null);
@@ -124,27 +188,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    const initializeAuth = async () => {
-      try {
-        setLoading(true);
-        const { data } = await supabase.auth.getSession();
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
-        
-        if (data.session?.user) {
-          await ensureProfileExists(data.session.user);
-          await fetchUserProfile(data.session.user.id);
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+    // Initialize auth
     initializeAuth();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [ensureProfileExists, fetchUserProfile]);
 
   const signOut = useCallback(async () => {
