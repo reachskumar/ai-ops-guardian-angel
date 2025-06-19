@@ -156,8 +156,8 @@ class EnhancedAuthService {
       
       return { 
         success: true, 
-        qrCode: data.qr_code,
-        secret: data.secret 
+        qrCode: data.totp.qr_code,
+        secret: data.totp.secret 
       };
     } catch (error: any) {
       console.error("MFA enrollment error:", error);
