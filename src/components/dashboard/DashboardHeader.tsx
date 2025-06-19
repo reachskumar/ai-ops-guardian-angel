@@ -1,102 +1,59 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Shield, BadgeCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RefreshCw, Activity, Clock } from "lucide-react";
 
 interface DashboardHeaderProps {
   refreshData: () => void;
-  isRefreshing?: boolean; // Make isRefreshing optional
-  complianceStatus?: {
-    pci: 'passing' | 'warning' | 'failing' | 'not-applicable';
-    hipaa?: 'passing' | 'warning' | 'failing' | 'not-applicable';
-    gdpr?: 'passing' | 'warning' | 'failing' | 'not-applicable';
-    soc2?: 'passing' | 'warning' | 'failing' | 'not-applicable';
-  };
+  isRefreshing: boolean;
+  lastRefreshed?: Date | null;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({ 
-  refreshData,
-  isRefreshing = false, // Provide a default value
-  complianceStatus = { pci: 'not-applicable' }
+  refreshData, 
+  isRefreshing, 
+  lastRefreshed 
 }) => {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'passing': return 'bg-green-600';
-      case 'warning': return 'bg-yellow-600';
-      case 'failing': return 'bg-red-600';
-      default: return 'bg-gray-600';
-    }
+  const formatLastRefreshed = (date: Date) => {
+    const now = new Date();
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    return date.toLocaleDateString();
   };
 
   return (
-    <div className="flex justify-between items-center mb-8">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Operations Dashboard</h1>
-        <p className="text-muted-foreground">
-          Real-time overview of your infrastructure and cloud resources
+        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+          <Activity className="h-8 w-8 text-primary" />
+          Cloud Infrastructure Dashboard
+        </h1>
+        <p className="text-muted-foreground mt-2">
+          Real-time monitoring and management of your cloud resources
         </p>
-        
-        {/* Compliance Status Indicators */}
-        <div className="flex items-center gap-2 mt-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className={`flex items-center gap-1 ${getStatusColor(complianceStatus.pci)}`}>
-                <Shield className="h-3 w-3" /> PCI DSS
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>PCI DSS {complianceStatus.pci === 'passing' ? 'compliant' : 'compliance status'}</p>
-            </TooltipContent>
-          </Tooltip>
-          
-          {complianceStatus.hipaa && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge className={`flex items-center gap-1 ${getStatusColor(complianceStatus.hipaa)}`}>
-                  <Shield className="h-3 w-3" /> HIPAA
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>HIPAA {complianceStatus.hipaa === 'passing' ? 'compliant' : 'compliance status'}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          
-          {complianceStatus.gdpr && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge className={`flex items-center gap-1 ${getStatusColor(complianceStatus.gdpr)}`}>
-                  <Shield className="h-3 w-3" /> GDPR
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>GDPR {complianceStatus.gdpr === 'passing' ? 'compliant' : 'compliance status'}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-          
-          {complianceStatus.soc2 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge className={`flex items-center gap-1 ${getStatusColor(complianceStatus.soc2)}`}>
-                  <BadgeCheck className="h-3 w-3" /> SOC 2
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>SOC 2 {complianceStatus.soc2 === 'passing' ? 'compliant' : 'compliance status'}</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+        {lastRefreshed && (
+          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span>Last updated: {formatLastRefreshed(lastRefreshed)}</span>
+            <span className="text-green-500">• Live data from cloud providers</span>
+          </div>
+        )}
       </div>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={refreshData} disabled={isRefreshing}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
+      <Button 
+        onClick={refreshData} 
+        disabled={isRefreshing}
+        size="lg"
+        className="flex items-center gap-2"
+      >
+        <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+        {isRefreshing ? "Refreshing..." : "Refresh Data"}
+      </Button>
     </div>
   );
 };

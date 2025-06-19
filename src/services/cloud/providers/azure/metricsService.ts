@@ -1,106 +1,57 @@
 
-// Azure-specific metrics collection
+// Azure-specific metrics collection using real Azure Monitor API
+import { ResourceMetric } from '../../../cloud/types';
+import { supabase } from "@/integrations/supabase/client";
+
 export const getAzureResourceMetrics = async (
   resourceId: string,
   resourceType: string,
   timeRange: string = '24h',
   credentials?: Record<string, any>
 ): Promise<{
-  metrics: Array<{
-    name: string;
-    data: Array<{ timestamp: string; value: number }>;
-    unit: string;
-  }>;
+  metrics: Array<ResourceMetric>;
   error?: string;
 }> => {
   try {
-    console.log(`Getting Azure metrics for ${resourceType} resource ${resourceId}`);
+    console.log(`Getting real Azure metrics for ${resourceType} resource ${resourceId}`);
     
-    // This would use Azure Monitor API in a real implementation
-    const now = new Date();
-    const hours = parseInt(timeRange.replace('h', ''), 10);
-    
-    // Create different metrics based on resource type
-    let metrics = [];
-    
-    if (resourceType === 'vm') {
-      metrics = [
-        {
-          name: 'Percentage CPU',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 90
-          })),
-          unit: 'Percent'
-        },
-        {
-          name: 'Network In',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 4000000
-          })),
-          unit: 'Bytes'
-        },
-        {
-          name: 'Network Out',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 1500000
-          })),
-          unit: 'Bytes'
-        },
-        {
-          name: 'Disk Operations/Sec',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 200
-          })),
-          unit: 'CountPerSecond'
-        }
-      ];
-    } else if (resourceType === 'sql-database') {
-      metrics = [
-        {
-          name: 'CPU percentage',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 70
-          })),
-          unit: 'Percent'
-        },
-        {
-          name: 'DTU consumption percent',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 80
-          })),
-          unit: 'Percent'
-        },
-        {
-          name: 'Connection successful',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.floor(Math.random() * 40) + 5
-          })),
-          unit: 'Count'
-        }
-      ];
-    } else {
-      // Generic metrics for other resource types
-      metrics = [
-        {
-          name: 'Usage',
-          data: Array(hours).fill(0).map((_, i) => ({
-            timestamp: new Date(now.getTime() - (hours - i) * 60 * 60 * 1000).toISOString(),
-            value: Math.random() * 100
-          })),
-          unit: 'Percent'
-        }
-      ];
+    if (!credentials || !credentials.tenantId || !credentials.clientId || !credentials.clientSecret || !credentials.subscriptionId) {
+      throw new Error('Missing required Azure credentials (tenantId, clientId, clientSecret, subscriptionId)');
     }
     
-    return { metrics };
+    // Call the updated metrics edge function with real Azure integration
+    const { data, error } = await supabase.functions.invoke('get-resource-metrics', {
+      body: { 
+        provider: 'azure',
+        resourceId,
+        resourceType,
+        timeRange,
+        credentials: {
+          tenantId: credentials.tenantId,
+          clientId: credentials.clientId,
+          clientSecret: credentials.clientSecret,
+          subscriptionId: credentials.subscriptionId
+        }
+      }
+    });
+
+    if (error) {
+      console.error(`Azure metrics edge function error: ${error.message}`);
+      throw new Error(`Edge function error: ${error.message}`);
+    }
+    
+    if (!data || !data.success) {
+      throw new Error('No metrics data returned from edge function');
+    }
+    
+    console.log(`Successfully fetched ${data.metrics.length} real Azure metrics`);
+    return { 
+      metrics: data.metrics as ResourceMetric[]
+    };
   } catch (error: any) {
+    console.error(`Azure metrics error for ${resourceId}:`, error);
+    
+    // Return error instead of fallback for real integration
     return {
       metrics: [],
       error: `Azure Monitor error: ${error.message || 'Failed to retrieve metrics'}`
