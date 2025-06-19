@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -551,7 +550,7 @@ const AnsibleAutomation: React.FC = () => {
                     <div className="space-y-1">
                       {selectedTasks.map((task) => (
                         <div key={task.id} className="flex items-center gap-2">
-                          <Badge variant="outline" size="sm">
+                          <Badge variant="outline">
                             {task.category}
                           </Badge>
                           <span className="text-sm">{task.name}</span>
