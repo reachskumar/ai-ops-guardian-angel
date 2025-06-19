@@ -24,7 +24,7 @@ const AuthPage: React.FC = () => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
-        navigate("/", { replace: true });
+        navigate("/dashboard", { replace: true });
       }
     };
     
@@ -57,7 +57,7 @@ const AuthPage: React.FC = () => {
       
       // If auto-confirm is enabled, this will contain a session
       if (data.session) {
-        navigate("/", { replace: true });
+        navigate("/dashboard", { replace: true });
       }
     } catch (error: any) {
       toast({
@@ -88,7 +88,7 @@ const AuthPage: React.FC = () => {
         description: "You have successfully logged in.",
       });
       
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (error: any) {
       console.error("Login error:", error);
       toast({
@@ -105,7 +105,7 @@ const AuthPage: React.FC = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">AI DevOps Guardian</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">OrbitOps</CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access your account
           </CardDescription>

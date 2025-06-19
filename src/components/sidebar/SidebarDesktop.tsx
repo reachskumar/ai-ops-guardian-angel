@@ -23,7 +23,7 @@ export const SidebarDesktop: React.FC<SidebarDesktopProps> = ({
   return (
     <div className="hidden lg:block w-64 bg-card border-r border-border">
       <div className="flex items-center justify-center h-16 border-b border-border">
-        <Link to="/" className="text-lg font-semibold">
+        <Link to="/dashboard" className="text-lg font-semibold">
           OrbitOps
         </Link>
       </div>

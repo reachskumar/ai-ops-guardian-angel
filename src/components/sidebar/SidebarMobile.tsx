@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { Link } from "react-router-dom";
 import { SidebarNavLinks } from "./SidebarNavLinks";
 import { SidebarUserMenu } from "./SidebarUserMenu";
 import {
@@ -38,7 +39,11 @@ export const SidebarMobile: React.FC<SidebarMobileProps> = ({
       </SheetTrigger>
       <SheetContent side="left" className="w-80 bg-card">
         <SheetHeader>
-          <SheetTitle>OrbitOps</SheetTitle>
+          <SheetTitle>
+            <Link to="/dashboard" className="text-lg font-semibold">
+              OrbitOps
+            </Link>
+          </SheetTitle>
           <SheetDescription>
             Navigate through your infrastructure management platform.
           </SheetDescription>

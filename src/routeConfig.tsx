@@ -5,6 +5,7 @@ import AdminRoute from "./components/AdminRoute";
 
 // Pages
 import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
 import AdminPanel from "./pages/AdminPanel";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -31,8 +32,12 @@ import DevOpsPage from "./pages/DevOpsPage";
 const routes: RouteObject[] = [
   {
     path: "/",
-    element: <ProtectedRoute><Index /></ProtectedRoute>,
+    element: <LandingPage />,
     index: true
+  },
+  {
+    path: "/dashboard",
+    element: <ProtectedRoute><Index /></ProtectedRoute>
   },
   {
     path: "/auth/*",
