@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,75 @@ interface MultiCloudNetworkingProps {
   accounts: CloudAccount[];
 }
 
+interface NetworkConnection {
+  id: string;
+  name: string;
+  sourceProvider: string;
+  targetProvider: string;
+  status: 'connected' | 'connecting' | 'failed';
+  type: string;
+  bandwidth: string;
+  latency: string;
+}
+
 const MultiCloudNetworking: React.FC<MultiCloudNetworkingProps> = ({ accounts }) => {
   const [showConfiguration, setShowConfiguration] = useState(false);
   const { toast } = useToast();
+
+  // Mock connections data
+  const [connections] = useState<NetworkConnection[]>([
+    {
+      id: '1',
+      name: 'AWS-Azure-Primary',
+      sourceProvider: 'aws',
+      targetProvider: 'azure',
+      status: 'connected',
+      type: 'site-to-site-vpn',
+      bandwidth: '1 Gbps',
+      latency: '25ms'
+    },
+    {
+      id: '2',
+      name: 'Azure-GCP-Backup',
+      sourceProvider: 'azure',
+      targetProvider: 'gcp',
+      status: 'connected',
+      type: 'direct-connect',
+      bandwidth: '500 Mbps',
+      latency: '18ms'
+    },
+    {
+      id: '3',
+      name: 'AWS-GCP-Data',
+      sourceProvider: 'aws',
+      targetProvider: 'gcp',
+      status: 'connecting',
+      type: 'vpn-gateway',
+      bandwidth: '2 Gbps',
+      latency: '32ms'
+    }
+  ]);
+
+  const createConnection = () => {
+    toast({
+      title: "Create Connection",
+      description: "Opening connection creation wizard...",
+    });
+    setShowConfiguration(true);
+  };
+
+  const getProviderColor = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case 'aws':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'azure':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'gcp':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
   if (showConfiguration) {
     return (
