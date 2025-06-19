@@ -85,3 +85,39 @@ export const validateAwsCredentials = async (accountId: string): Promise<{
     return { isValid: false, error: error.message || 'Failed to validate credentials' };
   }
 };
+
+/**
+ * Validates Azure credentials
+ * @param accountId The ID of the Azure account to validate
+ * @returns Object containing validation status
+ */
+export const validateAzureCredentials = async (accountId: string): Promise<{
+  isValid: boolean;
+  tenantId?: string;
+  clientId?: string;
+  subscriptionId?: string;
+  error?: string;
+}> => {
+  try {
+    // Get credentials from secure storage
+    const credentials = await getAccountCredentials(accountId);
+    
+    if (!credentials) {
+      return { isValid: false, error: 'No credentials found for this account' };
+    }
+    
+    // Check for required Azure credentials
+    if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) {
+      return { isValid: false, error: 'Missing required Azure credentials (tenantId, clientId, clientSecret)' };
+    }
+    
+    return { 
+      isValid: true, 
+      tenantId: credentials.tenantId,
+      clientId: credentials.clientId,
+      subscriptionId: credentials.subscriptionId
+    };
+  } catch (error: any) {
+    return { isValid: false, error: error.message || 'Failed to validate credentials' };
+  }
+};

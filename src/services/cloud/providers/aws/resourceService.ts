@@ -58,8 +58,11 @@ export const provisionAwsResource = async (
     console.log(`Provisioning AWS ${resourceType} with config:`, config);
     
     // This would use AWS SDK in a real implementation
-    // For now, return a mock success response
+    // For now, return a mock success response with realistic data
     const resourceId = `aws-${resourceType.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    
+    // Simulate realistic AWS resource creation
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call delay
     
     return {
       success: true,
@@ -67,6 +70,8 @@ export const provisionAwsResource = async (
       details: {
         provider: 'aws',
         type: resourceType,
+        region: config.region || 'us-east-1',
+        availabilityZone: `${config.region || 'us-east-1'}a`,
         ...config
       }
     };
@@ -77,4 +82,46 @@ export const provisionAwsResource = async (
       error: `Failed to provision AWS ${resourceType}: ${error.message}`
     };
   }
+};
+
+// Get mock AWS resources for testing
+export const getMockAwsResources = (accountId: string): CloudResource[] => {
+  return [
+    {
+      id: `aws-ec2-${accountId}-1`,
+      cloud_account_id: accountId,
+      resource_id: 'i-0123456789abcdef0',
+      name: 'web-server-prod',
+      type: 'EC2',
+      region: 'us-east-1',
+      status: 'running',
+      created_at: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
+      updated_at: new Date().toISOString(),
+      tags: { Environment: 'production', Team: 'web' },
+      metadata: {
+        instance_type: 't3.medium',
+        vpc_id: 'vpc-12345678',
+        subnet_id: 'subnet-87654321',
+        security_groups: ['sg-web-servers']
+      }
+    },
+    {
+      id: `aws-rds-${accountId}-2`,
+      cloud_account_id: accountId,
+      resource_id: 'mydb-cluster-1',
+      name: 'main-database',
+      type: 'RDS',
+      region: 'us-east-1',
+      status: 'available',
+      created_at: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+      updated_at: new Date().toISOString(),
+      tags: { Environment: 'production', Database: 'mysql' },
+      metadata: {
+        engine: 'mysql',
+        engine_version: '8.0.35',
+        instance_class: 'db.t3.micro',
+        allocated_storage: 20
+      }
+    }
+  ];
 };

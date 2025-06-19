@@ -40,7 +40,7 @@ export const getAzureInstanceSizes = (resourceType: string): string[] => {
 // Get Azure regions
 export const getAzureRegions = (): string[] => {
   return [
-    'westus', 'westus2', 'eastus', 'eastus2', 'centralus',
+    'eastus', 'eastus2', 'westus', 'westus2', 'centralus',
     'northeurope', 'westeurope', 'uksouth', 'ukwest',
     'southeastasia', 'eastasia', 'japaneast', 'japanwest',
     'australiaeast', 'australiasoutheast', 'brazilsouth'
@@ -58,8 +58,11 @@ export const provisionAzureResource = async (
     console.log(`Provisioning Azure ${resourceType} with config:`, config);
     
     // This would use Azure SDK in a real implementation
-    // For now, return a mock success response
+    // For now, return a mock success response with realistic data
     const resourceId = `azure-${resourceType.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+    
+    // Simulate realistic Azure resource creation
+    await new Promise(resolve => setTimeout(resolve, 1200)); // Simulate API call delay
     
     return {
       success: true,
@@ -67,6 +70,8 @@ export const provisionAzureResource = async (
       details: {
         provider: 'azure',
         type: resourceType,
+        region: config.region || 'eastus',
+        resourceGroup: config.resourceGroup || 'rg-default',
         ...config
       }
     };
@@ -77,4 +82,46 @@ export const provisionAzureResource = async (
       error: `Failed to provision Azure ${resourceType}: ${error.message}`
     };
   }
+};
+
+// Get mock Azure resources for testing
+export const getMockAzureResources = (accountId: string): CloudResource[] => {
+  return [
+    {
+      id: `azure-vm-${accountId}-1`,
+      cloud_account_id: accountId,
+      resource_id: '/subscriptions/sub-123/resourceGroups/rg-prod/providers/Microsoft.Compute/virtualMachines/vm-web-01',
+      name: 'vm-web-01',
+      type: 'VM',
+      region: 'eastus',
+      status: 'running',
+      created_at: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
+      updated_at: new Date().toISOString(),
+      tags: { environment: 'production', team: 'platform' },
+      metadata: {
+        vm_size: 'Standard_B2s',
+        os_type: 'Linux',
+        resource_group: 'rg-prod',
+        subscription_id: 'sub-123'
+      }
+    },
+    {
+      id: `azure-storage-${accountId}-2`,
+      cloud_account_id: accountId,
+      resource_id: '/subscriptions/sub-123/resourceGroups/rg-prod/providers/Microsoft.Storage/storageAccounts/storageacct01',
+      name: 'storageacct01',
+      type: 'Storage Account',
+      region: 'eastus',
+      status: 'available',
+      created_at: new Date(Date.now() - 345600000).toISOString(), // 4 days ago
+      updated_at: new Date().toISOString(),
+      tags: { environment: 'production' },
+      metadata: {
+        sku: 'Standard_LRS',
+        kind: 'StorageV2',
+        resource_group: 'rg-prod',
+        subscription_id: 'sub-123'
+      }
+    }
+  ];
 };
