@@ -210,7 +210,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({ resources, accounts
                     {dashboardData.resourcesByProvider[account.provider] || 0} Resources
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Last sync: {new Date(account.last_sync || Date.now()).toLocaleTimeString()}
+                    Last sync: {new Date().toLocaleTimeString()}
                   </p>
                 </div>
               </div>

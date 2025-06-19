@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Sheet,
@@ -7,15 +8,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
 import {
   LayoutDashboard,
   Menu,
@@ -27,7 +19,6 @@ import {
   Globe,
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface SidebarProps {
   open: boolean;
@@ -109,11 +100,6 @@ export const SidebarWithProvider: React.FC<SidebarWithProviderProps> = ({
   children,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { isLoggedIn } = useAuth();
-
-  if (!isLoggedIn) {
-    return <>{children}</>;
-  }
 
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
