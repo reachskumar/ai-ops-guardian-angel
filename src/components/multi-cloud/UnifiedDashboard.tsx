@@ -1,10 +1,12 @@
 
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CloudResource, CloudAccount } from '@/services/cloud/types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Cloud, Server, Database, HardDrive, DollarSign, TrendingUp } from 'lucide-react';
+import { Cloud, DollarSign, Server, Database, HardDrive, TrendingUp, AlertTriangle } from 'lucide-react';
+import CostOptimizationEngine from './cost/CostOptimizationEngine';
+import ResourceDependencyMap from './dependencies/ResourceDependencyMap';
 
 interface UnifiedDashboardProps {
   resources: CloudResource[];
@@ -13,211 +15,205 @@ interface UnifiedDashboardProps {
 }
 
 const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({ resources, accounts, loading }) => {
-  const dashboardData = useMemo(() => {
-    const providerCounts = accounts.reduce((acc, account) => {
-      acc[account.provider] = (acc[account.provider] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const resourcesByProvider = resources.reduce((acc, resource) => {
-      const account = accounts.find(a => a.id === resource.cloud_account_id);
-      if (account) {
-        acc[account.provider] = (acc[account.provider] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-    const resourcesByType = resources.reduce((acc, resource) => {
-      acc[resource.type] = (acc[resource.type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return {
-      providerCounts,
-      resourcesByProvider,
-      resourcesByType,
-      totalResources: resources.length,
-      totalAccounts: accounts.length
-    };
-  }, [resources, accounts]);
-
-  const providerColors = {
-    aws: '#FF9900',
-    azure: '#0078D4',
-    gcp: '#4285F4'
-  };
-
-  const chartData = Object.entries(dashboardData.resourcesByProvider).map(([provider, count]) => ({
-    provider: provider.toUpperCase(),
-    resources: count,
-    fill: providerColors[provider as keyof typeof providerColors] || '#8884d8'
-  }));
-
-  const pieData = Object.entries(dashboardData.resourcesByType).map(([type, count]) => ({
-    name: type,
-    value: count
-  }));
+  const [activeView, setActiveView] = useState<'overview' | 'cost' | 'dependencies'>('overview');
 
   if (loading) {
+    return <div className="text-center py-8">Loading dashboard...</div>;
+  }
+
+  const getProviderStats = () => {
+    const stats = accounts.reduce((acc, account) => {
+      const providerResources = resources.filter(r => r.cloud_account_id === account.id);
+      acc[account.provider] = (acc[account.provider] || 0) + providerResources.length;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return stats;
+  };
+
+  const providerStats = getProviderStats();
+  const totalResources = resources.length;
+  const totalCost = 12500; // Mock total cost
+  const costSavings = 3200; // Mock savings
+
+  if (activeView === 'cost') {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {Array(8).fill(0).map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader className="space-y-2">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-            </CardHeader>
-          </Card>
-        ))}
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Cost Optimization</h3>
+          <Button variant="outline" onClick={() => setActiveView('overview')}>
+            Back to Overview
+          </Button>
+        </div>
+        <CostOptimizationEngine resources={resources} accounts={accounts} />
+      </div>
+    );
+  }
+
+  if (activeView === 'dependencies') {
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Resource Dependencies</h3>
+          <Button variant="outline" onClick={() => setActiveView('overview')}>
+            Back to Overview
+          </Button>
+        </div>
+        <ResourceDependencyMap resources={resources} accounts={accounts} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cloud Accounts</CardTitle>
-            <Cloud className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.totalAccounts}</div>
-            <div className="flex gap-2 mt-2">
-              {Object.entries(dashboardData.providerCounts).map(([provider, count]) => (
-                <Badge key={provider} variant="outline" className="text-xs">
-                  {provider.toUpperCase()}: {count}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
+      {/* Multi-Cloud Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Resources</CardTitle>
             <Server className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.totalResources}</div>
+            <div className="text-2xl font-bold">{totalResources}</div>
             <p className="text-xs text-muted-foreground">
-              Across all cloud providers
+              Across {accounts.length} cloud providers
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cost Optimization</CardTitle>
+            <CardTitle className="text-sm font-medium">Monthly Cost</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">$2,340</div>
+            <div className="text-2xl font-bold">${totalCost.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Potential monthly savings
+              Across all providers
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cross-Cloud Efficiency</CardTitle>
+            <CardTitle className="text-sm font-medium">Cost Savings</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">94%</div>
+            <div className="text-2xl font-bold text-green-600">${costSavings.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              Resource utilization score
+              Monthly optimization savings
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Health Score</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">94%</div>
+            <p className="text-xs text-muted-foreground">
+              Overall system health
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Resources by Cloud Provider</CardTitle>
-            <CardDescription>Distribution of resources across your cloud accounts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="provider" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="resources" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Resource Types Distribution</CardTitle>
-            <CardDescription>Breakdown of resource types across all providers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={`hsl(${index * 45}, 70%, 60%)`} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Provider Health Status */}
+      {/* Provider Distribution */}
       <Card>
         <CardHeader>
-          <CardTitle>Multi-Cloud Health Status</CardTitle>
-          <CardDescription>Real-time status of your cloud provider connections</CardDescription>
+          <CardTitle>Provider Distribution</CardTitle>
+          <CardDescription>
+            Resources distributed across cloud providers
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {accounts.map((account) => (
-              <div key={account.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className={`w-3 h-3 rounded-full ${
-                    account.status === 'connected' ? 'bg-green-500' : 
-                    account.status === 'disconnected' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`} />
-                  <div>
-                    <h4 className="font-medium">{account.name}</h4>
-                    <p className="text-sm text-muted-foreground capitalize">
-                      {account.provider} • {account.status}
-                    </p>
-                  </div>
+            {Object.entries(providerStats).map(([provider, count]) => (
+              <div key={provider} className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Cloud className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium capitalize">{provider}</span>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium">
-                    {dashboardData.resourcesByProvider[account.provider] || 0} Resources
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Last sync: {new Date().toLocaleTimeString()}
-                  </p>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline">{count} resources</Badge>
+                  <div className="w-32 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full" 
+                      style={{ width: `${(count / totalResources) * 100}%` }} 
+                    />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Cost Optimization
+            </CardTitle>
+            <CardDescription>
+              AI-powered cost optimization recommendations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Get personalized recommendations to reduce your cloud spending by up to 40%.
+            </p>
+            <Button onClick={() => setActiveView('cost')} className="w-full">
+              View Optimization
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Server className="h-5 w-5" />
+              Resource Dependencies
+            </CardTitle>
+            <CardDescription>
+              Visualize cross-cloud resource relationships
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Map and monitor dependencies between resources across different cloud providers.
+            </p>
+            <Button onClick={() => setActiveView('dependencies')} variant="outline" className="w-full">
+              View Dependencies
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Health Monitoring
+            </CardTitle>
+            <CardDescription>
+              Real-time health across all clouds
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Monitor the health and performance of your multi-cloud infrastructure.
+            </p>
+            <Button variant="outline" className="w-full">
+              View Health Status
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

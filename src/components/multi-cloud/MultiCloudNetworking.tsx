@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,63 +5,29 @@ import { Badge } from '@/components/ui/badge';
 import { CloudAccount } from '@/services/cloud/types';
 import { Network, Wifi, Shield, Globe, Plus, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import NetworkingConfiguration from './networking/NetworkingConfiguration';
 
 interface MultiCloudNetworkingProps {
   accounts: CloudAccount[];
 }
 
-interface NetworkConnection {
-  id: string;
-  name: string;
-  sourceProvider: string;
-  targetProvider: string;
-  type: 'vpn' | 'peering' | 'transit-gateway';
-  status: 'connected' | 'connecting' | 'disconnected';
-  bandwidth: string;
-  latency: string;
-}
-
 const MultiCloudNetworking: React.FC<MultiCloudNetworkingProps> = ({ accounts }) => {
-  const [connections] = useState<NetworkConnection[]>([
-    {
-      id: '1',
-      name: 'AWS-Azure VPN',
-      sourceProvider: 'aws',
-      targetProvider: 'azure',
-      type: 'vpn',
-      status: 'connected',
-      bandwidth: '1 Gbps',
-      latency: '45ms'
-    },
-    {
-      id: '2',
-      name: 'Azure-GCP Peering',
-      sourceProvider: 'azure',
-      targetProvider: 'gcp',
-      type: 'peering',
-      status: 'connecting',
-      bandwidth: '10 Gbps',
-      latency: '12ms'
-    }
-  ]);
-
+  const [showConfiguration, setShowConfiguration] = useState(false);
   const { toast } = useToast();
 
-  const getProviderColor = (provider: string) => {
-    switch (provider) {
-      case 'aws': return 'bg-orange-100 text-orange-800';
-      case 'azure': return 'bg-blue-100 text-blue-800';
-      case 'gcp': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const createConnection = () => {
-    toast({
-      title: "Create Network Connection",
-      description: "Network connection wizard opened",
-    });
-  };
+  if (showConfiguration) {
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold">Network Configuration</h3>
+          <Button variant="outline" onClick={() => setShowConfiguration(false)}>
+            Back to Overview
+          </Button>
+        </div>
+        <NetworkingConfiguration accounts={accounts} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -74,11 +39,9 @@ const MultiCloudNetworking: React.FC<MultiCloudNetworkingProps> = ({ accounts })
             <Network className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {connections.filter(c => c.status === 'connected').length}
-            </div>
+            <div className="text-2xl font-bold">4</div>
             <p className="text-xs text-muted-foreground">
-              {connections.length} total connections
+              Cross-cloud connections
             </p>
           </CardContent>
         </Card>
@@ -91,7 +54,7 @@ const MultiCloudNetworking: React.FC<MultiCloudNetworkingProps> = ({ accounts })
           <CardContent>
             <div className="text-2xl font-bold">11 Gbps</div>
             <p className="text-xs text-muted-foreground">
-              Aggregate cross-cloud bandwidth
+              Aggregate bandwidth
             </p>
           </CardContent>
         </Card>
@@ -109,6 +72,35 @@ const MultiCloudNetworking: React.FC<MultiCloudNetworkingProps> = ({ accounts })
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Network Management</CardTitle>
+          <CardDescription>
+            Configure and manage your multi-cloud network infrastructure
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Button 
+              onClick={() => setShowConfiguration(true)}
+              className="h-20 flex flex-col items-center justify-center"
+            >
+              <Network className="h-6 w-6 mb-2" />
+              Configure VPN Connections
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setShowConfiguration(true)}
+              className="h-20 flex flex-col items-center justify-center"
+            >
+              <Globe className="h-6 w-6 mb-2" />
+              Manage DNS Zones
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Network Connections */}
       <Card>
