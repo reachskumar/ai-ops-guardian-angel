@@ -8,3 +8,5 @@ export { default as ResourceUtilizationChart } from './ResourceUtilizationChart'
 export { default as ServerPerformanceSummary } from './ServerPerformanceSummary';
 export { default as NetworkTrafficMonitor } from './NetworkTrafficMonitor';
 export { default as DetailedMetricsPanel } from './DetailedMetricsPanel';
+export { default as RealTimeMonitoring } from './RealTimeMonitoring';
+export { default as PerformanceOptimizer } from './PerformanceOptimizer';
