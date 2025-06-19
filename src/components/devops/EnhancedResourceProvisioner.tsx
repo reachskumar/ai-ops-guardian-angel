@@ -22,6 +22,12 @@ import {
   ApprovalWorkflow, 
   AuditLog 
 } from './provisioning';
+import NotificationSettings from './provisioning/NotificationSettings';
+import { 
+  sendProvisioningNotification, 
+  type NotificationChannel,
+  type ProvisioningNotification 
+} from '@/services/provisioningNotificationService';
 import type { ProvisioningConfig } from './provisioning/ProvisioningRequest';
 import type { ProvisioningRequest as ProvisioningRequestType } from './provisioning/ApprovalWorkflow';
 import type { AuditEntry } from './provisioning/AuditLog';
@@ -153,9 +159,68 @@ const EnhancedResourceProvisioner: React.FC = () => {
     }
   ]);
 
+  const [notificationChannels, setNotificationChannels] = useState<NotificationChannel[]>([
+    {
+      type: 'email',
+      enabled: true,
+      config: {
+        email: {
+          recipients: ['admin@company.com', 'devops@company.com']
+        }
+      }
+    },
+    {
+      type: 'slack',
+      enabled: true,
+      config: {
+        slack: {
+          webhookUrl: 'https://hooks.slack.com/services/...',
+          channel: '#devops'
+        }
+      }
+    },
+    {
+      type: 'teams',
+      enabled: false,
+      config: {
+        teams: {
+          webhookUrl: ''
+        }
+      }
+    },
+    {
+      type: 'webhook',
+      enabled: false,
+      config: {
+        webhook: {
+          url: ''
+        }
+      }
+    }
+  ]);
+
   const { toast } = useToast();
 
-  const handleProvisioningRequest = (config: ProvisioningConfig) => {
+  const sendNotification = async (notification: ProvisioningNotification) => {
+    try {
+      const result = await sendProvisioningNotification(notification, notificationChannels);
+      
+      if (result.success) {
+        console.log('Notifications sent successfully');
+      } else {
+        console.warn('Some notifications failed:', result.errors);
+        toast({
+          title: 'Notification Warning',
+          description: `Some notifications failed to send: ${result.errors.join(', ')}`,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send notifications:', error);
+    }
+  };
+
+  const handleProvisioningRequest = async (config: ProvisioningConfig) => {
     const newRequest: ProvisioningRequestType = {
       id: `req-${Date.now()}`,
       requester: currentUser.name,
@@ -163,7 +228,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
       estimatedCost: config.estimatedCost,
       description: config.description,
       businessJustification: config.businessJustification,
-      status: config.estimatedCost < 500 ? 'auto-approved' : 'pending', // Auto-approve low-cost resources
+      status: config.estimatedCost < 500 ? 'auto-approved' : 'pending',
       submittedAt: new Date().toISOString(),
       config
     };
@@ -189,6 +254,17 @@ const EnhancedResourceProvisioner: React.FC = () => {
 
     setAuditEntries(prev => [auditEntry, ...prev]);
 
+    // Send notifications
+    const notification: ProvisioningNotification = {
+      type: newRequest.status === 'auto-approved' ? 'approved' : 'approval_required',
+      requestId: newRequest.id,
+      requester: newRequest.requester,
+      resourceType: newRequest.resourceType,
+      estimatedCost: newRequest.estimatedCost
+    };
+
+    await sendNotification(notification);
+
     if (newRequest.status === 'auto-approved') {
       toast({
         title: 'Request Auto-Approved',
@@ -202,7 +278,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
     }
   };
 
-  const handleApproval = (requestId: string, comments?: string) => {
+  const handleApproval = async (requestId: string, comments?: string) => {
     setProvisioningRequests(prev => 
       prev.map(req => 
         req.id === requestId 
@@ -236,10 +312,23 @@ const EnhancedResourceProvisioner: React.FC = () => {
       };
 
       setAuditEntries(prev => [auditEntry, ...prev]);
+
+      // Send approval notification
+      const notification: ProvisioningNotification = {
+        type: 'approved',
+        requestId: request.id,
+        requester: request.requester,
+        resourceType: request.resourceType,
+        estimatedCost: request.estimatedCost,
+        approver: currentUser.name,
+        comments
+      };
+
+      await sendNotification(notification);
     }
   };
 
-  const handleRejection = (requestId: string, comments: string) => {
+  const handleRejection = async (requestId: string, comments: string) => {
     setProvisioningRequests(prev => 
       prev.map(req => 
         req.id === requestId 
@@ -273,6 +362,19 @@ const EnhancedResourceProvisioner: React.FC = () => {
       };
 
       setAuditEntries(prev => [auditEntry, ...prev]);
+
+      // Send rejection notification
+      const notification: ProvisioningNotification = {
+        type: 'rejected',
+        requestId: request.id,
+        requester: request.requester,
+        resourceType: request.resourceType,
+        estimatedCost: request.estimatedCost,
+        approver: currentUser.name,
+        comments
+      };
+
+      await sendNotification(notification);
     }
   };
 
@@ -402,7 +504,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
 
       {/* Main Tabs */}
       <Tabs defaultValue="provision" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="provision">Provision</TabsTrigger>
           <TabsTrigger value="approvals">
             Approvals
@@ -414,6 +516,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -486,6 +589,23 @@ const EnhancedResourceProvisioner: React.FC = () => {
             entries={auditEntries}
             onExport={handleExportAudit}
           />
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5" />
+                Notification Channels
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NotificationSettings
+                channels={notificationChannels}
+                onUpdateChannels={setNotificationChannels}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="settings">
