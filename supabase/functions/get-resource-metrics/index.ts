@@ -6,10 +6,6 @@ import { corsHeaders } from "../_shared/cors.ts";
 // Import AWS SDK for CloudWatch
 import { CloudWatchClient, GetMetricStatisticsCommand } from "https://esm.sh/@aws-sdk/client-cloudwatch@3.462.0";
 
-// Import Azure SDK for Monitor
-import { MonitorClient } from "https://esm.sh/@azure/arm-monitor@8.0.0";
-import { ClientSecretCredential } from "https://esm.sh/@azure/identity@4.0.0";
-
 // Import GCP Monitoring
 import { MonitoringClient } from "https://esm.sh/@google-cloud/monitoring@3.0.0/build/src/v3";
 
@@ -121,16 +117,8 @@ const getAwsMetrics = async (resourceId: string, resourceType: string, timeRange
   return metrics;
 };
 
-// Azure Monitor metrics fetching
+// Azure Monitor metrics fetching using REST API
 const getAzureMetrics = async (resourceId: string, resourceType: string, timeRange: string, credentials: any) => {
-  const credential = new ClientSecretCredential(
-    credentials.tenantId,
-    credentials.clientId,
-    credentials.clientSecret
-  );
-
-  const monitorClient = new MonitorClient(credential, credentials.subscriptionId);
-  
   const hours = parseInt(timeRange?.replace('h', '') || '24', 10);
   const endTime = new Date();
   const startTime = new Date(endTime.getTime() - hours * 60 * 60 * 1000);
@@ -138,6 +126,27 @@ const getAzureMetrics = async (resourceId: string, resourceType: string, timeRan
   const metrics = [];
 
   try {
+    // Get Azure access token
+    const tokenResponse = await fetch(`https://login.microsoftonline.com/${credentials.tenantId}/oauth2/v2.0/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'client_id': credentials.clientId,
+        'client_secret': credentials.clientSecret,
+        'scope': 'https://management.azure.com/.default',
+        'grant_type': 'client_credentials'
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      throw new Error(`Failed to get Azure access token: ${tokenResponse.statusText}`);
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
     // Define metrics based on resource type
     let metricNames = [];
     
@@ -167,35 +176,38 @@ const getAzureMetrics = async (resourceId: string, resourceType: string, timeRan
     // Fetch metrics for each metric name
     for (const metricName of metricNames) {
       try {
-        const metricData = await monitorClient.metrics.list(
-          resourceId,
-          {
-            timespan: `${startTime.toISOString()}/${endTime.toISOString()}`,
-            interval: 'PT1H', // 1 hour intervals
-            metricnames: metricName,
-            aggregation: 'Average'
+        const metricsUrl = `https://management.azure.com${resourceId}/providers/Microsoft.Insights/metrics?api-version=2018-01-01&metricnames=${encodeURIComponent(metricName)}&timespan=${startTime.toISOString()}/${endTime.toISOString()}&interval=PT1H&aggregation=Average`;
+        
+        const metricsResponse = await fetch(metricsUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
           }
-        );
+        });
 
-        if (metricData.value && metricData.value.length > 0) {
-          const metric = metricData.value[0];
-          if (metric.timeseries && metric.timeseries.length > 0) {
-            const data = metric.timeseries[0].data
-              ?.filter(point => point.average !== undefined)
-              .map(point => ({
-                timestamp: point.timeStamp!.toISOString(),
-                value: Math.round((point.average || 0) * 100) / 100
-              })) || [];
+        if (metricsResponse.ok) {
+          const metricsData = await metricsResponse.json();
+          
+          if (metricsData.value && metricsData.value.length > 0) {
+            const metric = metricsData.value[0];
+            if (metric.timeseries && metric.timeseries.length > 0) {
+              const data = metric.timeseries[0].data
+                ?.filter((point: any) => point.average !== undefined)
+                .map((point: any) => ({
+                  timestamp: point.timeStamp,
+                  value: Math.round((point.average || 0) * 100) / 100
+                })) || [];
 
-            if (data.length > 0) {
-              metrics.push({
-                name: metricName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-                data,
-                unit: metricName.includes('CPU') || metricName.includes('percent') ? '%' : 
-                      metricName.includes('Bytes') || metricName.includes('Capacity') ? 'bytes' : 
-                      metricName.includes('Operations') ? 'ops' : 'count',
-                status: 'normal'
-              });
+              if (data.length > 0) {
+                metrics.push({
+                  name: metricName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                  data,
+                  unit: metricName.includes('CPU') || metricName.includes('percent') ? '%' : 
+                        metricName.includes('Bytes') || metricName.includes('Capacity') ? 'bytes' : 
+                        metricName.includes('Operations') ? 'ops' : 'count',
+                  status: 'normal'
+                });
+              }
             }
           }
         }
