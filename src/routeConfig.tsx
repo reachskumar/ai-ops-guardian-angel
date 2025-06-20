@@ -17,7 +17,6 @@ import SettingsPage from "@/pages/SettingsPage";
 import CloudResourcesPage from "@/pages/CloudResourcesPage";
 import AdminPanel from "@/pages/AdminPanel";
 import SecurityPage from "@/pages/SecurityPage";
-import { CompliancePage } from "@/pages/CompliancePage";
 import IncidentManagement from "@/pages/IncidentsPage";
 import DocumentationPage from "@/pages/DocumentationPage";
 
@@ -47,12 +46,6 @@ const routes: RouteConfig[] = [
     element: <SecurityPage />,
     title: "Security",
     icon: <ShieldAlert />,
-  },
-  {
-    path: "/compliance",
-    element: <CompliancePage />,
-    title: "Compliance",
-    icon: <ListChecks />,
   },
   {
     path: "/incidents",
