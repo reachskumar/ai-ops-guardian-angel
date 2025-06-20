@@ -23,7 +23,7 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({ resources, accounts
 
   const getProviderStats = () => {
     const stats = accounts.reduce((acc, account) => {
-      const providerResources = resources.filter(r => r.cloud_account_id === account.id);
+      const providerResources = resources.filter(r => r.account_id === account.id);
       acc[account.provider] = (acc[account.provider] || 0) + providerResources.length;
       return acc;
     }, {} as Record<string, number>);

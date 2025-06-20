@@ -103,7 +103,7 @@ const ResourceDependencyMap: React.FC<ResourceDependencyMapProps> = ({ resources
         id: resource.id,
         name: resource.name,
         type: resource.type,
-        provider: accounts.find(a => a.id === resource.cloud_account_id)?.provider || 'unknown',
+        provider: accounts.find(a => a.id === resource.account_id)?.provider || 'unknown',
         status: resource.status,
         dependencies: deps.map(d => d.targetResource),
         dependents: dependents.map(d => d.sourceResource)
