@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarWithProvider } from '@/components/Sidebar';
-import { RefreshCw, PlusCircle, Tag, Gauge, DollarSign, ChartBar, Cloud, FileCode } from 'lucide-react';
+import { RefreshCw, PlusCircle, Tag, Gauge, DollarSign, ChartBar, Cloud, FileCode, Activity, Settings } from 'lucide-react';
 import Header from '@/components/Header';
 
 // Import custom hooks
@@ -24,6 +23,10 @@ import {
   IaCTab,
   ConnectionErrorAlert
 } from '@/components/cloud';
+
+// Import new management components
+import ResourceManagementPanel from '@/components/cloud/ResourceManagementPanel';
+import RealTimeResourceMonitor from '@/components/cloud/RealTimeResourceMonitor';
 
 // Import ResourceProvisioningDialog
 import ResourceProvisioningDialog from '@/components/cloud/ResourceProvisioningDialog';
@@ -85,6 +88,7 @@ const CloudResourcesPage: React.FC = () => {
   // State for new features
   const [activeTab, setActiveTab] = useState("inventory");
   const [provisioningDialogOpen, setProvisioningDialogOpen] = useState(false);
+  const [managementMode, setManagementMode] = useState(false);
   
   // Handle resource provisioning dialog
   const handleOpenProvisioningDialog = () => {
@@ -169,6 +173,14 @@ const CloudResourcesPage: React.FC = () => {
                 Refresh Resources
               </Button>
               <Button 
+                variant={managementMode ? "default" : "outline"}
+                onClick={() => setManagementMode(!managementMode)}
+                title="Toggle advanced management mode"
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Management Mode
+              </Button>
+              <Button 
                 onClick={handleOpenProvisioningDialog}
                 title={hasConnectedAccounts ? "Provision a new resource" : "Connect an account first"}
               >
@@ -192,16 +204,22 @@ const CloudResourcesPage: React.FC = () => {
             onSyncResources={handleSyncResources}
             onDeleteAccount={handleDeleteAccount}
             syncStatus={syncStatus}
-            syncErrorMessages={syncErrorMessages}
+            syncErrorMessage={syncErrorMessages}
           />
 
           {/* Main Tabs for Cloud Resources Features */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList>
+            <TabsList className={managementMode ? 'grid-cols-7' : 'grid-cols-5'}>
               <TabsTrigger value="inventory" className="flex items-center gap-1">
                 <Cloud className="h-4 w-4" />
                 <span>Inventory</span>
               </TabsTrigger>
+              {managementMode && (
+                <TabsTrigger value="realtime" className="flex items-center gap-1">
+                  <Activity className="h-4 w-4" />
+                  <span>Real-Time</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="metrics" className="flex items-center gap-1">
                 <Gauge className="h-4 w-4" />
                 <span>Metrics</span>
@@ -218,6 +236,12 @@ const CloudResourcesPage: React.FC = () => {
                 <FileCode className="h-4 w-4" />
                 <span>Infrastructure as Code</span>
               </TabsTrigger>
+              {managementMode && (
+                <TabsTrigger value="management" className="flex items-center gap-1">
+                  <Settings className="h-4 w-4" />
+                  <span>Advanced</span>
+                </TabsTrigger>
+              )}
             </TabsList>
             
             <TabsContent value="inventory">
@@ -234,6 +258,12 @@ const CloudResourcesPage: React.FC = () => {
                 handleViewDetails={handleViewDetails}
               />
             </TabsContent>
+            
+            {managementMode && (
+              <TabsContent value="realtime">
+                <RealTimeResourceMonitor resources={resources} />
+              </TabsContent>
+            )}
             
             <TabsContent value="metrics">
               <MetricsTab 
@@ -257,6 +287,24 @@ const CloudResourcesPage: React.FC = () => {
             <TabsContent value="iac">
               <IaCTab />
             </TabsContent>
+            
+            {managementMode && (
+              <TabsContent value="management">
+                {selectedResource ? (
+                  <ResourceManagementPanel 
+                    resource={selectedResource}
+                    onResourceUpdate={handleResourceActionComplete}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <Settings className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                    <p className="mt-2 text-muted-foreground">
+                      Select a resource from the Inventory tab to manage it here.
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+            )}
           </Tabs>
 
           {/* Resource Details Modal Component */}
