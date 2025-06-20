@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   Sheet,
@@ -11,7 +10,7 @@ import {
 import { Menu } from "lucide-react";
 import { SidebarDesktop } from "@/components/sidebar/SidebarDesktop";
 import { SidebarMobile } from "@/components/sidebar/SidebarMobile";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/providers/AuthProvider";
 
 interface SidebarProps {
   open: boolean;
