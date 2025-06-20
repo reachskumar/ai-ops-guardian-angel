@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Plus, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { updateResource } from "@/services/cloud";
+import { updateResourceTags } from "@/services/cloud";
 
 interface Tag {
   key: string;
@@ -72,7 +73,7 @@ const ResourceTagsManager: React.FC<ResourceTagsManagerProps> = ({
         tagObject[tag.key] = tag.value;
       });
       
-      const result = await updateResource(resourceId, "update-tags", { tags: tagObject });
+      const result = await updateResourceTags(resourceId, tagObject);
       
       if (result.success) {
         toast({

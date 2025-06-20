@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, StopCircle, RefreshCw, Trash2, AlertTriangle } from 'lucide-react';
-import { updateResource, deleteResource, CloudResource } from '@/services/cloud';
+import { updateResource, deleteResource } from '@/services/cloud';
+import { CloudResource } from '@/services/cloud/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +29,7 @@ const ResourceActions: React.FC<ResourceActionsProps> = ({ resource, onActionCom
   const handleAction = async (action: string) => {
     setIsLoading(action);
     try {
-      const result = await updateResource(resource.id, action);
+      const result = await updateResource(resource.id, { status: action });
       
       if (result.success) {
         toast({

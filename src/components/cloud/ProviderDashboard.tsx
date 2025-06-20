@@ -23,7 +23,7 @@ const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ account }) => {
       const types = getResourceTypes(account.provider);
       setResourceTypes(types);
       
-      // Get provider-specific regions
+      // Get provider-specific regions as strings
       const availableRegions = getRegions(account.provider);
       setRegions(availableRegions);
       

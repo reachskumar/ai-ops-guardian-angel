@@ -1,58 +1,68 @@
-
 import React from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Activity, Clock } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 interface DashboardHeaderProps {
-  refreshData: () => void;
-  isRefreshing: boolean;
-  lastRefreshed?: Date | null;
+  totalResources: number;
+  activeAlerts: number;
+  averageHealth: number;
+  costThisMonth: number;
+  onRefresh: () => void;
 }
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({ 
-  refreshData, 
-  isRefreshing, 
-  lastRefreshed 
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({
+  totalResources,
+  activeAlerts,
+  averageHealth,
+  costThisMonth,
+  onRefresh
 }) => {
-  const formatLastRefreshed = (date: Date) => {
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return "Just now";
-    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    
-    return date.toLocaleDateString();
-  };
-
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-          <Activity className="h-8 w-8 text-primary" />
-          OrbitOps Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Intelligent infrastructure monitoring and management platform
-        </p>
-        {lastRefreshed && (
-          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4" />
-            <span>Last updated: {formatLastRefreshed(lastRefreshed)}</span>
-            <span className="text-green-500">• Live data from cloud providers</span>
-          </div>
-        )}
+    <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+      <div className="flex items-center space-x-4">
+        <Avatar>
+          <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
+          <AvatarFallback>CN</AvatarFallback>
+        </Avatar>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Welcome back!
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Here's what's happening with your infrastructure today.
+          </p>
+        </div>
       </div>
-      <Button 
-        onClick={refreshData} 
-        disabled={isRefreshing}
-        size="lg"
-        className="flex items-center gap-2"
-      >
-        <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-        {isRefreshing ? "Refreshing..." : "Refresh Data"}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="border rounded-md p-4">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Total Resources
+          </h3>
+          <p className="text-2xl font-semibold">{totalResources}</p>
+        </div>
+        <div className="border rounded-md p-4">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Active Alerts
+          </h3>
+          <p className="text-2xl font-semibold">{activeAlerts}</p>
+        </div>
+        <div className="border rounded-md p-4">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Average Health
+          </h3>
+          <p className="text-2xl font-semibold">{averageHealth}%</p>
+        </div>
+        <div className="border rounded-md p-4">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Cost This Month
+          </h3>
+          <p className="text-2xl font-semibold">${costThisMonth}</p>
+        </div>
+      </div>
+      <Button onClick={onRefresh} variant="outline">
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Refresh Data
       </Button>
     </div>
   );

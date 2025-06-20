@@ -8,13 +8,14 @@ interface ResourceDetailsState {
   metrics: ResourceMetric[];
 }
 
-export const useResourceDetails = (resourceId: string | null) => {
+export const useResourceDetails = (resourceId?: string | null) => {
   const [state, setState] = useState<ResourceDetailsState>({
     resource: null,
     metrics: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedResource, setSelectedResource] = useState<CloudResource | null>(null);
 
   useEffect(() => {
     if (!resourceId) {
@@ -46,10 +47,31 @@ export const useResourceDetails = (resourceId: string | null) => {
     fetchResourceDetails();
   }, [resourceId]);
 
+  const handleViewDetails = (resource: CloudResource) => {
+    setSelectedResource(resource);
+  };
+
+  const fetchResourceMetrics = async (resourceId: string) => {
+    try {
+      const metrics = await getResourceMetrics(resourceId);
+      setState(prev => ({ ...prev, metrics }));
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch resource metrics');
+    }
+  };
+
   return {
     ...state,
     loading,
     error,
+    selectedResource,
+    setSelectedResource,
+    resourceDetails: state.resource,
+    detailsLoading: loading,
+    resourceMetrics: state.metrics,
+    metricsLoading: loading,
+    handleViewDetails,
+    fetchResourceMetrics,
     refetch: () => {
       if (resourceId) {
         // Re-trigger the effect
