@@ -24,6 +24,15 @@ const testAwsConnectivity = async (credentials: any): Promise<TestResult> => {
   console.log("Testing AWS connectivity...");
   
   try {
+    // Validate required credentials
+    if (!credentials.accessKeyId || !credentials.secretAccessKey) {
+      return {
+        provider: 'aws',
+        success: false,
+        error: 'Missing required AWS credentials (accessKeyId or secretAccessKey)'
+      };
+    }
+
     // Test 1: Basic credential validation with STS
     const stsConfig = {
       region: credentials.region || 'us-east-1',
@@ -40,24 +49,42 @@ const testAwsConnectivity = async (credentials: any): Promise<TestResult> => {
     
     console.log("AWS STS test successful:", stsResponse);
     
-    // Test 2: EC2 permissions
-    const ec2Client = new EC2Client(stsConfig);
-    const ec2Command = new DescribeInstancesCommand({ MaxResults: 5 });
-    const ec2Response = await ec2Client.send(ec2Command);
-    
-    console.log("AWS EC2 test successful. Found reservations:", ec2Response.Reservations?.length || 0);
-    
-    return {
-      provider: 'aws',
-      success: true,
-      details: {
-        accountId: stsResponse.Account,
-        userId: stsResponse.UserId,
-        arn: stsResponse.Arn,
-        region: credentials.region || 'us-east-1',
-        ec2Reservations: ec2Response.Reservations?.length || 0
-      }
-    };
+    // Test 2: Basic EC2 permissions check
+    try {
+      const ec2Client = new EC2Client(stsConfig);
+      const ec2Command = new DescribeInstancesCommand({ MaxResults: 5 });
+      const ec2Response = await ec2Client.send(ec2Command);
+      
+      console.log("AWS EC2 test successful. Found reservations:", ec2Response.Reservations?.length || 0);
+      
+      return {
+        provider: 'aws',
+        success: true,
+        details: {
+          accountId: stsResponse.Account,
+          userId: stsResponse.UserId,
+          arn: stsResponse.Arn,
+          region: credentials.region || 'us-east-1',
+          ec2Reservations: ec2Response.Reservations?.length || 0,
+          hasEc2Access: true
+        }
+      };
+    } catch (ec2Error: any) {
+      console.log("EC2 access limited, but STS successful:", ec2Error.message);
+      // STS worked, but EC2 might not have permissions - that's still a valid connection
+      return {
+        provider: 'aws',
+        success: true,
+        details: {
+          accountId: stsResponse.Account,
+          userId: stsResponse.UserId,
+          arn: stsResponse.Arn,
+          region: credentials.region || 'us-east-1',
+          hasEc2Access: false,
+          ec2Warning: 'Limited EC2 permissions, but connection is valid'
+        }
+      };
+    }
   } catch (error: any) {
     console.error("AWS connectivity test failed:", error);
     return {
@@ -72,6 +99,14 @@ const testAzureConnectivity = async (credentials: any): Promise<TestResult> => {
   console.log("Testing Azure connectivity...");
   
   try {
+    if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) {
+      return {
+        provider: 'azure',
+        success: false,
+        error: 'Missing required Azure credentials (tenantId, clientId, or clientSecret)'
+      };
+    }
+
     const credential = new ClientSecretCredential(
       credentials.tenantId,
       credentials.clientId,
@@ -79,6 +114,14 @@ const testAzureConnectivity = async (credentials: any): Promise<TestResult> => {
     );
     
     const subscriptionId = credentials.subscriptionId;
+    if (!subscriptionId) {
+      return {
+        provider: 'azure',
+        success: false,
+        error: 'Missing Azure subscription ID'
+      };
+    }
+
     const resourceClient = new ResourceManagementClient(credential, subscriptionId);
     
     // Try to list resource groups as a connectivity test
@@ -110,6 +153,14 @@ const testGcpConnectivity = async (credentials: any): Promise<TestResult> => {
   console.log("Testing GCP connectivity...");
   
   try {
+    if (!credentials.serviceAccountKey) {
+      return {
+        provider: 'gcp',
+        success: false,
+        error: 'Missing GCP service account key'
+      };
+    }
+
     const serviceAccountKey = JSON.parse(credentials.serviceAccountKey);
     
     const auth = new GoogleAuth({
@@ -152,6 +203,14 @@ serve(async (req) => {
   try {
     const { provider, credentials } = await req.json();
     console.log(`Testing connectivity for provider: ${provider}`);
+    
+    if (!provider) {
+      throw new Error('Provider is required');
+    }
+
+    if (!credentials || Object.keys(credentials).length === 0) {
+      throw new Error('Credentials are required');
+    }
     
     let result: TestResult;
     

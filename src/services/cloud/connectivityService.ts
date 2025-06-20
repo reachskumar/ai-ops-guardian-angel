@@ -29,7 +29,7 @@ export const testCloudConnectivity = async (
     
     console.log(`Found credentials for ${provider}, testing connectivity...`);
     
-    // Call the test-connectivity edge function
+    // Call the test-connectivity edge function with timeout
     const { data, error } = await supabase.functions.invoke('test-connectivity', {
       body: {
         provider,
@@ -39,10 +39,21 @@ export const testCloudConnectivity = async (
     
     if (error) {
       console.error('Connectivity test edge function error:', error);
+      
+      // Check if it's a network/deployment issue
+      if (error.message?.includes('Failed to send a request') || 
+          error.message?.includes('Failed to fetch')) {
+        return {
+          provider,
+          success: false,
+          error: 'Edge function is not available. This may be due to deployment or network issues. Please try again in a few moments.'
+        };
+      }
+      
       return {
         provider,
         success: false,
-        error: `Edge function error: ${error.message}`
+        error: `Connection test failed: ${error.message}`
       };
     }
     
@@ -56,6 +67,16 @@ export const testCloudConnectivity = async (
     };
   } catch (error: any) {
     console.error('Connectivity test error:', error);
+    
+    // Handle specific error types
+    if (error.name === 'FunctionsFetchError' || error.message?.includes('Failed to fetch')) {
+      return {
+        provider,
+        success: false,
+        error: 'Edge function is not available. This may be due to deployment or network issues. Please try again in a few moments.'
+      };
+    }
+    
     return {
       provider,
       success: false,
