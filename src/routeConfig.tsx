@@ -18,9 +18,7 @@ import CloudResourcesPage from "@/pages/CloudResourcesPage";
 import AdminPanel from "@/pages/AdminPanel";
 import SecurityPage from "@/pages/SecurityPage";
 import { CompliancePage } from "@/pages/CompliancePage";
-import { NetworkPage } from "@/pages/NetworkPage";
 import IncidentManagement from "@/pages/IncidentsPage";
-import { ApiKeys } from "@/pages/ApiKeys";
 import DocumentationPage from "@/pages/DocumentationPage";
 
 export interface RouteConfig {
@@ -45,12 +43,6 @@ const routes: RouteConfig[] = [
     icon: <Server />,
   },
   {
-    path: "/network",
-    element: <NetworkPage />,
-    title: "Network",
-    icon: <Network />,
-  },
-  {
     path: "/security",
     element: <SecurityPage />,
     title: "Security",
@@ -73,12 +65,6 @@ const routes: RouteConfig[] = [
     element: <AdminPanel />,
     title: "Admin Panel",
     icon: <Users />,
-  },
-  {
-    path: "/api-keys",
-    element: <ApiKeys />,
-    title: "API Keys",
-    icon: <Lock />,
   },
   {
     path: "/settings",
