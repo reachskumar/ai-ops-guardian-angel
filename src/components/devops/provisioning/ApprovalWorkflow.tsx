@@ -4,19 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  User, 
-  DollarSign,
-  Calendar,
-  MessageSquare,
-  Mail,
-  Slack
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { CheckCircle, XCircle, Clock, AlertCircle, Cloud } from 'lucide-react';
+
+export type ProvisioningStatus = 
+  | 'pending' 
+  | 'approved' 
+  | 'rejected' 
+  | 'auto-approved'
+  | 'deployed'
+  | 'failed'
+  | 'provisioning';
+
+export type UserRole = 'admin' | 'requestor' | 'viewer' | 'developer' | 'operator';
 
 export interface ProvisioningRequest {
   id: string;
@@ -25,19 +24,23 @@ export interface ProvisioningRequest {
   estimatedCost: number;
   description: string;
   businessJustification: string;
-  status: 'pending' | 'approved' | 'rejected' | 'auto-approved';
+  status: ProvisioningStatus;
   submittedAt: string;
   approver?: string;
   approvedAt?: string;
+  rejectedAt?: string;
   comments?: string;
   config: any;
+  resourceId?: string;
+  deployedAt?: string;
+  errorMessage?: string;
 }
 
 interface ApprovalWorkflowProps {
   requests: ProvisioningRequest[];
-  userRole: 'admin' | 'requestor' | 'viewer';
+  userRole: UserRole;
   onApprove: (requestId: string, comments?: string) => void;
-  onReject: (requestId: string, comments: string) => void;
+  onReject: (requestId: string, reason: string) => void;
 }
 
 const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({
@@ -48,250 +51,186 @@ const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({
 }) => {
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [comments, setComments] = useState('');
-  const [notificationMethod, setNotificationMethod] = useState<'email' | 'slack'>('email');
-  const { toast } = useToast();
+  const [rejectionReason, setRejectionReason] = useState('');
 
-  const pendingRequests = requests.filter(r => r.status === 'pending');
-  const completedRequests = requests.filter(r => r.status !== 'pending');
+  const getStatusIcon = (status: ProvisioningStatus) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'approved':
+      case 'auto-approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'deployed':
+        return <Cloud className="h-4 w-4 text-blue-500" />;
+      case 'failed':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'provisioning':
+        return <Clock className="h-4 w-4 text-blue-500 animate-spin" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getStatusBadge = (status: ProvisioningStatus) => {
+    const variants = {
+      pending: 'secondary',
+      approved: 'default',
+      'auto-approved': 'default',
+      rejected: 'destructive',
+      deployed: 'default',
+      failed: 'destructive',
+      provisioning: 'secondary'
+    } as const;
+
+    return (
+      <Badge variant={variants[status] || 'secondary'} className="flex items-center gap-1">
+        {getStatusIcon(status)}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    );
+  };
 
   const handleApprove = (requestId: string) => {
     onApprove(requestId, comments);
     setComments('');
     setSelectedRequest(null);
-    
-    toast({
-      title: 'Request Approved',
-      description: 'The provisioning request has been approved and deployment will begin.',
-    });
   };
 
   const handleReject = (requestId: string) => {
-    if (!comments.trim()) {
-      toast({
-        title: 'Comments Required',
-        description: 'Please provide a reason for rejection.',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
-    onReject(requestId, comments);
-    setComments('');
-    setSelectedRequest(null);
-    
-    toast({
-      title: 'Request Rejected',
-      description: 'The provisioning request has been rejected.',
-    });
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
-      case 'approved':
-        return <Badge variant="default" className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
-      case 'rejected':
-        return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Rejected</Badge>;
-      case 'auto-approved':
-        return <Badge variant="default" className="bg-blue-500"><CheckCircle className="h-3 w-3 mr-1" />Auto-Approved</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+    if (rejectionReason.trim()) {
+      onReject(requestId, rejectionReason);
+      setRejectionReason('');
+      setSelectedRequest(null);
     }
   };
 
-  const formatCurrency = (amount: number) => `₹${amount.toFixed(2)}`;
-
-  if (userRole === 'viewer') {
-    return (
-      <Alert>
-        <MessageSquare className="h-4 w-4" />
-        <AlertDescription>
-          You have read-only access to approval workflows.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  const canApprove = userRole === 'admin' || userRole === 'operator';
 
   return (
-    <div className="space-y-6">
-      {/* Pending Approvals */}
-      {pendingRequests.length > 0 && (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Provisioning Requests</h3>
+        <Badge variant="outline">
+          {requests.filter(r => r.status === 'pending').length} Pending
+        </Badge>
+      </div>
+
+      {requests.length === 0 ? (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Pending Approvals ({pendingRequests.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {pendingRequests.map((request) => (
-                <div key={request.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{request.resourceType}</h4>
-                        {getStatusBadge(request.status)}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          Requested by: {request.requester}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          Cost: {formatCurrency(request.estimatedCost)}/month
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Submitted: {new Date(request.submittedAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm">{request.description}</p>
-                      
-                      {request.businessJustification && (
-                        <div className="text-sm">
-                          <strong>Business Justification:</strong>
-                          <p className="mt-1 text-muted-foreground">{request.businessJustification}</p>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {userRole === 'admin' && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => setSelectedRequest(selectedRequest === request.id ? null : request.id)}
-                        >
-                          Review
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {selectedRequest === request.id && userRole === 'admin' && (
-                    <div className="mt-4 pt-4 border-t space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Comments</label>
-                        <Textarea
-                          placeholder="Add comments for the requester..."
-                          value={comments}
-                          onChange={(e) => setComments(e.target.value)}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(request.id)}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleReject(request.id)}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedRequest(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                      
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          Email notification will be sent
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Slack className="h-3 w-3" />
-                          Slack notification available
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              No provisioning requests found.
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : (
+        <div className="space-y-4">
+          {requests.map((request) => (
+            <Card key={request.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {request.resourceType} - {request.description}
+                  </CardTitle>
+                  {getStatusBadge(request.status)}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p><strong>Requester:</strong> {request.requester}</p>
+                    <p><strong>Estimated Cost:</strong> ${request.estimatedCost}/month</p>
+                    <p><strong>Submitted:</strong> {new Date(request.submittedAt).toLocaleDateString()}</p>
+                    {request.resourceId && (
+                      <p><strong>Resource ID:</strong> {request.resourceId}</p>
+                    )}
+                  </div>
+                  <div>
+                    <p><strong>Business Justification:</strong></p>
+                    <p className="text-muted-foreground">{request.businessJustification}</p>
+                    {request.errorMessage && (
+                      <p className="text-red-600 mt-2"><strong>Error:</strong> {request.errorMessage}</p>
+                    )}
+                  </div>
+                </div>
 
-      {/* Auto-Approval Policies */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Auto-Approval Policies</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">Low-Cost Instances</p>
-                <p className="text-sm text-muted-foreground">Auto-approve instances under ₹500/month</p>
-              </div>
-              <Badge variant="default" className="bg-green-500">Active</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">Development Environment</p>
-                <p className="text-sm text-muted-foreground">Auto-approve dev resources with TTL ≤ 7 days</p>
-              </div>
-              <Badge variant="default" className="bg-green-500">Active</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">Standard Templates</p>
-                <p className="text-sm text-muted-foreground">Auto-approve pre-approved blueprint deployments</p>
-              </div>
-              <Badge variant="default" className="bg-green-500">Active</Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                {request.status === 'pending' && canApprove && (
+                  <div className="mt-4 space-y-4">
+                    {selectedRequest === request.id ? (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium">Comments (optional)</label>
+                          <Textarea
+                            value={comments}
+                            onChange={(e) => setComments(e.target.value)}
+                            placeholder="Add any comments..."
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Rejection Reason</label>
+                          <Textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            placeholder="Provide reason for rejection..."
+                            className="mt-1"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => handleApprove(request.id)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => handleReject(request.id)}
+                            variant="destructive"
+                            disabled={!rejectionReason.trim()}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                          <Button
+                            onClick={() => setSelectedRequest(null)}
+                            variant="outline"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => setSelectedRequest(request.id)}
+                        variant="outline"
+                      >
+                        Review Request
+                      </Button>
+                    )}
+                  </div>
+                )}
 
-      {/* Recent Activity */}
-      {completedRequests.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {completedRequests.slice(0, 5).map((request) => (
-                <div key={request.id} className="flex items-center justify-between p-3 border rounded">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{request.resourceType}</span>
-                      {getStatusBadge(request.status)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      by {request.requester} • {formatCurrency(request.estimatedCost)}/month
-                    </div>
+                {(request.approver || request.comments) && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-sm">
+                      <strong>
+                        {request.status === 'approved' ? 'Approved' : 'Rejected'} by:
+                      </strong> {request.approver}
+                    </p>
                     {request.comments && (
-                      <p className="text-sm text-muted-foreground italic">"{request.comments}"</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        <strong>Comments:</strong> {request.comments}
+                      </p>
                     )}
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {request.approvedAt ? new Date(request.approvedAt).toLocaleDateString() : new Date(request.submittedAt).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   );

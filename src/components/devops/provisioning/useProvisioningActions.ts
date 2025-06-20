@@ -1,8 +1,9 @@
+
 import { useState } from 'react';
 import { provisionCloudResource, ProvisioningConfig } from '@/services/cloud/realProvisioningService';
 import { getCloudAccounts } from '@/services/cloud/accountService';
 import { useToast } from '@/hooks/use-toast';
-import type { ProvisioningRequest } from './ApprovalWorkflow';
+import type { ProvisioningRequest, UserRole } from './ApprovalWorkflow';
 import type { AuditEntry } from './AuditLog';
 import type { SecureNotificationChannel } from '@/services/secureProvisioningService';
 
@@ -18,7 +19,7 @@ export const useProvisioningActions = (
   // Mock current user for demo purposes
   const currentUser = {
     name: 'John Doe',
-    role: 'DevOps Engineer' as const,
+    role: 'developer' as UserRole,
     email: 'john.doe@company.com'
   };
 
@@ -111,7 +112,7 @@ export const useProvisioningActions = (
         action: 'approve',
         resourceType: request.resourceType,
         resourceName: request.config.name,
-        status: 'approved',
+        status: 'success',
         details: `Approved provisioning request: ${comments || 'No comments'}`,
         ipAddress: '192.168.1.100',
         userAgent: navigator.userAgent,
