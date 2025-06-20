@@ -24,7 +24,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
   const { user, loading, permissions } = useAuth();
   
   const {
-    provision ingRequests,
+    provisioningRequests,
     setProvisioningRequests,
     auditEntries,
     setAuditEntries,
