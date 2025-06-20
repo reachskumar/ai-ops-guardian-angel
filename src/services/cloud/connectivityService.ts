@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { CloudProvider } from './types';
 import { getAccountCredentials } from './accountService';
@@ -13,13 +14,14 @@ export interface ConnectivityTestResult {
 // Fallback validation when edge function is not available
 const performFallbackValidation = async (
   provider: CloudProvider,
+  accountId: string,
   credentials: Record<string, string>
 ): Promise<ConnectivityTestResult> => {
-  console.log(`Performing fallback validation for ${provider}`);
+  console.log(`Performing fallback validation for ${provider} with account ID: ${accountId}`);
   
   switch (provider) {
     case 'aws':
-      const awsValidation = await validateAwsCredentials('dummy-account-id');
+      const awsValidation = await validateAwsCredentials(accountId);
       if (!awsValidation.isValid) {
         return {
           provider,
@@ -39,7 +41,7 @@ const performFallbackValidation = async (
       };
       
     case 'azure':
-      const azureValidation = await validateAzureCredentials('dummy-account-id');
+      const azureValidation = await validateAzureCredentials(accountId);
       if (!azureValidation.isValid) {
         return {
           provider,
@@ -59,7 +61,7 @@ const performFallbackValidation = async (
       };
       
     case 'gcp':
-      const gcpValidation = await validateGcpCredentials('dummy-account-id');
+      const gcpValidation = await validateGcpCredentials(accountId);
       if (!gcpValidation.isValid) {
         return {
           provider,
@@ -122,7 +124,7 @@ export const testCloudConnectivity = async (
       
       if (error) {
         console.warn('Edge function error, falling back to local validation:', error);
-        return await performFallbackValidation(provider, credentials);
+        return await performFallbackValidation(provider, accountId, credentials);
       }
       
       console.log('Edge function connectivity test result:', data);
@@ -135,7 +137,7 @@ export const testCloudConnectivity = async (
       };
     } catch (edgeFunctionError: any) {
       console.warn('Edge function unavailable, using fallback validation:', edgeFunctionError.message);
-      return await performFallbackValidation(provider, credentials);
+      return await performFallbackValidation(provider, accountId, credentials);
     }
   } catch (error: any) {
     console.error('Connectivity test error:', error);
