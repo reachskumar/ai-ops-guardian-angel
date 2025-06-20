@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -90,7 +91,7 @@ const CloudResourcesPage: React.FC = () => {
   const [provisioningDialogOpen, setProvisioningDialogOpen] = useState(false);
   const [managementMode, setManagementMode] = useState(false);
   
-  // Handle resource provisioning dialog
+  // Handle opening provisioning dialog
   const handleOpenProvisioningDialog = () => {
     if (accounts.length === 0) {
       setConnectionError("You need to connect a cloud provider account before provisioning resources.");
@@ -147,9 +148,9 @@ const CloudResourcesPage: React.FC = () => {
     await syncResources(accountId);
   };
   
-  // Handle deleting an account
-  const handleDeleteAccount = async (accountId: string) => {
-    await deleteAccount(accountId);
+  // Handle deleting an account - now returns boolean as expected
+  const handleDeleteAccount = async (accountId: string): Promise<boolean> => {
+    return await deleteAccount(accountId);
   };
 
   // Check if any accounts are connected and ready
@@ -204,7 +205,7 @@ const CloudResourcesPage: React.FC = () => {
             onSyncResources={handleSyncResources}
             onDeleteAccount={handleDeleteAccount}
             syncStatus={syncStatus}
-            syncErrorMessage={syncErrorMessages}
+            syncErrorMessages={syncErrorMessages}
           />
 
           {/* Main Tabs for Cloud Resources Features */}
