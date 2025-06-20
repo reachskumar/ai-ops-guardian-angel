@@ -752,6 +752,10 @@ export type Database = {
           value: string
         }[]
       }
+      get_current_user_role: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       store_credential: {
         Args: {
           account_id: string
