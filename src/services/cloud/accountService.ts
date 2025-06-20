@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { CloudAccount, CloudProvider } from "./types";
 
@@ -66,12 +67,12 @@ export const createCloudAccount = async (
       return { success: false, error: 'Failed to create account' };
     }
     
-    // Store credentials securely
+    // Store credentials securely using the new parameter names
     for (const [key, value] of Object.entries(credentials)) {
       const { error: credError } = await supabase.rpc('store_credential', {
-        account_id: account.id,
-        credential_key: key,
-        credential_value: value
+        account_uuid: account.id,
+        cred_key: key,
+        cred_value: value
       });
       
       if (credError) {

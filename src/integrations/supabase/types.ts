@@ -757,11 +757,7 @@ export type Database = {
         Returns: string
       }
       store_credential: {
-        Args: {
-          account_id: string
-          credential_key: string
-          credential_value: string
-        }
+        Args: { account_uuid: string; cred_key: string; cred_value: string }
         Returns: undefined
       }
       validate_api_key: {
