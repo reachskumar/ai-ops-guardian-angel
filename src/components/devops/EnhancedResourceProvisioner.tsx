@@ -17,6 +17,7 @@ import {
   Bell
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/providers/AuthProvider';
 import { 
   ProvisioningRequest, 
   ApprovalWorkflow, 
@@ -31,11 +32,12 @@ import {
 import type { ProvisioningConfig } from './provisioning/ProvisioningRequest';
 import type { ProvisioningRequest as ProvisioningRequestType } from './provisioning/ApprovalWorkflow';
 import type { AuditEntry } from './provisioning/AuditLog';
-import { useAuthMiddleware } from '@/services/authMiddleware';
 import { sendSecureProvisioningNotification, type SecureNotificationChannel } from '@/services/secureProvisioningService';
 import SecureNotificationSettings from './provisioning/SecureNotificationSettings';
 
 const EnhancedResourceProvisioner: React.FC = () => {
+  const { user, loading, permissions } = useAuth();
+
   const [currentUser] = useState({
     name: 'John Doe',
     role: 'admin' as 'admin' | 'requestor' | 'viewer',
@@ -162,53 +164,6 @@ const EnhancedResourceProvisioner: React.FC = () => {
     }
   ]);
 
-  const { checkAuthentication, user, isAuthenticated } = useAuthMiddleware({
-    requireAuth: true,
-    requiredPermissions: ['provisioning:manage'],
-    rateLimit: 100,
-    endpoint: 'provisioning'
-  });
-
-  const [notificationChannels, setNotificationChannels] = useState<SecureNotificationChannel[]>([
-    {
-      type: 'email',
-      enabled: true,
-      config: {
-        email: {
-          recipients: ['admin@company.com', 'devops@company.com']
-        }
-      }
-    },
-    {
-      type: 'slack',
-      enabled: true,
-      config: {
-        slack: {
-          webhookUrl: 'https://hooks.slack.com/services/...',
-          channel: '#devops'
-        }
-      }
-    },
-    {
-      type: 'teams',
-      enabled: false,
-      config: {
-        teams: {
-          webhookUrl: ''
-        }
-      }
-    },
-    {
-      type: 'webhook',
-      enabled: false,
-      config: {
-        webhook: {
-          url: ''
-        }
-      }
-    }
-  ]);
-
   const { toast } = useToast();
 
   const sendNotification = async (notification: any) => {
@@ -217,11 +172,11 @@ const EnhancedResourceProvisioner: React.FC = () => {
       return;
     }
 
-    const authResult = await checkAuthentication();
-    if (!authResult.allowed) {
+    // Check if user has manage permissions (operator role or higher)
+    if (!permissions.canManage) {
       toast({
-        title: 'Authentication Error',
-        description: authResult.error,
+        title: 'Permission Denied',
+        description: 'You need operator access or higher to send notifications',
         variant: 'destructive'
       });
       return;
@@ -453,13 +408,39 @@ const EnhancedResourceProvisioner: React.FC = () => {
     });
   };
 
-  if (!isAuthenticated) {
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication required message for unauthenticated users
+  if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">Authentication Required</h3>
           <p className="text-muted-foreground">Please sign in to access the provisioning system.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show permission denied for users without proper access (viewers don't have access)
+  if (!permissions.canEdit) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Shield className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
+          <p className="text-muted-foreground">You need developer access or higher to use the provisioning system.</p>
         </div>
       </div>
     );
@@ -543,7 +524,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
         <Shield className="h-4 w-4" />
         <AlertDescription>
           Logged in as <strong>{currentUser.name}</strong> with <strong>{currentUser.role}</strong> privileges.
-          All actions are authenticated, rate-limited, and logged for security compliance.
+          All actions are authenticated and logged for security compliance.
         </AlertDescription>
       </Alert>
 
