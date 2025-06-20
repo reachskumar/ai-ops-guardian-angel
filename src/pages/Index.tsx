@@ -1,5 +1,7 @@
+
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/providers/AuthProvider";
+import { SidebarWithProvider } from "@/components/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import DashboardTabs from "@/components/dashboard/DashboardTabs";
 import { getAggregatedMetrics } from "@/services/cloud";
@@ -79,26 +81,28 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <DashboardHeader 
-          totalResources={dashboardData.totalResources}
-          activeAlerts={dashboardData.activeAlerts}
-          averageHealth={dashboardData.averageHealth}
-          costThisMonth={dashboardData.costThisMonth}
-          onRefresh={refreshData}
-        />
-        <DashboardTabs 
-          cpuData={cpuData}
-          memoryData={memoryData}
-          networkData={networkData}
-          storageData={storageData}
-          infrastructureResources={infrastructureResources}
-          securityFindings={securityFindings}
-          refreshData={refreshData}
-        />
+    <SidebarWithProvider>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <DashboardHeader 
+            totalResources={dashboardData.totalResources}
+            activeAlerts={dashboardData.activeAlerts}
+            averageHealth={dashboardData.averageHealth}
+            costThisMonth={dashboardData.costThisMonth}
+            onRefresh={refreshData}
+          />
+          <DashboardTabs 
+            cpuData={cpuData}
+            memoryData={memoryData}
+            networkData={networkData}
+            storageData={storageData}
+            infrastructureResources={infrastructureResources}
+            securityFindings={securityFindings}
+            refreshData={refreshData}
+          />
+        </div>
       </div>
-    </div>
+    </SidebarWithProvider>
   );
 };
 
