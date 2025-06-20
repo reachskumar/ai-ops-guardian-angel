@@ -20,7 +20,8 @@ import {
   KanbanSquare,
   GitBranch,
   GitPullRequest,
-  CloudDrizzle
+  CloudDrizzle,
+  FileCode2
 } from "lucide-react";
 
 interface NavItem {
@@ -115,6 +116,11 @@ const navItems: NavItem[] = [
     path: "/project-kanban",
     label: "Project Kanban",
     icon: KanbanSquare,
+  },
+  {
+    path: "/documentation",
+    label: "Documentation",
+    icon: FileCode2,
   },
   {
     path: "/admin",
