@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Wifi, WifiOff, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Wifi, WifiOff, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { testCloudConnectivity, ConnectivityTestResult } from '@/services/cloud/connectivityService';
 import { CloudProvider } from '@/services/cloud/types';
 
@@ -30,9 +30,13 @@ const ConnectivityTestButton: React.FC<ConnectivityTestButtonProps> = ({
       setLastResult(result);
       
       if (result.success) {
+        const isFallback = result.details?.fallbackMode;
         toast({
-          title: "Connectivity Test Passed",
-          description: `Successfully connected to ${accountName} (${provider.toUpperCase()})`,
+          title: isFallback ? "Credentials Validated" : "Connectivity Test Passed",
+          description: isFallback 
+            ? `Credentials format validated for ${accountName} (${provider.toUpperCase()}). Live API test unavailable.`
+            : `Successfully connected to ${accountName} (${provider.toUpperCase()})`,
+          variant: isFallback ? "default" : "default"
         });
       } else {
         toast({
@@ -61,6 +65,10 @@ const ConnectivityTestButton: React.FC<ConnectivityTestButtonProps> = ({
       return <Wifi className="h-4 w-4" />;
     }
     
+    if (lastResult.success && lastResult.details?.fallbackMode) {
+      return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+    }
+    
     return lastResult.success ? 
       <CheckCircle className="h-4 w-4 text-green-600" /> : 
       <XCircle className="h-4 w-4 text-red-600" />;
@@ -68,6 +76,14 @@ const ConnectivityTestButton: React.FC<ConnectivityTestButtonProps> = ({
 
   const getStatusBadge = () => {
     if (lastResult === null) return null;
+    
+    if (lastResult.success && lastResult.details?.fallbackMode) {
+      return (
+        <Badge variant="outline" className="ml-2 border-yellow-500 text-yellow-700">
+          Validated
+        </Badge>
+      );
+    }
     
     return (
       <Badge variant={lastResult.success ? "default" : "destructive"} className="ml-2">
@@ -90,8 +106,14 @@ const ConnectivityTestButton: React.FC<ConnectivityTestButtonProps> = ({
       {getStatusBadge()}
       {lastResult?.details && lastResult.success && (
         <div className="text-xs text-muted-foreground ml-2">
+          {lastResult.details.fallbackMode && (
+            <span className="text-yellow-600">Format check only • </span>
+          )}
           {provider === 'aws' && lastResult.details.accountId && (
             `Account: ${lastResult.details.accountId}`
+          )}
+          {provider === 'aws' && lastResult.details.accessKeyId && !lastResult.details.accountId && (
+            `Key: ${lastResult.details.accessKeyId}`
           )}
           {provider === 'gcp' && lastResult.details.projectId && (
             `Project: ${lastResult.details.projectId}`

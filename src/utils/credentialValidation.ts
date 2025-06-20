@@ -89,19 +89,18 @@ export const validateAwsCredentials = async (accountId: string): Promise<{
     
     // Validate format of access key ID (should be 20 characters, alphanumeric)
     if (!credentials.accessKeyId.match(/^[A-Z0-9]{20}$/)) {
-      return { isValid: false, error: 'AWS Access Key ID format is invalid' };
+      return { isValid: false, error: 'AWS Access Key ID format is invalid (should be 20 alphanumeric characters)' };
     }
     
     // Validate format of secret access key (should be 40 characters)
     if (credentials.secretAccessKey.length !== 40) {
-      return { isValid: false, error: 'AWS Secret Access Key format is invalid' };
+      return { isValid: false, error: 'AWS Secret Access Key format is invalid (should be 40 characters)' };
     }
     
     return { 
       isValid: true, 
       accessKeyId: credentials.accessKeyId,
-      region: credentials.region || 'us-east-1',
-      accountId: credentials.accountId // This would be populated by the real validation
+      region: credentials.region || 'us-east-1'
     };
   } catch (error: any) {
     return { isValid: false, error: error.message || 'Failed to validate credentials' };
@@ -137,16 +136,16 @@ export const validateAzureCredentials = async (accountId: string): Promise<{
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     
     if (!guidRegex.test(credentials.tenantId)) {
-      return { isValid: false, error: 'Azure Tenant ID format is invalid' };
+      return { isValid: false, error: 'Azure Tenant ID format is invalid (should be a GUID)' };
     }
     
     if (!guidRegex.test(credentials.clientId)) {
-      return { isValid: false, error: 'Azure Client ID format is invalid' };
+      return { isValid: false, error: 'Azure Client ID format is invalid (should be a GUID)' };
     }
     
     // Validate subscription ID if provided
     if (credentials.subscriptionId && !guidRegex.test(credentials.subscriptionId)) {
-      return { isValid: false, error: 'Azure Subscription ID format is invalid' };
+      return { isValid: false, error: 'Azure Subscription ID format is invalid (should be a GUID)' };
     }
     
     if (!credentials.subscriptionId) {
