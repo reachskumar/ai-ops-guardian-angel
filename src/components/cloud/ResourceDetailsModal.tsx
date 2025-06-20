@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CloudResource } from '@/services/cloud/types';
+import { Badge } from '@/components/ui/badge';
 import {
-  Badge,
   Calendar,
   RefreshCw,
   Tag,
