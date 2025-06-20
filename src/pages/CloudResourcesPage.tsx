@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SidebarWithProvider } from '@/components/Sidebar';
-import { RefreshCw, PlusCircle, Tag, Gauge, DollarSign, ChartBar, Cloud, FileCode, Activity, Settings } from 'lucide-react';
+import { RefreshCw, PlusCircle, Tag, Gauge, DollarSign, ChartBar, Cloud, FileCode, Activity, Settings, Bell, Heart } from 'lucide-react';
 import Header from '@/components/Header';
 
 // Import custom hooks
@@ -22,7 +21,9 @@ import {
   CostAnalysisTab,
   TagsTab,
   IaCTab,
-  ConnectionErrorAlert
+  ConnectionErrorAlert,
+  MonitoringAlerts,
+  ResourceHealthMonitor
 } from '@/components/cloud';
 
 // Import new management components
@@ -210,7 +211,7 @@ const CloudResourcesPage: React.FC = () => {
 
           {/* Main Tabs for Cloud Resources Features */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className={managementMode ? 'grid-cols-7' : 'grid-cols-5'}>
+            <TabsList className={managementMode ? 'grid-cols-8' : 'grid-cols-6'}>
               <TabsTrigger value="inventory" className="flex items-center gap-1">
                 <Cloud className="h-4 w-4" />
                 <span>Inventory</span>
@@ -224,6 +225,14 @@ const CloudResourcesPage: React.FC = () => {
               <TabsTrigger value="metrics" className="flex items-center gap-1">
                 <Gauge className="h-4 w-4" />
                 <span>Metrics</span>
+              </TabsTrigger>
+              <TabsTrigger value="monitoring" className="flex items-center gap-1">
+                <Bell className="h-4 w-4" />
+                <span>Monitoring</span>
+              </TabsTrigger>
+              <TabsTrigger value="health" className="flex items-center gap-1">
+                <Heart className="h-4 w-4" />
+                <span>Health</span>
               </TabsTrigger>
               <TabsTrigger value="costs" className="flex items-center gap-1">
                 <DollarSign className="h-4 w-4" />
@@ -271,6 +280,23 @@ const CloudResourcesPage: React.FC = () => {
                 selectedResource={selectedResource}
                 setActiveTab={setActiveTab}
               />
+            </TabsContent>
+            
+            <TabsContent value="monitoring">
+              <MonitoringAlerts />
+            </TabsContent>
+            
+            <TabsContent value="health">
+              {selectedResource ? (
+                <ResourceHealthMonitor resource={selectedResource} />
+              ) : (
+                <div className="text-center py-8">
+                  <Heart className="mx-auto h-12 w-12 text-muted-foreground opacity-50" />
+                  <p className="mt-2 text-muted-foreground">
+                    Select a resource from the Inventory tab to view its health status.
+                  </p>
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="costs">

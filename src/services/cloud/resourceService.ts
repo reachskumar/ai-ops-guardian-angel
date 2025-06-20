@@ -1,9 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, CloudProvider, ResourceMetric } from "./types";
-import { mockSelect } from "../mockDatabaseService";
 import { getAccountCredentials } from "./accountService";
-import { getCloudAccounts } from "./accountService";
 
 // Get cloud resources with filtering options
 export const getCloudResources = async (
@@ -61,8 +59,15 @@ export const getCloudResources = async (
     
     console.log(`Retrieved ${data?.length || 0} resources from database`);
     
+    // Transform data to match CloudResource type
+    const resources = (data || []).map(resource => ({
+      ...resource,
+      tags: (resource.tags as Record<string, string>) || {},
+      metadata: (resource.metadata as Record<string, any>) || {}
+    }));
+    
     return {
-      resources: data || [],
+      resources,
       count: count || 0
     };
   } catch (error) {
@@ -200,7 +205,6 @@ export const provisionResource = async (
   }
 };
 
-// Get resource details including metrics
 export const getResourceDetails = async (
   resourceId: string
 ): Promise<{ resource: CloudResource | null; metrics: any[]; error?: string }> => {
@@ -239,6 +243,13 @@ export const getResourceDetails = async (
       };
     }
     
+    // Transform data to match CloudResource type
+    const transformedResource = {
+      ...resource,
+      tags: (resource.tags as Record<string, string>) || {},
+      metadata: (resource.metadata as Record<string, any>) || {}
+    };
+    
     // Generate mock metrics for now
     const mockMetrics = Array(24).fill(0).map((_, i) => ({
       timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
@@ -248,7 +259,7 @@ export const getResourceDetails = async (
     }));
     
     return { 
-      resource, 
+      resource: transformedResource, 
       metrics: mockMetrics
     };
   } catch (error: any) {
@@ -261,7 +272,6 @@ export const getResourceDetails = async (
   }
 };
 
-// Get resource metrics
 export const getResourceMetrics = async (
   resourceId: string,
   timeRange?: string
@@ -297,7 +307,6 @@ export const getResourceMetrics = async (
   }
 };
 
-// Update resource status (start, stop, restart) and handle other actions like tag updates
 export const updateResource = async (
   resourceId: string,
   action: string,
@@ -399,7 +408,6 @@ export const updateResource = async (
   }
 };
 
-// Delete a resource
 export const deleteResource = async (
   resourceId: string
 ): Promise<{ success: boolean; error?: string }> => {

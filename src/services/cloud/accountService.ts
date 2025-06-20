@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { CloudAccount, CloudProvider } from "./types";
 
@@ -17,11 +16,24 @@ export const getCloudAccounts = async (): Promise<CloudAccount[]> => {
     }
     
     console.log(`Retrieved ${data?.length || 0} cloud accounts`);
-    return data || [];
+    return (data || []).map(account => ({
+      ...account,
+      provider: account.provider as CloudProvider,
+      tags: account.metadata || {},
+      metadata: account.metadata || {}
+    }));
   } catch (error) {
     console.error("Get cloud accounts error:", error);
     return [];
   }
+};
+
+export const connectCloudProvider = async (
+  name: string,
+  provider: CloudProvider,
+  credentials: Record<string, string>
+): Promise<{ success: boolean; accountId?: string; error?: string }> => {
+  return createCloudAccount(name, provider, credentials);
 };
 
 export const createCloudAccount = async (
@@ -32,13 +44,20 @@ export const createCloudAccount = async (
   try {
     console.log(`Creating cloud account: ${name} (${provider})`);
     
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+    
     // Create the account record
     const { data: account, error: accountError } = await supabase
       .from('users_cloud_accounts')
       .insert({
         name,
         provider,
-        status: 'connected'
+        status: 'connected',
+        user_id: user.id
       })
       .select()
       .single();

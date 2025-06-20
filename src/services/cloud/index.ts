@@ -1,15 +1,12 @@
 
-// Re-export all cloud provider services
-export * from "./types";
-export * from "./accountService";
-// For resourceService, we need to explicitly re-export to avoid conflicts with metricsService
-export { 
-  getCloudResources,
-  provisionResource,
-  getResourceDetails,
-  updateResource,
-  deleteResource 
-} from "./resourceService"; 
-export * from "./metricsService";
-export * from "./infrastructureService";
-export * from "./costService"; // This now re-exports from the cost/ folder
+// Export all types
+export type * from './types';
+
+// Export account services
+export * from './accountService';
+
+// Export resource services
+export * from './resourceService';
+
+// Export monitoring services
+export * from './monitoringService';
