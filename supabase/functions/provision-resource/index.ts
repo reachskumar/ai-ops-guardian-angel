@@ -431,12 +431,13 @@ const provisionGcpStorage = async (config: any, serviceAccountKey: any, accessTo
       name: bucketName,
       project: projectId,
       location: config.region,
-      url: `gs://${bucketName}`
+      storageClass: config.storageClass
     }
   };
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -444,18 +445,12 @@ serve(async (req) => {
   try {
     const { accountId, provider, resourceType, config, credentials } = await req.json();
     
-    if (!accountId || !provider || !resourceType || !config || !credentials) {
-      return handleError(
-        new Error("Missing required parameters"),
-        "Invalid request"
-      );
-    }
-    
-    console.log(`Provisioning ${resourceType} on ${provider} for account ${accountId}`);
+    console.log(`Provisioning ${resourceType} on ${provider} for account: ${accountId}`);
+    console.log('Resource config:', JSON.stringify(config, null, 2));
     
     let result;
     
-    switch (provider.toLowerCase()) {
+    switch (provider) {
       case 'aws':
         result = await provisionAwsResource(resourceType, config, credentials);
         break;
@@ -466,14 +461,18 @@ serve(async (req) => {
         result = await provisionGcpResource(resourceType, config, credentials);
         break;
       default:
-        throw new Error(`Unsupported cloud provider: ${provider}`);
+        throw new Error(`Unsupported provider: ${provider}`);
     }
     
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
-  } catch (error: any) {
-    console.error("Provisioning error:", error);
-    return handleError(error, "Failed to provision resource");
+    console.log('Provisioning result:', result);
+    
+    return new Response(
+      JSON.stringify(result),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
+  } catch (error) {
+    return handleError(error, "Error provisioning resource");
   }
 });
