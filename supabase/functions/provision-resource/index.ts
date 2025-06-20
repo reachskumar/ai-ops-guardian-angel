@@ -384,7 +384,7 @@ const provisionGcpCompute = async (config: any, serviceAccountKey: any, accessTo
       provider: 'gcp',
       type: 'Compute Engine',
       name: instanceName,
-      project: project Id,
+      project: projectId,
       zone,
       machineType: config.size,
       operationId: result.id
