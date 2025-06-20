@@ -141,6 +141,31 @@ export const getResourceDetails = async (resourceId: string): Promise<CloudResou
   }
 };
 
+export const updateResource = async (
+  resourceId: string, 
+  updates: Partial<CloudResource>
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log(`Updating resource: ${resourceId}`, updates);
+    
+    const { error } = await supabase
+      .from('cloud_resources')
+      .update(updates)
+      .eq('id', resourceId);
+    
+    if (error) {
+      console.error("Failed to update resource:", error);
+      return { success: false, error: 'Failed to update resource' };
+    }
+    
+    console.log(`Resource updated successfully: ${resourceId}`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update resource error:", error);
+    return { success: false, error: error.message || 'Failed to update resource' };
+  }
+};
+
 export const updateResourceTags = async (
   resourceId: string, 
   tags: Record<string, string>
@@ -185,5 +210,75 @@ export const deleteResource = async (resourceId: string): Promise<{ success: boo
   } catch (error: any) {
     console.error("Delete resource error:", error);
     return { success: false, error: error.message || 'Failed to delete resource' };
+  }
+};
+
+// Resource Metrics
+export interface ResourceMetric {
+  name: string;
+  unit: string;
+  data: Array<{ timestamp: string; value: number }>;
+  status: 'normal' | 'warning' | 'critical';
+}
+
+export const getResourceMetrics = async (resourceId: string, timeRange: string = '1h'): Promise<ResourceMetric[]> => {
+  try {
+    console.log(`Fetching metrics for resource: ${resourceId}, timeRange: ${timeRange}`);
+    
+    // Mock metrics data
+    const mockMetrics: ResourceMetric[] = [
+      {
+        name: 'cpu',
+        unit: '%',
+        status: 'normal',
+        data: Array.from({ length: 20 }, (_, i) => ({
+          timestamp: new Date(Date.now() - (19 - i) * 5 * 60 * 1000).toISOString(),
+          value: Math.random() * 100
+        }))
+      },
+      {
+        name: 'memory',
+        unit: '%',
+        status: 'warning',
+        data: Array.from({ length: 20 }, (_, i) => ({
+          timestamp: new Date(Date.now() - (19 - i) * 5 * 60 * 1000).toISOString(),
+          value: Math.random() * 100
+        }))
+      },
+      {
+        name: 'disk',
+        unit: '%',
+        status: 'normal',
+        data: Array.from({ length: 20 }, (_, i) => ({
+          timestamp: new Date(Date.now() - (19 - i) * 5 * 60 * 1000).toISOString(),
+          value: Math.random() * 100
+        }))
+      }
+    ];
+    
+    return mockMetrics;
+  } catch (error) {
+    console.error("Get resource metrics error:", error);
+    return [];
+  }
+};
+
+export const provisionResource = async (
+  accountId: string,
+  resourceConfig: any
+): Promise<{ success: boolean; resourceId?: string; error?: string }> => {
+  try {
+    console.log("Provisioning resource:", resourceConfig);
+    
+    // Simulate resource provisioning
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const resourceId = `resource-${Date.now()}`;
+    
+    console.log(`Resource provisioned successfully: ${resourceId}`);
+    return { success: true, resourceId };
+  } catch (error: any) {
+    console.error("Provision resource error:", error);
+    return { success: false, error: error.message || 'Failed to provision resource' };
   }
 };

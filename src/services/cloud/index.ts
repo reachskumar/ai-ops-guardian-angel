@@ -10,3 +10,7 @@ export * from './resourceService';
 
 // Export monitoring services
 export * from './monitoringService';
+
+// Export specific functions that are commonly used
+export { getResourceMetrics, provisionResource, updateResource, updateResourceTags } from './resourceService';
+export { getAggregatedMetrics } from './monitoringService';

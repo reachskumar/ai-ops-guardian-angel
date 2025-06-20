@@ -1,3 +1,3 @@
 
-// Re-export everything from the refactored cloud services
-export * from "./cloud";
+// Legacy service file for backward compatibility
+export { getResourceMetrics, type ResourceMetric } from './cloud';
