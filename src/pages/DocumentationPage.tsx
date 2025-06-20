@@ -21,7 +21,8 @@ import {
   Cloud,
   Activity,
   Settings,
-  Download
+  Download,
+  Rocket
 } from "lucide-react";
 import UserGuide from "@/components/documentation/UserGuide";
 import AdminTraining from "@/components/documentation/AdminTraining";
@@ -29,6 +30,7 @@ import GettingStarted from "@/components/documentation/GettingStarted";
 import TroubleshootingGuide from "@/components/documentation/TroubleshootingGuide";
 import APIGuide from "@/components/documentation/APIGuide";
 import VideoTutorials from "@/components/documentation/VideoTutorials";
+import ProductionReadiness from "@/components/documentation/ProductionReadiness";
 
 const DocumentationPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -76,6 +78,14 @@ const DocumentationPage: React.FC = () => {
       estimatedTime: "20 min"
     },
     {
+      id: "production-readiness",
+      title: "Production Readiness",
+      description: "Comprehensive rollout readiness assessment",
+      icon: <Rocket className="h-5 w-5" />,
+      badge: "Critical",
+      estimatedTime: "25 min"
+    },
+    {
       id: "troubleshooting",
       title: "Troubleshooting",
       description: "Common issues and solutions",
@@ -105,6 +115,8 @@ const DocumentationPage: React.FC = () => {
         return <VideoTutorials />;
       case "api-guide":
         return <APIGuide />;
+      case "production-readiness":
+        return <ProductionReadiness />;
       case "troubleshooting":
         return <TroubleshootingGuide />;
       default:
@@ -175,7 +187,13 @@ const DocumentationPage: React.FC = () => {
                     <CardTitle className="text-lg">Quick Links</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {quickLinks.map((link, index) => (
+                    {[
+                      { title: "Dashboard Overview", icon: <Activity className="h-4 w-4" />, href: "#dashboard" },
+                      { title: "Cloud Resources", icon: <Cloud className="h-4 w-4" />, href: "#resources" },
+                      { title: "User Management", icon: <Users className="h-4 w-4" />, href: "#users" },
+                      { title: "Security Settings", icon: <Shield className="h-4 w-4" />, href: "#security" },
+                      { title: "System Configuration", icon: <Settings className="h-4 w-4" />, href: "#config" }
+                    ].map((link, index) => (
                       <Button
                         key={index}
                         variant="ghost"
