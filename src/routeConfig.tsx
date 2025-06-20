@@ -19,6 +19,7 @@ import AdminPanel from "@/pages/AdminPanel";
 import SecurityPage from "@/pages/SecurityPage";
 import IncidentManagement from "@/pages/IncidentsPage";
 import DocumentationPage from "@/pages/DocumentationPage";
+import InfrastructureOverviewPage from "@/pages/InfrastructureOverviewPage";
 
 export interface RouteConfig {
   path: string;
@@ -34,6 +35,12 @@ const routes: RouteConfig[] = [
     element: <Index />,
     title: "Dashboard",
     icon: <LayoutDashboard />,
+  },
+  {
+    path: "/infrastructure",
+    element: <InfrastructureOverviewPage />,
+    title: "Infrastructure",
+    icon: <Network />,
   },
   {
     path: "/cloud-resources",
