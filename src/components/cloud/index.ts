@@ -35,3 +35,5 @@ export { default as ResourceProvisioningForm } from './ResourceProvisioningForm'
 export { default as InfrastructureAsCodePanel } from './InfrastructureAsCodePanel';
 export { default as OpenSourceCostTools } from './OpenSourceCostTools';
 export { default as ProviderDashboard } from './ProviderDashboard';
+
+export { default as CreateAlertRuleDialog } from './CreateAlertRuleDialog';

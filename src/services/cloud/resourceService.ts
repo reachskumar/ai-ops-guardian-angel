@@ -1,27 +1,14 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { CloudResource, CloudProvider, ResourceMetric } from "./types";
-import { getAccountCredentials } from "./accountService";
+import { CloudResource, CloudAccount } from "./types";
 
-// Get cloud resources with filtering options
-export const getCloudResources = async (
-  options?: {
-    accountId?: string;
-    provider?: CloudProvider;
-    type?: string;
-    region?: string;
-    status?: string;
-    limit?: number;
-    offset?: number;
-  }
-): Promise<{ resources: CloudResource[]; count: number }> => {
+export const getCloudResources = async (): Promise<{ 
+  resources: CloudResource[]; 
+  count: number 
+}> => {
   try {
-    const { accountId, type, region, status, limit = 100, offset = 0 } = options || {};
-    
     console.log("Fetching cloud resources from Supabase...");
-    
-    // Build query
-    let query = supabase
+
+    const { data, error, count } = await supabase
       .from('cloud_resources')
       .select(`
         *,
@@ -29,190 +16,68 @@ export const getCloudResources = async (
           id,
           name,
           provider,
-          user_id
+          user_id,
+          status,
+          created_at,
+          last_synced_at,
+          error_message,
+          metadata
         )
-      `, { count: 'exact' });
-    
-    // Apply filters
-    if (accountId) {
-      query = query.eq('cloud_account_id', accountId);
-    }
-    if (type) {
-      query = query.eq('type', type);
-    }
-    if (region) {
-      query = query.eq('region', region);
-    }
-    if (status) {
-      query = query.eq('status', status);
-    }
-    
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
-    
-    const { data, error, count } = await query;
-    
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false });
+
     if (error) {
-      console.error("Supabase query error:", error);
+      console.error("Failed to fetch cloud resources:", error);
       throw error;
     }
-    
+
     console.log(`Retrieved ${data?.length || 0} resources from database`);
-    
-    // Transform data to match CloudResource type
-    const resources = (data || []).map(resource => ({
-      ...resource,
-      tags: (resource.tags as Record<string, string>) || {},
-      metadata: (resource.metadata as Record<string, any>) || {}
+
+    // Transform data to match CloudResource interface
+    const resources: CloudResource[] = (data || []).map(item => ({
+      id: item.id,
+      cloud_account_id: item.cloud_account_id,
+      resource_id: item.resource_id,
+      name: item.name,
+      type: item.type,
+      region: item.region,
+      status: item.status,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      tags: (item.tags as Record<string, string>) || {},
+      metadata: (item.metadata as Record<string, any>) || {},
+      cost_per_day: item.cost_per_day,
+      users_cloud_accounts: {
+        id: item.users_cloud_accounts.id,
+        name: item.users_cloud_accounts.name,
+        provider: item.users_cloud_accounts.provider as any,
+        user_id: item.users_cloud_accounts.user_id,
+        status: item.users_cloud_accounts.status,
+        created_at: item.users_cloud_accounts.created_at,
+        last_synced_at: item.users_cloud_accounts.last_synced_at,
+        error_message: item.users_cloud_accounts.error_message,
+        metadata: item.users_cloud_accounts.metadata as Record<string, any> || {}
+      }
     }));
-    
+
     return {
       resources,
       count: count || 0
     };
   } catch (error) {
     console.error("Get cloud resources error:", error);
-    return { resources: [], count: 0 };
-  }
-};
-
-// Provision a new cloud resource
-export const provisionResource = async (
-  accountId: string,
-  resourceType: string,
-  config: Record<string, any>,
-  credentials?: Record<string, any>
-): Promise<{ success: boolean; resourceId?: string; error?: string }> => {
-  try {
-    console.log(`Starting resource provisioning for account ${accountId}`);
-    console.log(`Resource type: ${resourceType}`);
-    console.log(`Configuration:`, config);
-
-    // Find the account to get its provider and credentials
-    const { data: accountData, error: accountError } = await supabase
-      .from('users_cloud_accounts')
-      .select('*')
-      .eq('id', accountId)
-      .single();
-
-    if (accountError || !accountData) {
-      console.error("Failed to find account:", accountError);
-      return { success: false, error: 'Account not found' };
-    }
-
-    // Get credentials for the account
-    const { data: credentialsData, error: credError } = await supabase.rpc('get_account_credentials', {
-      account_id: accountId
-    });
-
-    if (credError) {
-      console.error('Failed to get credentials:', credError);
-      return { success: false, error: 'Failed to get account credentials' };
-    }
-
-    // Convert credentials array to object
-    const accountCredentials: Record<string, string> = {};
-    credentialsData?.forEach((cred: any) => {
-      accountCredentials[cred.key] = cred.value;
-    });
-
-    // Try to use edge function for real provisioning
-    let result;
-    
-    try {
-      console.log("Attempting to provision via edge function...");
-      const { data, error } = await supabase.functions.invoke('provision-resource', {
-        body: { 
-          accountId, 
-          provider: accountData.provider,
-          resourceType, 
-          config, 
-          credentials: accountCredentials
-        }
-      });
-
-      if (error) {
-        console.warn("Edge function failed:", error);
-        throw new Error(error.message);
-      }
-
-      result = data;
-    } catch (edgeError: any) {
-      console.warn("Edge function unavailable, using local simulation:", edgeError);
-      
-      // Fallback to local simulation
-      const resourceId = crypto.randomUUID();
-      result = {
-        success: true,
-        resourceId,
-        message: `Successfully started ${resourceType} provisioning (simulated)`,
-        details: {
-          name: config.name,
-          region: config.region,
-          size: config.size
-        }
-      };
-    }
-    
-    // On successful provisioning, save to database
-    if (result.success && result.resourceId) {
-      const resourceData = {
-        cloud_account_id: accountId,
-        resource_id: result.resourceId,
-        name: config.name || `New ${resourceType}`,
-        type: resourceType,
-        region: config.region || 'us-east-1',
-        status: 'provisioning',
-        tags: config.tags || {},
-        metadata: result.details || (config.size ? { size: config.size } : {}),
-        cost_per_day: config.estimatedCost || null
-      };
-      
-      const { data: insertedResource, error: insertError } = await supabase
-        .from('cloud_resources')
-        .insert(resourceData)
-        .select()
-        .single();
-      
-      if (insertError) {
-        console.error("Failed to save resource to database:", insertError);
-        return { success: false, error: 'Failed to save resource to database' };
-      }
-      
-      console.log("Resource saved to database:", insertedResource);
-      
-      // After a delay, update the status to "running"
-      setTimeout(async () => {
-        try {
-          await supabase
-            .from('cloud_resources')
-            .update({ status: 'running' })
-            .eq('id', insertedResource.id);
-          console.log(`Updated resource ${insertedResource.id} status to running`);
-        } catch (updateError) {
-          console.error("Failed to update resource status:", updateError);
-        }
-      }, 5000);
-    }
-    
-    return result;
-  } catch (error: any) {
-    console.error("Provision resource error:", error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to provision resource' 
+    return {
+      resources: [],
+      count: 0
     };
   }
 };
 
-export const getResourceDetails = async (
-  resourceId: string
-): Promise<{ resource: CloudResource | null; metrics: any[]; error?: string }> => {
+export const getResourceDetails = async (resourceId: string): Promise<CloudResource | null> => {
   try {
-    console.log(`Fetching resource details for: ${resourceId}`);
-    
-    // Get resource from database
-    const { data: resource, error } = await supabase
+    console.log(`Fetching details for resource: ${resourceId}`);
+
+    const { data, error } = await supabase
       .from('cloud_resources')
       .select(`
         *,
@@ -220,199 +85,90 @@ export const getResourceDetails = async (
           id,
           name,
           provider,
-          user_id
+          user_id,
+          status,
+          created_at,
+          last_synced_at,
+          error_message,
+          metadata
         )
       `)
       .eq('id', resourceId)
       .single();
-    
+
     if (error) {
-      console.error("Failed to fetch resource:", error);
-      return { 
-        resource: null, 
-        metrics: [],
-        error: `Failed to fetch resource: ${error.message}`
-      };
+      console.error("Failed to fetch resource details:", error);
+      return null;
     }
-    
-    if (!resource) {
-      return { 
-        resource: null, 
-        metrics: [],
-        error: 'Resource not found'
-      };
+
+    if (!data) {
+      console.log("No resource found with ID:", resourceId);
+      return null;
     }
-    
-    // Transform data to match CloudResource type
-    const transformedResource = {
-      ...resource,
-      tags: (resource.tags as Record<string, string>) || {},
-      metadata: (resource.metadata as Record<string, any>) || {}
+
+    // Transform data to match CloudResource interface
+    const resource: CloudResource = {
+      id: data.id,
+      cloud_account_id: data.cloud_account_id,
+      resource_id: data.resource_id,
+      name: data.name,
+      type: data.type,
+      region: data.region,
+      status: data.status,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      tags: (data.tags as Record<string, string>) || {},
+      metadata: (data.metadata as Record<string, any>) || {},
+      cost_per_day: data.cost_per_day,
+      users_cloud_accounts: {
+        id: data.users_cloud_accounts.id,
+        name: data.users_cloud_accounts.name,
+        provider: data.users_cloud_accounts.provider as any,
+        user_id: data.users_cloud_accounts.user_id,
+        status: data.users_cloud_accounts.status,
+        created_at: data.users_cloud_accounts.created_at,
+        last_synced_at: data.users_cloud_accounts.last_synced_at,
+        error_message: data.users_cloud_accounts.error_message,
+        metadata: data.users_cloud_accounts.metadata as Record<string, any> || {}
+      }
     };
-    
-    // Generate mock metrics for now
-    const mockMetrics = Array(24).fill(0).map((_, i) => ({
-      timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-      cpu: Math.floor(Math.random() * 100),
-      memory: Math.floor(Math.random() * 100),
-      network: Math.floor(Math.random() * 1000),
-    }));
-    
-    return { 
-      resource: transformedResource, 
-      metrics: mockMetrics
-    };
-  } catch (error: any) {
+
+    console.log("Resource details fetched successfully");
+    return resource;
+  } catch (error) {
     console.error("Get resource details error:", error);
-    return { 
-      resource: null, 
-      metrics: [],
-      error: error.message || 'Failed to get resource details' 
-    };
+    return null;
   }
 };
 
-export const getResourceMetrics = async (
-  resourceId: string,
-  timeRange?: string
-): Promise<any[]> => {
-  try {
-    console.log(`Fetching metrics for resource: ${resourceId}`);
-    
-    // Get resource from database to verify it exists
-    const { data: resource, error } = await supabase
-      .from('cloud_resources')
-      .select('*')
-      .eq('id', resourceId)
-      .single();
-    
-    if (error || !resource) {
-      console.warn(`Resource not found: ${resourceId}`);
-      return [];
-    }
-    
-    // Generate mock metrics based on resource status
-    const cpuBase = resource.status === 'running' ? 45 : 0;
-    const memoryBase = resource.status === 'running' ? 60 : 0;
-    
-    return Array(24).fill(0).map((_, i) => ({
-      timestamp: new Date(Date.now() - (23 - i) * 3600000).toISOString(),
-      cpu: Math.max(0, Math.min(100, cpuBase + (Math.random() * 20 - 10))),
-      memory: Math.max(0, Math.min(100, memoryBase + (Math.random() * 15 - 7.5))),
-      network: resource.status === 'running' ? Math.floor(Math.random() * 50) : 0,
-    }));
-  } catch (error: any) {
-    console.error("Get resource metrics error:", error);
-    return [];
-  }
-};
-
-export const updateResource = async (
-  resourceId: string,
-  action: string,
-  data?: Record<string, any>
+export const updateResourceTags = async (
+  resourceId: string, 
+  tags: Record<string, string>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    console.log(`Updating resource ${resourceId} with action: ${action}`);
+    console.log(`Updating tags for resource: ${resourceId}`, tags);
     
-    // Get resource from database
-    const { data: resource, error: fetchError } = await supabase
+    const { error } = await supabase
       .from('cloud_resources')
-      .select('*')
-      .eq('id', resourceId)
-      .single();
-    
-    if (fetchError || !resource) {
-      return { success: false, error: 'Resource not found' };
-    }
-    
-    // Handle different types of updates
-    if (action === 'update-tags' && data?.tags) {
-      // Update tags
-      const { error: updateError } = await supabase
-        .from('cloud_resources')
-        .update({ tags: data.tags })
-        .eq('id', resourceId);
-      
-      if (updateError) {
-        console.error("Failed to update tags:", updateError);
-        return { success: false, error: 'Failed to update tags' };
-      }
-      
-      console.log(`Resource ${resourceId} tags updated`);
-      return { success: true };
-    }
-    
-    // Handle status updates (start, stop, restart)
-    let newStatus = resource.status;
-    switch (action) {
-      case 'start':
-        if (resource.status === 'stopped' || resource.status === 'terminated') {
-          newStatus = 'starting';
-          // Simulate async start process
-          setTimeout(async () => {
-            await supabase
-              .from('cloud_resources')
-              .update({ status: 'running' })
-              .eq('id', resourceId);
-          }, 3000);
-        }
-        break;
-      case 'stop':
-        if (resource.status === 'running' || resource.status === 'starting') {
-          newStatus = 'stopping';
-          // Simulate async stop process
-          setTimeout(async () => {
-            await supabase
-              .from('cloud_resources')
-              .update({ status: 'stopped' })
-              .eq('id', resourceId);
-          }, 2000);
-        }
-        break;
-      case 'restart':
-        if (resource.status === 'running') {
-          newStatus = 'restarting';
-          // Simulate async restart process
-          setTimeout(async () => {
-            await supabase
-              .from('cloud_resources')
-              .update({ status: 'running' })
-              .eq('id', resourceId);
-          }, 4000);
-        }
-        break;
-      default:
-        return { success: false, error: `Unknown action: ${action}` };
-    }
-    
-    // Update the resource status
-    const { error: updateError } = await supabase
-      .from('cloud_resources')
-      .update({ status: newStatus })
+      .update({ tags })
       .eq('id', resourceId);
     
-    if (updateError) {
-      console.error("Failed to update resource status:", updateError);
-      return { success: false, error: 'Failed to update resource status' };
+    if (error) {
+      console.error("Failed to update resource tags:", error);
+      return { success: false, error: 'Failed to update resource tags' };
     }
     
-    console.log(`Resource ${resourceId} status updated to: ${newStatus}`);
+    console.log(`Resource tags updated successfully: ${resourceId}`);
     return { success: true };
   } catch (error: any) {
-    console.error("Update resource error:", error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to update resource' 
-    };
+    console.error("Update resource tags error:", error);
+    return { success: false, error: error.message || 'Failed to update resource tags' };
   }
 };
 
-export const deleteResource = async (
-  resourceId: string
-): Promise<{ success: boolean; error?: string }> => {
+export const deleteResource = async (resourceId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    console.log(`Deleting resource ${resourceId}`);
+    console.log(`Deleting resource: ${resourceId}`);
     
     const { error } = await supabase
       .from('cloud_resources')
@@ -421,16 +177,13 @@ export const deleteResource = async (
     
     if (error) {
       console.error("Failed to delete resource:", error);
-      return { success: false, error: 'Failed to delete resource from database' };
+      return { success: false, error: 'Failed to delete resource' };
     }
     
-    console.log(`Resource ${resourceId} deleted successfully`);
+    console.log(`Resource deleted successfully: ${resourceId}`);
     return { success: true };
   } catch (error: any) {
     console.error("Delete resource error:", error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to delete resource' 
-    };
+    return { success: false, error: error.message || 'Failed to delete resource' };
   }
 };

@@ -43,7 +43,12 @@ export const getAlertRules = async (): Promise<AlertRule[]> => {
       return [];
     }
 
-    return data || [];
+    // Type cast the database results to match our interface
+    return (data || []).map(rule => ({
+      ...rule,
+      operator: rule.operator as 'gt' | 'lt' | 'eq',
+      severity: rule.severity as 'low' | 'medium' | 'high' | 'critical'
+    }));
   } catch (error) {
     console.error("Get alert rules error:", error);
     return [];
@@ -107,7 +112,12 @@ export const getAlerts = async (status?: string): Promise<Alert[]> => {
       return [];
     }
 
-    return data || [];
+    // Type cast the database results to match our interface
+    return (data || []).map(alert => ({
+      ...alert,
+      severity: alert.severity as 'low' | 'medium' | 'high' | 'critical',
+      status: alert.status as 'active' | 'resolved' | 'acknowledged'
+    }));
   } catch (error) {
     console.error("Get alerts error:", error);
     return [];
@@ -235,13 +245,14 @@ export const getMonitoringDashboardData = async () => {
   }
 };
 
-// Mock function for aggregated metrics (to fix the missing export error)
+// Aggregated metrics function for dashboard
 export const getAggregatedMetrics = async () => {
   try {
-    // This would normally aggregate metrics from various sources
+    const dashboardData = await getMonitoringDashboardData();
+    
     return {
-      totalResources: 0,
-      activeAlerts: 0,
+      totalResources: dashboardData.totalResources,
+      activeAlerts: dashboardData.activeAlerts,
       averageHealth: 85,
       costThisMonth: 0
     };

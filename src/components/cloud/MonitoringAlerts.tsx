@@ -20,15 +20,18 @@ import {
   getAlertRules, 
   acknowledgeAlert, 
   resolveAlert,
-  getMonitoringDashboardData 
+  getMonitoringDashboardData,
+  deleteAlertRule
 } from '@/services/cloud/monitoringService';
 import { useToast } from '@/hooks/use-toast';
+import CreateAlertRuleDialog from './CreateAlertRuleDialog';
 
 const MonitoringAlerts: React.FC = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [dashboardData, setDashboardData] = useState<any>({});
   const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -88,6 +91,23 @@ const MonitoringAlerts: React.FC = () => {
       toast({
         title: "Error",
         description: result.error || "Failed to resolve alert",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    const result = await deleteAlertRule(ruleId);
+    if (result.success) {
+      toast({
+        title: "Alert Rule Deleted",
+        description: "The alert rule has been deleted"
+      });
+      fetchData();
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to delete alert rule",
         variant: "destructive"
       });
     }
@@ -247,7 +267,7 @@ const MonitoringAlerts: React.FC = () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Alert Rules</CardTitle>
-                <Button className="flex items-center gap-2">
+                <Button className="flex items-center gap-2" onClick={() => setCreateDialogOpen(true)}>
                   <Plus className="h-4 w-4" />
                   Create Rule
                 </Button>
@@ -258,7 +278,7 @@ const MonitoringAlerts: React.FC = () => {
                 <div className="text-center py-8 text-muted-foreground">
                   <Settings className="h-12 w-12 mx-auto opacity-50 mb-4" />
                   <p>No alert rules configured</p>
-                  <Button className="mt-4" variant="outline">
+                  <Button className="mt-4" variant="outline" onClick={() => setCreateDialogOpen(true)}>
                     Create Your First Rule
                   </Button>
                 </div>
@@ -283,7 +303,11 @@ const MonitoringAlerts: React.FC = () => {
                           <Button size="sm" variant="outline">
                             Edit
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDeleteRule(rule.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -296,6 +320,12 @@ const MonitoringAlerts: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CreateAlertRuleDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={fetchData}
+      />
     </div>
   );
 };
