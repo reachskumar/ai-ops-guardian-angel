@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { CloudProvider, connectCloudProvider } from "@/services/cloudProviderService";
+import { CloudProvider, connectCloudProvider } from "@/services/cloud";
 import { Check, Key, AlertCircle, Loader2 } from "lucide-react";
 
 interface CloudProviderIntegrationProps {
@@ -110,9 +109,9 @@ const CloudProviderIntegration: React.FC<CloudProviderIntegrationProps> = ({ onC
     
     try {
       const result = await connectCloudProvider(
-        selectedProvider, 
-        credentials, 
-        formState.accountName
+        formState.accountName,
+        selectedProvider,
+        credentials
       );
       
       if (result.success) {

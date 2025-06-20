@@ -32,9 +32,9 @@ export const useCloudProvider = (onSuccess?: () => void) => {
     
     try {
       const result = await connectCloudProvider(
+        data.name,
         data.provider,
-        data.credentials,
-        data.name
+        data.credentials
       );
       
       if (result.success) {

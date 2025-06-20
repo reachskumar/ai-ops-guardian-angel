@@ -9,6 +9,105 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      alert_rules: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration: number
+          enabled: boolean
+          id: string
+          metric: string
+          name: string
+          operator: string
+          resource_type: string
+          severity: string
+          threshold: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration?: number
+          enabled?: boolean
+          id?: string
+          metric: string
+          name: string
+          operator: string
+          resource_type: string
+          severity: string
+          threshold: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration?: number
+          enabled?: boolean
+          id?: string
+          metric?: string
+          name?: string
+          operator?: string
+          resource_type?: string
+          severity?: string
+          threshold?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          id: string
+          message: string
+          resolved_at: string | null
+          resource_id: string | null
+          rule_id: string
+          severity: string
+          status: string
+          triggered_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          id?: string
+          message: string
+          resolved_at?: string | null
+          resource_id?: string | null
+          rule_id: string
+          severity: string
+          status?: string
+          triggered_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          id?: string
+          message?: string
+          resolved_at?: string | null
+          resource_id?: string | null
+          rule_id?: string
+          severity?: string
+          status?: string
+          triggered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "cloud_resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerts_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           api_key: string

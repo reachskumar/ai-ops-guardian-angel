@@ -19,8 +19,7 @@ export const getCloudAccounts = async (): Promise<CloudAccount[]> => {
     return (data || []).map(account => ({
       ...account,
       provider: account.provider as CloudProvider,
-      tags: account.metadata || {},
-      metadata: account.metadata || {}
+      metadata: (account.metadata as Record<string, any>) || {}
     }));
   } catch (error) {
     console.error("Get cloud accounts error:", error);

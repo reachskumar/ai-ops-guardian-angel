@@ -93,11 +93,7 @@ export const getAlerts = async (status?: string): Promise<Alert[]> => {
   try {
     let query = supabase
       .from('alerts')
-      .select(`
-        *,
-        alert_rules!inner(name, description),
-        cloud_resources!inner(name, type)
-      `)
+      .select('*')
       .order('triggered_at', { ascending: false });
 
     if (status) {
@@ -235,6 +231,27 @@ export const getMonitoringDashboardData = async () => {
       enabledRules: 0,
       totalRules: 0,
       recentAlerts: []
+    };
+  }
+};
+
+// Mock function for aggregated metrics (to fix the missing export error)
+export const getAggregatedMetrics = async () => {
+  try {
+    // This would normally aggregate metrics from various sources
+    return {
+      totalResources: 0,
+      activeAlerts: 0,
+      averageHealth: 85,
+      costThisMonth: 0
+    };
+  } catch (error) {
+    console.error("Get aggregated metrics error:", error);
+    return {
+      totalResources: 0,
+      activeAlerts: 0,
+      averageHealth: 0,
+      costThisMonth: 0
     };
   }
 };
