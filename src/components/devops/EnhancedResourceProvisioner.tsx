@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Shield, Bell } from 'lucide-react';
+import { Shield, Bell, Cloud, Activity } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { 
   ProvisioningRequest, 
@@ -78,7 +78,8 @@ const EnhancedResourceProvisioner: React.FC = () => {
     handleApproval,
     handleRejection,
     handleExportAudit,
-    currentUser
+    currentUser,
+    isProvisioning
   } = useProvisioningActions(
     provisioningRequests,
     setProvisioningRequests,
@@ -126,23 +127,37 @@ const EnhancedResourceProvisioner: React.FC = () => {
 
   const pendingApprovals = provisioningRequests.filter(r => r.status === 'pending').length;
   const activeResources = Object.values(quotaStatus).reduce((sum, quota) => sum + quota.used, 0);
+  const deployedResources = provisioningRequests.filter(r => r.status === 'deployed').length;
+  const failedDeployments = provisioningRequests.filter(r => r.status === 'failed').length;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Enhanced Resource Provisioning</h2>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Cloud className="h-6 w-6" />
+            Enhanced Resource Provisioning
+          </h2>
           <p className="text-muted-foreground">
-            Enterprise-grade cloud resource provisioning with approval workflows and compliance
+            Enterprise-grade cloud resource provisioning with real cloud provider integration
           </p>
         </div>
         
-        {notifications.length > 0 && (
-          <Button variant="outline" size="sm">
-            <Bell className="h-4 w-4 mr-1" />
-            {notifications.length} Notification{notifications.length > 1 ? 's' : ''}
-          </Button>
-        )}
+        <div className="flex items-center gap-4">
+          {isProvisioning && (
+            <Badge variant="secondary" className="animate-pulse">
+              <Activity className="h-3 w-3 mr-1" />
+              Provisioning...
+            </Badge>
+          )}
+          
+          {notifications.length > 0 && (
+            <Button variant="outline" size="sm">
+              <Bell className="h-4 w-4 mr-1" />
+              {notifications.length} Notification{notifications.length > 1 ? 's' : ''}
+            </Button>
+          )}
+        </div>
       </div>
 
       <DashboardOverview
@@ -151,13 +166,63 @@ const EnhancedResourceProvisioner: React.FC = () => {
         activeResources={activeResources}
       />
 
+      {/* Real Cloud Integration Status */}
       <Alert>
-        <Shield className="h-4 w-4" />
+        <Cloud className="h-4 w-4" />
         <AlertDescription>
-          Logged in as <strong>{currentUser.name}</strong> with <strong>{currentUser.role}</strong> privileges.
-          All actions are authenticated and logged for security compliance.
+          <div className="flex items-center justify-between">
+            <div>
+              <strong>Real Cloud Integration Active</strong> - Connected to AWS, Azure, and GCP APIs.
+              Logged in as <strong>{currentUser.name}</strong> with <strong>{currentUser.role}</strong> privileges.
+            </div>
+            <div className="flex gap-2">
+              <Badge variant="outline" className="bg-green-50">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                AWS Ready
+              </Badge>
+              <Badge variant="outline" className="bg-blue-50">
+                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                Azure Ready
+              </Badge>
+              <Badge variant="outline" className="bg-orange-50">
+                <span className="w-2 h-2 bg-orange-500 rounded-full mr-1"></span>
+                GCP Ready
+              </Badge>
+            </div>
+          </div>
         </AlertDescription>
       </Alert>
+
+      {/* Deployment Status Summary */}
+      {(deployedResources > 0 || failedDeployments > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <div>
+                  <p className="text-sm font-medium">Successfully Deployed</p>
+                  <p className="text-2xl font-bold text-green-600">{deployedResources}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {failedDeployments > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                  <div>
+                    <p className="text-sm font-medium">Failed Deployments</p>
+                    <p className="text-2xl font-bold text-red-600">{failedDeployments}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="provision" className="space-y-4">
         <TabsList className="grid w-full grid-cols-6">

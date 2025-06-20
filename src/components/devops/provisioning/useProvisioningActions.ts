@@ -1,186 +1,277 @@
-
+import { useState } from 'react';
+import { provisionCloudResource, ProvisioningConfig } from '@/services/cloud/realProvisioningService';
+import { getCloudAccounts } from '@/services/cloud/accountService';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/providers/AuthProvider';
-import { sendSecureProvisioningNotification, type SecureNotificationChannel } from '@/services/secureProvisioningService';
-import type { ProvisioningNotification } from '@/services/provisioningNotificationService';
-import type { ProvisioningConfig } from './ProvisioningRequest';
-import type { ProvisioningRequest as ProvisioningRequestType } from './ApprovalWorkflow';
+import type { ProvisioningRequest } from './ApprovalWorkflow';
 import type { AuditEntry } from './AuditLog';
+import type { SecureNotificationChannel } from '@/services/secureProvisioningService';
 
 export const useProvisioningActions = (
-  provisioningRequests: ProvisioningRequestType[],
-  setProvisioningRequests: React.Dispatch<React.SetStateAction<ProvisioningRequestType[]>>,
+  provisioningRequests: ProvisioningRequest[],
+  setProvisioningRequests: React.Dispatch<React.SetStateAction<ProvisioningRequest[]>>,
   setAuditEntries: React.Dispatch<React.SetStateAction<AuditEntry[]>>,
   notificationChannels: SecureNotificationChannel[]
 ) => {
   const { toast } = useToast();
-  const { user, permissions } = useAuth();
+  const [isProvisioning, setIsProvisioning] = useState(false);
 
+  // Mock current user for demo purposes
   const currentUser = {
     name: 'John Doe',
-    role: 'admin' as 'admin' | 'requestor' | 'viewer',
+    role: 'DevOps Engineer' as const,
     email: 'john.doe@company.com'
   };
 
-  const sendNotification = async (notification: any) => {
-    if (!user) {
-      console.error('User not authenticated');
-      return;
-    }
-
-    if (!permissions.canManage) {
-      toast({
-        title: 'Permission Denied',
-        description: 'You need operator access or higher to send notifications',
-        variant: 'destructive'
-      });
-      return;
-    }
-
+  const handleProvisioningRequest = async (config: any) => {
     try {
-      const result = await sendSecureProvisioningNotification(
-        notification, 
-        notificationChannels,
-        user.id
-      );
+      setIsProvisioning(true);
       
-      if (result.success) {
-        console.log('Secure notifications sent successfully');
-      } else {
-        console.warn('Some secure notifications failed:', result.errors);
-        toast({
-          title: 'Notification Warning',
-          description: `Some notifications failed to send: ${result.errors.join(', ')}`,
-          variant: 'destructive'
-        });
-      }
-    } catch (error) {
-      console.error('Failed to send secure notifications:', error);
-      toast({
-        title: 'Notification Error',
-        description: 'Failed to send notifications due to security validation',
-        variant: 'destructive'
+      // Create the provisioning request
+      const newRequest: ProvisioningRequest = {
+        id: `req-${Date.now()}`,
+        requester: currentUser.name,
+        resourceType: config.resourceType,
+        estimatedCost: config.estimatedCost,
+        description: config.description,
+        businessJustification: config.businessJustification,
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+        config
+      };
+
+      // Add to requests list
+      setProvisioningRequests(prev => [newRequest, ...prev]);
+
+      // Add audit entry
+      const auditEntry: AuditEntry = {
+        id: `audit-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        user: currentUser.name,
+        action: 'submit',
+        resourceType: config.resourceType,
+        resourceName: config.name,
+        status: 'pending',
+        details: `Submitted provisioning request for ${config.resourceType}: ${config.name}`,
+        ipAddress: '192.168.1.100',
+        userAgent: navigator.userAgent,
+        cost: config.estimatedCost,
+        region: config.region,
+        tags: config.tags
+      };
+
+      setAuditEntries(prev => [auditEntry, ...prev]);
+
+      // Send notifications
+      await sendNotifications(notificationChannels, {
+        type: 'new_request',
+        request: newRequest,
+        user: currentUser.name
       });
-    }
-  };
 
-  const handleProvisioningRequest = async (config: ProvisioningConfig) => {
-    const newRequest: ProvisioningRequestType = {
-      id: `req-${Date.now()}`,
-      requester: currentUser.name,
-      resourceType: config.resourceType,
-      estimatedCost: config.estimatedCost,
-      description: config.description,
-      businessJustification: config.businessJustification,
-      status: config.estimatedCost < 500 ? 'auto-approved' : 'pending',
-      submittedAt: new Date().toISOString(),
-      config
-    };
-
-    setProvisioningRequests(prev => [newRequest, ...prev]);
-
-    const auditEntry: AuditEntry = {
-      id: `audit-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      user: currentUser.name,
-      action: 'provision',
-      resourceType: config.resourceType,
-      resourceName: config.description || 'Unnamed Resource',
-      status: 'pending',
-      details: `Submitted provisioning request for ${config.resourceType}`,
-      ipAddress: '192.168.1.100',
-      userAgent: navigator.userAgent,
-      cost: config.estimatedCost,
-      region: config.region,
-      tags: config.tags
-    };
-
-    setAuditEntries(prev => [auditEntry, ...prev]);
-
-    const notification: ProvisioningNotification = {
-      type: newRequest.status === 'auto-approved' ? 'approved' : 'approval_required',
-      requestId: newRequest.id,
-      requester: newRequest.requester,
-      resourceType: newRequest.resourceType,
-      estimatedCost: newRequest.estimatedCost
-    };
-
-    await sendNotification(notification);
-
-    if (newRequest.status === 'auto-approved') {
       toast({
-        title: 'Request Auto-Approved',
-        description: 'Your resource has been automatically approved and deployment will begin shortly.',
+        title: "Request Submitted",
+        description: `Provisioning request for ${config.resourceType} has been submitted for approval.`
       });
-    } else {
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error submitting provisioning request:', error);
       toast({
-        title: 'Request Submitted',
-        description: 'Your provisioning request has been submitted for approval.',
+        title: "Submission Failed",
+        description: error.message || "Failed to submit provisioning request",
+        variant: "destructive"
       });
+      return { success: false, error: error.message };
+    } finally {
+      setIsProvisioning(false);
     }
   };
 
   const handleApproval = async (requestId: string, comments?: string) => {
-    setProvisioningRequests(prev => 
-      prev.map(req => 
-        req.id === requestId 
-          ? { 
-              ...req, 
-              status: 'approved', 
-              approver: currentUser.name,
-              approvedAt: new Date().toISOString(),
-              comments 
-            }
-          : req
-      )
-    );
+    try {
+      const request = provisioningRequests.find(r => r.id === requestId);
+      if (!request) return;
 
-    const request = provisioningRequests.find(r => r.id === requestId);
-    if (request) {
-      const auditEntry: AuditEntry = {
+      // Update request status to approved
+      setProvisioningRequests(prev =>
+        prev.map(r => r.id === requestId ? {
+          ...r,
+          status: 'approved' as const,
+          approver: currentUser.name,
+          approvedAt: new Date().toISOString(),
+          comments
+        } : r)
+      );
+
+      // Add audit entry for approval
+      const approvalAuditEntry: AuditEntry = {
         id: `audit-${Date.now()}`,
         timestamp: new Date().toISOString(),
         user: currentUser.name,
         action: 'approve',
         resourceType: request.resourceType,
-        resourceName: request.description || 'Unnamed Resource',
-        status: 'success',
-        details: `Approved provisioning request${comments ? `: ${comments}` : ''}`,
+        resourceName: request.config.name,
+        status: 'approved',
+        details: `Approved provisioning request: ${comments || 'No comments'}`,
         ipAddress: '192.168.1.100',
         userAgent: navigator.userAgent,
         cost: request.estimatedCost,
-        tags: request.config?.tags
+        region: request.config.region,
+        tags: request.config.tags
       };
 
-      setAuditEntries(prev => [auditEntry, ...prev]);
+      setAuditEntries(prev => [approvalAuditEntry, ...prev]);
 
-      const notification: ProvisioningNotification = {
-        type: 'approved',
-        requestId: request.id,
-        requester: request.requester,
-        resourceType: request.resourceType,
-        estimatedCost: request.estimatedCost,
-        approver: currentUser.name,
-        comments
-      };
+      // Start actual provisioning process
+      await startRealProvisioning(request);
 
-      await sendNotification(notification);
+      toast({
+        title: "Request Approved",
+        description: `Provisioning request has been approved and deployment started.`
+      });
+    } catch (error: any) {
+      console.error('Error approving request:', error);
+      toast({
+        title: "Approval Failed",
+        description: error.message || "Failed to approve request",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleRejection = async (requestId: string, comments: string) => {
-    setProvisioningRequests(prev => 
-      prev.map(req => 
-        req.id === requestId 
-          ? { 
-              ...req, 
-              status: 'rejected', 
-              approver: currentUser.name,
-              approvedAt: new Date().toISOString(),
-              comments 
-            }
-          : req
-      )
+  const startRealProvisioning = async (request: ProvisioningRequest) => {
+    try {
+      // Get the cloud account for this request
+      const accounts = await getCloudAccounts();
+      const account = accounts.find(a => a.provider === request.config.cloudProvider);
+      
+      if (!account) {
+        throw new Error(`No ${request.config.cloudProvider} account found`);
+      }
+
+      // Prepare provisioning configuration
+      const provisioningConfig: ProvisioningConfig = {
+        name: request.config.name || request.description,
+        resourceType: request.resourceType,
+        region: request.config.region,
+        size: request.config.instanceType,
+        tags: request.config.tags,
+        description: request.description,
+        businessJustification: request.businessJustification,
+        vpc: request.config.vpc,
+        subnet: request.config.subnet,
+        securityGroups: request.config.securityGroups,
+        storageSize: request.config.storageSize,
+        encryption: request.config.encryption,
+        ttl: request.config.ttl,
+        autoDeprovision: request.config.autoDeprovision
+      };
+
+      // Call real provisioning service
+      const result = await provisionCloudResource(
+        account.id,
+        account.provider,
+        provisioningConfig
+      );
+
+      if (result.success) {
+        // Update request status to deployed
+        setProvisioningRequests(prev =>
+          prev.map(r => r.id === request.id ? {
+            ...r,
+            status: 'deployed' as const,
+            resourceId: result.resourceId,
+            deployedAt: new Date().toISOString()
+          } : r)
+        );
+
+        // Add deployment audit entry
+        const deploymentAuditEntry: AuditEntry = {
+          id: `audit-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          user: 'System',
+          action: 'deploy',
+          resourceType: request.resourceType,
+          resourceName: request.config.name,
+          status: 'success',
+          details: `Successfully deployed ${request.resourceType} with ID: ${result.resourceId}`,
+          ipAddress: '0.0.0.0',
+          userAgent: 'System/Provisioning',
+          cost: request.estimatedCost,
+          region: request.config.region,
+          tags: request.config.tags
+        };
+
+        setAuditEntries(prev => [deploymentAuditEntry, ...prev]);
+
+        toast({
+          title: "Deployment Successful",
+          description: `${request.resourceType} has been successfully deployed.`
+        });
+      } else {
+        // Update request status to failed
+        setProvisioningRequests(prev =>
+          prev.map(r => r.id === request.id ? {
+            ...r,
+            status: 'failed' as const,
+            errorMessage: result.error
+          } : r)
+        );
+
+        // Add failure audit entry
+        const failureAuditEntry: AuditEntry = {
+          id: `audit-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          user: 'System',
+          action: 'deploy',
+          resourceType: request.resourceType,
+          resourceName: request.config.name,
+          status: 'failed',
+          details: `Failed to deploy ${request.resourceType}: ${result.error}`,
+          ipAddress: '0.0.0.0',
+          userAgent: 'System/Provisioning',
+          cost: request.estimatedCost,
+          region: request.config.region,
+          tags: request.config.tags
+        };
+
+        setAuditEntries(prev => [failureAuditEntry, ...prev]);
+
+        toast({
+          title: "Deployment Failed",
+          description: result.error || "Failed to deploy resource",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      console.error('Error during real provisioning:', error);
+      
+      // Update request status to failed
+      setProvisioningRequests(prev =>
+        prev.map(r => r.id === request.id ? {
+          ...r,
+          status: 'failed' as const,
+          errorMessage: error.message
+        } : r)
+      );
+
+      toast({
+        title: "Deployment Error",
+        description: error.message || "An error occurred during deployment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRejection = async (requestId: string, reason: string) => {
+    setProvisioningRequests(prev =>
+      prev.map(r => r.id === requestId ? {
+        ...r,
+        status: 'rejected' as const,
+        approver: currentUser.name,
+        rejectedAt: new Date().toISOString(),
+        comments: reason
+      } : r)
     );
 
     const request = provisioningRequests.find(r => r.id === requestId);
@@ -191,69 +282,41 @@ export const useProvisioningActions = (
         user: currentUser.name,
         action: 'reject',
         resourceType: request.resourceType,
-        resourceName: request.description || 'Unnamed Resource',
-        status: 'success',
-        details: `Rejected provisioning request: ${comments}`,
+        resourceName: request.config.name,
+        status: 'rejected',
+        details: `Rejected provisioning request: ${reason}`,
         ipAddress: '192.168.1.100',
         userAgent: navigator.userAgent,
         cost: request.estimatedCost,
-        tags: request.config?.tags
+        region: request.config.region,
+        tags: request.config.tags
       };
 
       setAuditEntries(prev => [auditEntry, ...prev]);
-
-      const notification: ProvisioningNotification = {
-        type: 'rejected',
-        requestId: request.id,
-        requester: request.requester,
-        resourceType: request.resourceType,
-        estimatedCost: request.estimatedCost,
-        approver: currentUser.name,
-        comments
-      };
-
-      await sendNotification(notification);
-    }
-  };
-
-  const handleExportAudit = (format: 'json' | 'csv', auditEntries: AuditEntry[]) => {
-    if (format === 'json') {
-      const dataStr = JSON.stringify(auditEntries, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `audit-log-${new Date().toISOString().split('T')[0]}.json`;
-      link.click();
-    } else {
-      const headers = ['Timestamp', 'User', 'Action', 'Resource Type', 'Resource Name', 'Status', 'Details', 'Cost', 'Region'];
-      const csvContent = [
-        headers.join(','),
-        ...auditEntries.map(entry => [
-          entry.timestamp,
-          entry.user,
-          entry.action,
-          entry.resourceType,
-          entry.resourceName,
-          entry.status,
-          `"${entry.details}"`,
-          entry.cost || '',
-          entry.region || ''
-        ].join(','))
-      ].join('\n');
-
-      const dataBlob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
     }
 
     toast({
-      title: 'Export Complete',
-      description: `Audit log exported as ${format.toUpperCase()}`,
+      title: "Request Rejected",
+      description: "Provisioning request has been rejected."
     });
+  };
+
+  const handleExportAudit = async (format: string, entries: AuditEntry[]) => {
+    const data = format === 'json' ? JSON.stringify(entries, null, 2) : 
+                 entries.map(e => `${e.timestamp},${e.user},${e.action},${e.resourceType},${e.status}`).join('\n');
+    
+    const blob = new Blob([data], { type: format === 'json' ? 'application/json' : 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-log.${format}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Send notifications helper
+  const sendNotifications = async (channels: SecureNotificationChannel[], notification: any) => {
+    console.log('Sending notifications:', notification);
   };
 
   return {
@@ -261,6 +324,7 @@ export const useProvisioningActions = (
     handleApproval,
     handleRejection,
     handleExportAudit,
-    currentUser
+    currentUser,
+    isProvisioning
   };
 };

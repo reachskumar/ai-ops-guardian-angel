@@ -1,11 +1,20 @@
 
-// Provision Resource Edge Function
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { Compute } from "https://cdn.jsdelivr.net/npm/@google-cloud/compute@4.1.0/+esm";
-import { encode as base64url } from "https://deno.land/std@0.177.0/encoding/base64url.ts";
 
-// Common error handler
+// Import AWS SDK v3
+import { EC2Client, RunInstancesCommand, DescribeInstancesCommand } from "https://esm.sh/@aws-sdk/client-ec2@3.462.0";
+import { RDSClient, CreateDBInstanceCommand } from "https://esm.sh/@aws-sdk/client-rds@3.462.0";
+import { S3Client, CreateBucketCommand } from "https://esm.sh/@aws-sdk/client-s3@3.462.0";
+
+// Import Azure SDK
+import { ComputeManagementClient } from "https://esm.sh/@azure/arm-compute@21.0.0";
+import { StorageManagementClient } from "https://esm.sh/@azure/arm-storage@18.1.0";
+import { ClientSecretCredential } from "https://esm.sh/@azure/identity@4.0.0";
+
+// Import GCP SDK
+import { JWT } from "https://esm.sh/google-auth-library@9.0.0";
+
 const handleError = (error: any, message: string) => {
   console.error(message, error);
   return new Response(
@@ -20,272 +29,451 @@ const handleError = (error: any, message: string) => {
   );
 };
 
-// Generate JWT for authentication
-async function generateJWT(serviceAccountKey: any) {
-  try {
-    console.log("Generating JWT for Google Cloud authentication");
-    const header = {
-      alg: "RS256",
-      typ: "JWT",
-      kid: serviceAccountKey.private_key_id
-    };
+// AWS Resource Provisioning
+const provisionAwsResource = async (resourceType: string, config: any, credentials: any) => {
+  const awsConfig = {
+    region: config.region || 'us-east-1',
+    credentials: {
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey,
+      ...(credentials.sessionToken && { sessionToken: credentials.sessionToken })
+    }
+  };
 
-    const now = Math.floor(Date.now() / 1000);
-    const payload = {
-      iss: serviceAccountKey.client_email,
-      sub: serviceAccountKey.client_email,
-      aud: "https://oauth2.googleapis.com/token",
-      iat: now,
-      exp: now + 3600,
-      scope: "https://www.googleapis.com/auth/cloud-platform"
-    };
+  switch (resourceType.toLowerCase()) {
+    case 'ec2 instance':
+    case 'ec2':
+      return await provisionAwsEc2(config, awsConfig);
+    case 'rds instance':
+    case 'rds':
+      return await provisionAwsRds(config, awsConfig);
+    case 's3 bucket':
+    case 's3':
+      return await provisionAwsS3(config, awsConfig);
+    default:
+      throw new Error(`Unsupported AWS resource type: ${resourceType}`);
+  }
+};
 
-    // Encode the header and payload
-    const encodeObject = (obj: any) => base64url(new TextEncoder().encode(JSON.stringify(obj)));
-    const encodedHeader = encodeObject(header);
-    const encodedPayload = encodeObject(payload);
-    
-    // Create the signing input
-    const signingInput = `${encodedHeader}.${encodedPayload}`;
-    
-    // Sign the token using the private key from service account
-    const privateKey = serviceAccountKey.private_key;
-    
-    // Convert the PEM private key for use with Deno's crypto
-    const keyData = privateKey
-      .replace(/-----BEGIN PRIVATE KEY-----/, "")
-      .replace(/-----END PRIVATE KEY-----/, "")
-      .replace(/\n/g, "");
-    
-    // Import the private key
-    const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
-    const cryptoKey = await crypto.subtle.importKey(
-      "pkcs8",
-      binaryKey,
+const provisionAwsEc2 = async (config: any, awsConfig: any) => {
+  const ec2Client = new EC2Client(awsConfig);
+  
+  const params = {
+    ImageId: config.baseImage || 'ami-0c94855ba95b798c2', // Amazon Linux 2023
+    InstanceType: config.size || 't3.micro',
+    MinCount: 1,
+    MaxCount: 1,
+    TagSpecifications: [
       {
-        name: "RSASSA-PKCS1-v1_5",
-        hash: "SHA-256"
-      },
-      false,
-      ["sign"]
-    );
-    
-    // Sign the data
-    const textEncoder = new TextEncoder();
-    const signature = await crypto.subtle.sign(
-      { name: "RSASSA-PKCS1-v1_5" },
-      cryptoKey,
-      textEncoder.encode(signingInput)
-    );
-    
-    // Encode the signature
-    const encodedSignature = base64url(new Uint8Array(signature));
-    
-    // Return the complete JWT
-    return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
-  } catch (error) {
-    console.error("Error generating JWT:", error);
-    throw new Error(`Failed to generate JWT: ${error.message}`);
-  }
-}
+        ResourceType: 'instance',
+        Tags: Object.entries(config.tags || {}).map(([key, value]) => ({
+          Key: key,
+          Value: String(value)
+        })).concat([
+          { Key: 'Name', Value: config.name }
+        ])
+      }
+    ],
+    ...(config.securityGroups && { SecurityGroupIds: config.securityGroups }),
+    ...(config.subnet && { SubnetId: config.subnet }),
+    ...(config.encryption && {
+      BlockDeviceMappings: [{
+        DeviceName: '/dev/xvda',
+        Ebs: {
+          VolumeSize: config.storageSize || 8,
+          VolumeType: config.storageType || 'gp3',
+          Encrypted: true
+        }
+      }]
+    })
+  };
 
-// Validate GCP service account key
-function validateGcpCredentials(serviceAccountKey: any) {
-  const requiredFields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email', 'client_id'];
-  const missingFields = requiredFields.filter(field => !serviceAccountKey[field]);
+  const command = new RunInstancesCommand(params);
+  const response = await ec2Client.send(command);
   
-  if (missingFields.length > 0) {
-    throw new Error(`Invalid service account key: missing ${missingFields.join(', ')}`);
+  const instanceId = response.Instances?.[0]?.InstanceId;
+  if (!instanceId) {
+    throw new Error('Failed to get instance ID from AWS response');
   }
+
+  return {
+    success: true,
+    resourceId: instanceId,
+    details: {
+      provider: 'aws',
+      type: 'EC2 Instance',
+      instanceId,
+      region: awsConfig.region,
+      instanceType: config.size,
+      imageId: params.ImageId,
+      state: response.Instances?.[0]?.State?.Name || 'pending'
+    }
+  };
+};
+
+const provisionAwsRds = async (config: any, awsConfig: any) => {
+  const rdsClient = new RDSClient(awsConfig);
   
-  if (serviceAccountKey.type !== 'service_account') {
-    throw new Error('Invalid credential type: must be a service account key');
+  const params = {
+    DBInstanceIdentifier: config.name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+    DBInstanceClass: config.size || 'db.t3.micro',
+    Engine: config.engine || 'mysql',
+    EngineVersion: config.engineVersion || '8.0',
+    MasterUsername: config.masterUsername || 'admin',
+    MasterUserPassword: config.masterPassword || 'TempPassword123!',
+    AllocatedStorage: config.storageSize || 20,
+    StorageType: config.storageType || 'gp2',
+    StorageEncrypted: config.encryption || true,
+    ...(config.vpc && { DBSubnetGroupName: config.dbSubnetGroup }),
+    ...(config.securityGroups && { VpcSecurityGroupIds: config.securityGroups }),
+    Tags: Object.entries(config.tags || {}).map(([key, value]) => ({
+      Key: key,
+      Value: String(value)
+    }))
+  };
+
+  const command = new CreateDBInstanceCommand(params);
+  const response = await rdsClient.send(command);
+  
+  return {
+    success: true,
+    resourceId: response.DBInstance?.DBInstanceIdentifier,
+    details: {
+      provider: 'aws',
+      type: 'RDS Instance',
+      dbInstanceId: response.DBInstance?.DBInstanceIdentifier,
+      engine: response.DBInstance?.Engine,
+      status: response.DBInstance?.DBInstanceStatus,
+      endpoint: response.DBInstance?.Endpoint?.Address
+    }
+  };
+};
+
+const provisionAwsS3 = async (config: any, awsConfig: any) => {
+  const s3Client = new S3Client(awsConfig);
+  
+  const bucketName = config.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const params = {
+    Bucket: bucketName,
+    ...(awsConfig.region !== 'us-east-1' && {
+      CreateBucketConfiguration: {
+        LocationConstraint: awsConfig.region
+      }
+    })
+  };
+
+  const command = new CreateBucketCommand(params);
+  await s3Client.send(command);
+  
+  return {
+    success: true,
+    resourceId: bucketName,
+    details: {
+      provider: 'aws',
+      type: 'S3 Bucket',
+      bucketName,
+      region: awsConfig.region,
+      url: `https://${bucketName}.s3.${awsConfig.region}.amazonaws.com`
+    }
+  };
+};
+
+// Azure Resource Provisioning
+const provisionAzureResource = async (resourceType: string, config: any, credentials: any) => {
+  const credential = new ClientSecretCredential(
+    credentials.tenantId,
+    credentials.clientId,
+    credentials.clientSecret
+  );
+  
+  switch (resourceType.toLowerCase()) {
+    case 'virtual machine':
+    case 'vm':
+      return await provisionAzureVm(config, credentials, credential);
+    case 'storage account':
+      return await provisionAzureStorage(config, credentials, credential);
+    default:
+      throw new Error(`Unsupported Azure resource type: ${resourceType}`);
   }
+};
+
+const provisionAzureVm = async (config: any, credentials: any, credential: any) => {
+  const computeClient = new ComputeManagementClient(credential, credentials.subscriptionId);
   
-  return true;
-}
+  const resourceGroupName = config.resourceGroup || 'rg-default';
+  const vmName = config.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  
+  const vmParams = {
+    location: config.region || 'eastus',
+    hardwareProfile: {
+      vmSize: config.size || 'Standard_B2s'
+    },
+    storageProfile: {
+      imageReference: {
+        publisher: 'Canonical',
+        offer: 'UbuntuServer',
+        sku: '18.04-LTS',
+        version: 'latest'
+      },
+      osDisk: {
+        createOption: 'FromImage',
+        diskSizeGB: config.storageSize || 30,
+        managedDisk: {
+          storageAccountType: 'Premium_LRS'
+        }
+      }
+    },
+    osProfile: {
+      computerName: vmName,
+      adminUsername: config.adminUsername || 'azureuser',
+      adminPassword: config.adminPassword || 'TempPassword123!'
+    },
+    networkProfile: {
+      networkInterfaces: [
+        {
+          id: `/subscriptions/${credentials.subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.Network/networkInterfaces/${vmName}-nic`
+        }
+      ]
+    },
+    tags: config.tags || {}
+  };
+
+  const operation = await computeClient.virtualMachines.beginCreateOrUpdate(
+    resourceGroupName,
+    vmName,
+    vmParams
+  );
+  
+  const result = await operation.pollUntilDone();
+  
+  return {
+    success: true,
+    resourceId: result.id,
+    details: {
+      provider: 'azure',
+      type: 'Virtual Machine',
+      name: vmName,
+      resourceGroup: resourceGroupName,
+      location: config.region,
+      vmSize: config.size,
+      status: 'Creating'
+    }
+  };
+};
+
+const provisionAzureStorage = async (config: any, credentials: any, credential: any) => {
+  const storageClient = new StorageManagementClient(credential, credentials.subscriptionId);
+  
+  const resourceGroupName = config.resourceGroup || 'rg-default';
+  const accountName = config.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  const storageParams = {
+    location: config.region || 'eastus',
+    sku: {
+      name: config.sku || 'Standard_LRS'
+    },
+    kind: 'StorageV2',
+    tags: config.tags || {}
+  };
+
+  const operation = await storageClient.storageAccounts.beginCreate(
+    resourceGroupName,
+    accountName,
+    storageParams
+  );
+  
+  const result = await operation.pollUntilDone();
+  
+  return {
+    success: true,
+    resourceId: result.id,
+    details: {
+      provider: 'azure',
+      type: 'Storage Account',
+      name: accountName,
+      resourceGroup: resourceGroupName,
+      location: config.region,
+      sku: config.sku
+    }
+  };
+};
+
+// GCP Resource Provisioning
+const provisionGcpResource = async (resourceType: string, config: any, credentials: any) => {
+  const serviceAccountKey = JSON.parse(credentials.serviceAccountKey);
+  
+  // Create JWT client for authentication
+  const jwtClient = new JWT({
+    email: serviceAccountKey.client_email,
+    key: serviceAccountKey.private_key,
+    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+  });
+  
+  await jwtClient.authorize();
+  const accessToken = await jwtClient.getAccessToken();
+  
+  switch (resourceType.toLowerCase()) {
+    case 'compute engine':
+    case 'vm instance':
+      return await provisionGcpCompute(config, serviceAccountKey, accessToken);
+    case 'cloud storage':
+      return await provisionGcpStorage(config, serviceAccountKey, accessToken);
+    default:
+      throw new Error(`Unsupported GCP resource type: ${resourceType}`);
+  }
+};
+
+const provisionGcpCompute = async (config: any, serviceAccountKey: any, accessToken: string) => {
+  const projectId = serviceAccountKey.project_id;
+  const zone = config.region || 'us-central1-a';
+  const instanceName = config.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  
+  const instanceConfig = {
+    name: instanceName,
+    machineType: `zones/${zone}/machineTypes/${config.size || 'e2-medium'}`,
+    disks: [
+      {
+        boot: true,
+        autoDelete: true,
+        initializeParams: {
+          sourceImage: 'projects/debian-cloud/global/images/family/debian-11',
+          diskSizeGb: String(config.storageSize || 10)
+        }
+      }
+    ],
+    networkInterfaces: [
+      {
+        network: 'global/networks/default',
+        accessConfigs: [
+          {
+            type: 'ONE_TO_ONE_NAT',
+            name: 'External NAT'
+          }
+        ]
+      }
+    ],
+    tags: {
+      items: Object.keys(config.tags || {})
+    },
+    labels: config.tags || {}
+  };
+
+  const response = await fetch(
+    `https://compute.googleapis.com/compute/v1/projects/${projectId}/zones/${zone}/instances`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(instanceConfig)
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`GCP API error: ${error}`);
+  }
+
+  const result = await response.json();
+  
+  return {
+    success: true,
+    resourceId: `${projectId}/${zone}/${instanceName}`,
+    details: {
+      provider: 'gcp',
+      type: 'Compute Engine',
+      name: instanceName,
+      project: project Id,
+      zone,
+      machineType: config.size,
+      operationId: result.id
+    }
+  };
+};
+
+const provisionGcpStorage = async (config: any, serviceAccountKey: any, accessToken: string) => {
+  const projectId = serviceAccountKey.project_id;
+  const bucketName = config.name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  
+  const bucketConfig = {
+    name: bucketName,
+    location: config.region || 'US',
+    storageClass: config.storageClass || 'STANDARD',
+    labels: config.tags || {}
+  };
+
+  const response = await fetch(
+    `https://storage.googleapis.com/storage/v1/b?project=${projectId}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(bucketConfig)
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`GCP Storage API error: ${error}`);
+  }
+
+  const result = await response.json();
+  
+  return {
+    success: true,
+    resourceId: bucketName,
+    details: {
+      provider: 'gcp',
+      type: 'Cloud Storage',
+      name: bucketName,
+      project: projectId,
+      location: config.region,
+      url: `gs://${bucketName}`
+    }
+  };
+};
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    console.log("Starting resource provisioning request processing");
-    const { accountId, resourceType, config, credentials } = await req.json();
+    const { accountId, provider, resourceType, config, credentials } = await req.json();
     
-    if (!accountId || !resourceType || !config) {
+    if (!accountId || !provider || !resourceType || !config || !credentials) {
       return handleError(
         new Error("Missing required parameters"),
         "Invalid request"
       );
     }
     
-    console.log(`Provisioning ${resourceType} resource on account ${accountId}`);
-    console.log("Resource configuration:", JSON.stringify(config));
+    console.log(`Provisioning ${resourceType} on ${provider} for account ${accountId}`);
     
-    // Handle GCP Compute Engine provisioning
-    if (resourceType === 'Compute Engine' || resourceType === 'VM') {
-      if (!credentials || !credentials.serviceAccountKey) {
-        return handleError(
-          new Error("No service account key provided"),
-          "GCP credentials missing"
-        );
-      }
-      
-      try {
-        console.log("Starting GCP VM provisioning process");
-        
-        // Parse service account key
-        let serviceAccountKey;
-        try {
-          serviceAccountKey = typeof credentials.serviceAccountKey === 'string' 
-            ? JSON.parse(credentials.serviceAccountKey)
-            : credentials.serviceAccountKey;
-            
-          console.log("Successfully parsed service account key");
-          console.log("Service account project ID:", serviceAccountKey.project_id);
-          console.log("Service account client email:", serviceAccountKey.client_email);
-          
-          // Validate the service account key
-          validateGcpCredentials(serviceAccountKey);
-        } catch (parseError) {
-          console.error("Failed to parse or validate service account key:", parseError);
-          throw new Error(`Invalid service account key: ${parseError.message}`);
-        }
-        
-        // Get GCP OAuth token using JWT
-        console.log("Requesting OAuth token from Google");
-        const jwt = await generateJWT(serviceAccountKey);
-        console.log("JWT generated successfully");
-        
-        const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            assertion: jwt
-          })
-        });
-
-        if (!tokenResponse.ok) {
-          const errorText = await tokenResponse.text();
-          console.error("OAuth token response error:", errorText);
-          throw new Error(`Failed to get OAuth token: ${errorText}`);
-        }
-
-        const tokenData = await tokenResponse.json();
-        const accessToken = tokenData.access_token;
-        console.log("Successfully obtained OAuth access token");
-        
-        // Initialize the Google Cloud Compute client
-        console.log("Initializing Google Cloud Compute client");
-        const compute = new Compute({
-          projectId: serviceAccountKey.project_id,
-          credentials: serviceAccountKey,
-          auth: {
-            scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-            token: accessToken
-          }
-        });
-        
-        // Extract zone and machine type from config
-        const zone = config.region || 'us-central1-a';
-        const machineType = config.size || 'e2-micro';
-        const vmName = config.name.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-        
-        console.log(`Creating VM "${vmName}" in zone ${zone} with machine type ${machineType}`);
-        
-        // Get the zone object
-        const zoneObj = compute.zone(zone);
-        
-        // VM creation options
-        const vmOptions = {
-          os: 'debian-cloud',
-          http: true,
-          machineType: machineType,
-          metadata: {
-            items: [
-              {
-                key: 'startup-script',
-                value: '#!/bin/bash\necho "Startup completed" > /tmp/startup-completed.txt'
-              }
-            ]
-          }
-        };
-        
-        if (config.tags && Object.keys(config.tags).length > 0) {
-          vmOptions.tags = Object.keys(config.tags);
-        }
-        
-        // Create the VM
-        console.log("Calling GCP API to create VM");
-        try {
-          const [vm, operation] = await zoneObj.createVM(vmName, vmOptions);
-          console.log("VM creation initiated successfully");
-          
-          // Generate a resource ID with the GCP prefix
-          const resourceId = `gcp-vm-${vm.name || vm.id}`;
-          
-          return new Response(
-            JSON.stringify({
-              success: true,
-              resourceId,
-              message: `Successfully started VM creation: ${vmName}`,
-              details: {
-                name: vm.name,
-                zone: zone,
-                machineType: machineType,
-                project: serviceAccountKey.project_id,
-                operation: {
-                  id: operation.id,
-                  name: operation.name,
-                  status: operation.status
-                }
-              }
-            }),
-            { 
-              headers: { ...corsHeaders, "Content-Type": "application/json" }
-            }
-          );
-        } catch (vmError) {
-          console.error("VM creation error:", vmError);
-          return handleError(vmError, "Failed to create VM");
-        }
-      } catch (gcpError) {
-        console.error("GCP resource provisioning error:", gcpError);
-        return handleError(gcpError, "Failed to provision GCP resource");
-      }
-    } else {
-      // For non-GCP resources or unsupported resource types, return a mock response
-      const resourceId = `${resourceType.toLowerCase()}-${Date.now().toString(36)}`;
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          resourceId,
-          message: `Successfully started provisioning ${resourceType} (simulated)`
-        }),
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" }
-        }
-      );
+    let result;
+    
+    switch (provider.toLowerCase()) {
+      case 'aws':
+        result = await provisionAwsResource(resourceType, config, credentials);
+        break;
+      case 'azure':
+        result = await provisionAzureResource(resourceType, config, credentials);
+        break;
+      case 'gcp':
+        result = await provisionGcpResource(resourceType, config, credentials);
+        break;
+      default:
+        throw new Error(`Unsupported cloud provider: ${provider}`);
     }
-  } catch (error) {
-    console.error("Error provisioning resource:", error);
     
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: `Failed to provision resource: ${error.message}`
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  } catch (error: any) {
+    console.error("Provisioning error:", error);
+    return handleError(error, "Failed to provision resource");
   }
 });
