@@ -1,3 +1,4 @@
+
 import {
   Home,
   Settings,
@@ -10,6 +11,7 @@ import {
   ShieldAlert,
   FileCode2,
   AlertTriangle,
+  CloudDrizzle,
 } from "lucide-react";
 import Index from "@/pages/Index";
 import SettingsPage from "@/pages/SettingsPage";
@@ -19,6 +21,7 @@ import SecurityPage from "@/pages/SecurityPage";
 import IncidentManagement from "@/pages/IncidentsPage";
 import DocumentationPage from "@/pages/DocumentationPage";
 import InfrastructureOverviewPage from "@/pages/InfrastructureOverviewPage";
+import MultiCloudPage from "@/pages/MultiCloudPage";
 
 export interface RouteConfig {
   path: string;
@@ -46,6 +49,12 @@ const routes: RouteConfig[] = [
     element: <CloudResourcesPage />,
     title: "Cloud Resources",
     icon: <Server />,
+  },
+  {
+    path: "/multi-cloud",
+    element: <MultiCloudPage />,
+    title: "Multi-Cloud",
+    icon: <CloudDrizzle />,
   },
   {
     path: "/security",
