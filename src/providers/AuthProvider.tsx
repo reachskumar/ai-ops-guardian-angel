@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +12,7 @@ type AuthContextType = {
   profile: any | null;
   loading: boolean;
   isAdmin: boolean;
+  isLoggedIn: boolean;
   permissions: {
     canView: boolean;
     canEdit: boolean;
@@ -27,6 +29,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   isAdmin: false,
+  isLoggedIn: false,
   permissions: {
     canView: false,
     canEdit: false,
@@ -48,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   const permissions = getUserResourcePermissions(profile?.role as UserRole);
+  const isLoggedIn = !!user;
 
   const fetchUserProfile = useCallback(async (userId: string) => {
     try {
@@ -57,21 +61,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Profile fetch error:", error);
+        return null;
+      }
 
       setProfile(data);
       setIsAdmin(data?.role === 'admin');
       return data;
     } catch (error) {
       console.error("Error fetching profile:", error);
-      toast({
-        title: "Error",
-        description: "Could not fetch user profile",
-        variant: "destructive",
-      });
       return null;
     }
-  }, [toast]);
+  }, []);
 
   const ensureProfileExists = useCallback(async (user: User) => {
     try {
@@ -81,7 +83,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', user.id)
         .single();
 
-      if (error || !data) {
+      if (error && error.code !== 'PGRST116') {
+        console.error("Profile check error:", error);
+        return null;
+      }
+
+      if (!data) {
         const { error: insertError } = await supabase.from('profiles').insert({
           id: user.id,
           username: user.email?.split('@')[0],
@@ -89,7 +96,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: 'viewer'
         });
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error("Profile creation error:", insertError);
+          return null;
+        }
         
         return await fetchUserProfile(user.id);
       }
@@ -97,14 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return data;
     } catch (error) {
       console.error("Error ensuring profile exists:", error);
-      toast({
-        title: "Profile Error",
-        description: "Could not create or fetch user profile",
-        variant: "destructive",
-      });
       return null;
     }
-  }, [fetchUserProfile, toast]);
+  }, [fetchUserProfile]);
 
   const refreshProfile = useCallback(async () => {
     if (user) {
@@ -113,15 +118,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, fetchUserProfile]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        console.log("Initializing auth...");
+        
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session error:", error);
+          if (mounted) {
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (mounted) {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          console.log("Current session:", currentSession?.user ? "User logged in" : "No user");
+        }
+        
+        if (currentSession?.user && mounted) {
+          const profileData = await ensureProfileExists(currentSession.user);
+          if (profileData && mounted) {
+            setProfile(profileData);
+            setIsAdmin(profileData.role === 'admin');
+          }
+        }
+        
+        if (mounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        console.log("Auth state change:", event);
+        console.log("Auth state change:", event, currentSession?.user ? "User present" : "No user");
+        
+        if (!mounted) return;
+        
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
           setTimeout(async () => {
-            await fetchUserProfile(currentSession.user!.id);
+            if (mounted) {
+              const profileData = await fetchUserProfile(currentSession.user!.id);
+              if (profileData && mounted) {
+                setProfile(profileData);
+                setIsAdmin(profileData.role === 'admin');
+              }
+            }
           }, 0);
         } else {
           setProfile(null);
@@ -130,33 +185,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    const initializeAuth = async () => {
-      try {
-        setLoading(true);
-        const { data } = await supabase.auth.getSession();
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
-        
-        if (data.session?.user) {
-          await ensureProfileExists(data.session.user);
-          await fetchUserProfile(data.session.user.id);
-        }
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        toast({
-          title: "Authentication Error",
-          description: "Failed to initialize authentication",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     initializeAuth();
 
-    return () => subscription.unsubscribe();
-  }, [ensureProfileExists, fetchUserProfile, toast]);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [ensureProfileExists, fetchUserProfile]);
 
   const signOut = useCallback(async () => {
     try {
@@ -166,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setProfile(null);
       setIsAdmin(false);
+      console.log("Signed out successfully");
       toast({
         title: "Signed out",
         description: "You have been successfully signed out",
@@ -188,6 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     loading,
     isAdmin,
+    isLoggedIn,
     permissions,
     signOut,
     refreshProfile,
