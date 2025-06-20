@@ -199,7 +199,7 @@ const EnhancedResourceProvisioner: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="audit">
-          <Audit Log
+          <AuditLog
             entries={auditEntries}
             onExport={(format) => handleExportAudit(format, auditEntries)}
           />
