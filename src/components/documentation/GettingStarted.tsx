@@ -15,7 +15,8 @@ import {
   Activity,
   Settings,
   Users,
-  Clock
+  Clock,
+  Book
 } from "lucide-react";
 
 const GettingStarted: React.FC = () => {

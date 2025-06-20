@@ -1,3 +1,4 @@
+
 import {
   Home,
   Settings,
@@ -9,15 +10,16 @@ import {
   Server,
   ShieldAlert,
   FileCode2,
+  AlertTriangle,
 } from "lucide-react";
-import { Main } from "@/pages/Main";
-import { Settings as SettingsPage } from "@/pages/Settings";
-import { CloudResources } from "@/pages/CloudResources";
-import { AdminPanel } from "@/pages/AdminPanel";
-import { Security } from "@/pages/Security";
+import Index from "@/pages/Index";
+import SettingsPage from "@/pages/SettingsPage";
+import CloudResourcesPage from "@/pages/CloudResourcesPage";
+import AdminPanel from "@/pages/AdminPanel";
+import SecurityPage from "@/pages/SecurityPage";
 import { CompliancePage } from "@/pages/CompliancePage";
 import { NetworkPage } from "@/pages/NetworkPage";
-import { IncidentManagement } from "@/pages/IncidentManagement";
+import IncidentManagement from "@/pages/IncidentsPage";
 import { ApiKeys } from "@/pages/ApiKeys";
 import DocumentationPage from "@/pages/DocumentationPage";
 
@@ -32,13 +34,13 @@ export interface RouteConfig {
 const routes: RouteConfig[] = [
   {
     path: "/",
-    element: <Main />,
+    element: <Index />,
     title: "Dashboard",
     icon: <LayoutDashboard />,
   },
   {
     path: "/cloud-resources",
-    element: <CloudResources />,
+    element: <CloudResourcesPage />,
     title: "Cloud Resources",
     icon: <Server />,
   },
@@ -50,7 +52,7 @@ const routes: RouteConfig[] = [
   },
   {
     path: "/security",
-    element: <Security />,
+    element: <SecurityPage />,
     title: "Security",
     icon: <ShieldAlert />,
   },
@@ -84,13 +86,13 @@ const routes: RouteConfig[] = [
     title: "Settings",
     icon: <Settings />,
   },
+  {
+    path: "/documentation",
+    element: <DocumentationPage />,
+    title: "Documentation",
+    icon: <FileCode2 />,
+  },
 ];
 
-const documentationRoute = {
-  path: "/documentation",
-  element: <DocumentationPage />,
-  title: "Documentation",
-  icon: <FileCode2 />,
-};
-
-export { routes, documentationRoute };
+export { routes };
+export default routes;
