@@ -2,13 +2,14 @@
 // Sync Cloud Resources Edge Function
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 // Import AWS SDK v3 modules
 import { EC2Client, DescribeInstancesCommand } from "https://esm.sh/@aws-sdk/client-ec2@3.462.0";
 import { RDSClient, DescribeDBInstancesCommand } from "https://esm.sh/@aws-sdk/client-rds@3.462.0";
 import { S3Client, ListBucketsCommand } from "https://esm.sh/@aws-sdk/client-s3@3.462.0";
 
-// Import Azure SDK modules
+// Import Azure SDK modules  
 import { ComputeManagementClient } from "https://esm.sh/@azure/arm-compute@21.0.0";
 import { ResourceManagementClient } from "https://esm.sh/@azure/arm-resources@5.2.0";
 import { StorageManagementClient } from "https://esm.sh/@azure/arm-storage@18.1.0";
@@ -299,6 +300,11 @@ serve(async (req) => {
     console.log(`Syncing resources for cloud account: ${accountId}`);
     console.log(`Provider: ${provider || "unknown"}`);
     
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
     let resources = [];
     
     if (provider === 'gcp' && credentials) {
@@ -369,6 +375,69 @@ serve(async (req) => {
       }
     }
 
+    // Store discovered resources in the database
+    let newResourcesCount = 0;
+    let updatedResourcesCount = 0;
+    let unchangedResourcesCount = 0;
+
+    if (resources.length > 0) {
+      console.log(`Storing ${resources.length} resources in database...`);
+      
+      for (const resource of resources) {
+        try {
+          // Check if resource already exists
+          const { data: existingResource, error: selectError } = await supabase
+            .from('cloud_resources')
+            .select('id, updated_at')
+            .eq('resource_id', resource.resource_id)
+            .eq('cloud_account_id', accountId)
+            .single();
+
+          if (selectError && selectError.code !== 'PGRST116') {
+            console.error("Error checking existing resource:", selectError);
+            continue;
+          }
+
+          if (existingResource) {
+            // Update existing resource
+            const { error: updateError } = await supabase
+              .from('cloud_resources')
+              .update({
+                name: resource.name,
+                type: resource.type,
+                region: resource.region,
+                status: resource.status,
+                updated_at: resource.updated_at,
+                tags: resource.tags,
+                metadata: resource.metadata
+              })
+              .eq('id', existingResource.id);
+
+            if (updateError) {
+              console.error("Error updating resource:", updateError);
+            } else {
+              updatedResourcesCount++;
+            }
+          } else {
+            // Insert new resource
+            const { error: insertError } = await supabase
+              .from('cloud_resources')
+              .insert([resource]);
+
+            if (insertError) {
+              console.error("Error inserting resource:", insertError);
+            } else {
+              newResourcesCount++;
+            }
+          }
+        } catch (resourceError) {
+          console.error("Error processing resource:", resourceError);
+        }
+      }
+    }
+
+    console.log(`Resource sync complete: ${newResourcesCount} new, ${updatedResourcesCount} updated, ${unchangedResourcesCount} unchanged`);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -376,9 +445,9 @@ serve(async (req) => {
         resources: resources,
         stats: {
           total: resources.length,
-          new: resources.length,
-          updated: 0,
-          unchanged: 0
+          new: newResourcesCount,
+          updated: updatedResourcesCount,
+          unchanged: unchangedResourcesCount
         }
       }),
       {
