@@ -1,6 +1,6 @@
 
-// Export all types
-export type * from './types';
+// Export all types except ResourceMetric to avoid conflicts
+export type { CloudProvider, CloudAccount, CloudResource, AlertRule, Alert } from './types';
 
 // Export account services
 export * from './accountService';
@@ -14,3 +14,6 @@ export * from './monitoringService';
 // Export specific functions that are commonly used
 export { getResourceMetrics, provisionResource, updateResource, updateResourceTags } from './resourceService';
 export { getAggregatedMetrics } from './monitoringService';
+
+// Export ResourceMetric type specifically to avoid conflicts
+export type { ResourceMetric } from './types';
