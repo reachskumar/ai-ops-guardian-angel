@@ -95,7 +95,7 @@ export const useProvisioningState = () => {
       id: 'audit-002',
       timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
       user: 'Alice Smith',
-      action: 'provision',
+      action: 'submit',
       resourceType: 'EC2',
       resourceName: 'web-server-01',
       status: 'pending',
