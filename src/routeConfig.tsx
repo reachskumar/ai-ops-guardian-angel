@@ -1,137 +1,96 @@
+import {
+  Home,
+  Settings,
+  LayoutDashboard,
+  Users,
+  Lock,
+  ListChecks,
+  Network,
+  Server,
+  ShieldAlert,
+  FileCode2,
+} from "lucide-react";
+import { Main } from "@/pages/Main";
+import { Settings as SettingsPage } from "@/pages/Settings";
+import { CloudResources } from "@/pages/CloudResources";
+import { AdminPanel } from "@/pages/AdminPanel";
+import { Security } from "@/pages/Security";
+import { CompliancePage } from "@/pages/CompliancePage";
+import { NetworkPage } from "@/pages/NetworkPage";
+import { IncidentManagement } from "@/pages/IncidentManagement";
+import { ApiKeys } from "@/pages/ApiKeys";
+import DocumentationPage from "@/pages/DocumentationPage";
 
-import { RouteObject } from "react-router-dom";
-import ProtectedRoute from "./components/ProtectedRoute";
-import AdminRoute from "./components/AdminRoute";
+export interface RouteConfig {
+  path: string;
+  element: React.ReactNode;
+  title: string;
+  icon?: React.ReactNode;
+  children?: RouteConfig[];
+}
 
-// Pages
-import Index from "./pages/Index";
-import LandingPage from "./pages/LandingPage";
-import AdminPanel from "./pages/AdminPanel";
-import AuthPage from "./pages/AuthPage";
-import NotFound from "./pages/NotFound";
-import ProfilePage from "./pages/ProfilePage";
-import ServersPage from "./pages/ServersPage";
-import ServerDetailsPage from "./pages/ServerDetailsPage";
-import ServerMonitoringPage from "./pages/ServerMonitoringPage";
-import SecurityPage from "./pages/SecurityPage";
-import SecurityHardeningPage from "./pages/SecurityHardeningPage";
-import CloudResourcesPage from "./pages/CloudResourcesPage";
-import CostAnalysisPage from "./pages/CostAnalysisPage";
-import KubernetesPage from "./pages/KubernetesPage";
-import IAMPage from "./pages/IAMPage";
-import AIAssistantPage from "./pages/AIAssistantPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import CollaborationPage from "./pages/CollaborationPage";
-import IncidentsPage from "./pages/IncidentsPage";
-import InfrastructureOverviewPage from "./pages/InfrastructureOverviewPage";
-import DatabasesPage from "./pages/DatabasesPage";
-import ProjectKanbanPage from "./pages/ProjectKanbanPage";
-import WebSocketTestPage from "./pages/WebSocketTestPage";
-import DevOpsPage from "./pages/DevOpsPage";
-import MultiCloudPage from "./pages/MultiCloudPage";
-
-const routes: RouteObject[] = [
+const routes: RouteConfig[] = [
   {
     path: "/",
-    element: <LandingPage />,
-    index: true
-  },
-  {
-    path: "/dashboard",
-    element: <ProtectedRoute><Index /></ProtectedRoute>
-  },
-  {
-    path: "/auth/*",
-    element: <AuthPage />
-  },
-  {
-    path: "/profile",
-    element: <ProtectedRoute><ProfilePage /></ProtectedRoute>
-  },
-  {
-    path: "/admin",
-    element: <AdminRoute><AdminPanel /></AdminRoute>
-  },
-  {
-    path: "/servers",
-    element: <ProtectedRoute><ServersPage /></ProtectedRoute>
-  },
-  {
-    path: "/servers/:serverId",
-    element: <ProtectedRoute><ServerDetailsPage /></ProtectedRoute>
-  },
-  {
-    path: "/servers/:serverId/monitoring",
-    element: <ProtectedRoute><ServerMonitoringPage /></ProtectedRoute>
-  },
-  {
-    path: "/security",
-    element: <ProtectedRoute><SecurityPage /></ProtectedRoute>
-  },
-  {
-    path: "/security/hardening",
-    element: <ProtectedRoute><SecurityHardeningPage /></ProtectedRoute>
+    element: <Main />,
+    title: "Dashboard",
+    icon: <LayoutDashboard />,
   },
   {
     path: "/cloud-resources",
-    element: <ProtectedRoute><CloudResourcesPage /></ProtectedRoute>
+    element: <CloudResources />,
+    title: "Cloud Resources",
+    icon: <Server />,
   },
   {
-    path: "/cost-analysis",
-    element: <ProtectedRoute><CostAnalysisPage /></ProtectedRoute>
+    path: "/network",
+    element: <NetworkPage />,
+    title: "Network",
+    icon: <Network />,
   },
   {
-    path: "/kubernetes",
-    element: <ProtectedRoute><KubernetesPage /></ProtectedRoute>
+    path: "/security",
+    element: <Security />,
+    title: "Security",
+    icon: <ShieldAlert />,
   },
   {
-    path: "/iam",
-    element: <ProtectedRoute><IAMPage /></ProtectedRoute>
-  },
-  {
-    path: "/ai-assistant",
-    element: <ProtectedRoute><AIAssistantPage /></ProtectedRoute>
-  },
-  {
-    path: "/analytics",
-    element: <ProtectedRoute><AnalyticsPage /></ProtectedRoute>
-  },
-  {
-    path: "/collaboration",
-    element: <ProtectedRoute><CollaborationPage /></ProtectedRoute>
+    path: "/compliance",
+    element: <CompliancePage />,
+    title: "Compliance",
+    icon: <ListChecks />,
   },
   {
     path: "/incidents",
-    element: <ProtectedRoute><IncidentsPage /></ProtectedRoute>
+    element: <IncidentManagement />,
+    title: "Incidents",
+    icon: <AlertTriangle />,
   },
   {
-    path: "/infrastructure",
-    element: <ProtectedRoute><InfrastructureOverviewPage /></ProtectedRoute>
+    path: "/admin-panel",
+    element: <AdminPanel />,
+    title: "Admin Panel",
+    icon: <Users />,
   },
   {
-    path: "/databases",
-    element: <ProtectedRoute><DatabasesPage /></ProtectedRoute>
+    path: "/api-keys",
+    element: <ApiKeys />,
+    title: "API Keys",
+    icon: <Lock />,
   },
   {
-    path: "/project-kanban",
-    element: <ProtectedRoute><ProjectKanbanPage /></ProtectedRoute>
+    path: "/settings",
+    element: <SettingsPage />,
+    title: "Settings",
+    icon: <Settings />,
   },
-  {
-    path: "/websocket-test",
-    element: <ProtectedRoute><WebSocketTestPage /></ProtectedRoute>
-  },
-  {
-    path: "/devops",
-    element: <ProtectedRoute><DevOpsPage /></ProtectedRoute>
-  },
-  {
-    path: "/multi-cloud",
-    element: <ProtectedRoute><MultiCloudPage /></ProtectedRoute>
-  },
-  {
-    path: "*",
-    element: <NotFound />
-  }
 ];
 
-export default routes;
+const documentationRoute = {
+  path: "/documentation",
+  element: <DocumentationPage />,
+  title: "Documentation",
+  icon: <FileCode2 />,
+};
+
+export { routes, documentationRoute };
