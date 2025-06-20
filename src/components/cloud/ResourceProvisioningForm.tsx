@@ -233,8 +233,8 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       console.log("Resource type:", data.type);
       console.log("Resource config:", resourceConfig);
       
-      // Call the provisioning API with credentials
-      const result = await provisionResource(data.accountId, data.type, resourceConfig);
+      // Call the provisioning API with only accountId and resourceConfig (2 arguments)
+      const result = await provisionResource(data.accountId, resourceConfig);
       
       if (result.success) {
         toast({

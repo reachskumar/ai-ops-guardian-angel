@@ -11,6 +11,6 @@ export * from './resourceService';
 // Export monitoring services
 export * from './monitoringService';
 
-// Export specific functions that are commonly used
+// Export specific functions that are commonly used - remove duplicate ResourceMetric export
 export { getResourceMetrics, provisionResource, updateResource, updateResourceTags } from './resourceService';
 export { getAggregatedMetrics } from './monitoringService';

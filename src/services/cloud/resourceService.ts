@@ -36,28 +36,18 @@ export const getCloudResources = async (): Promise<{
     // Transform data to match CloudResource interface
     const resources: CloudResource[] = (data || []).map(item => ({
       id: item.id,
-      cloud_account_id: item.cloud_account_id,
+      account_id: item.cloud_account_id,
       resource_id: item.resource_id,
       name: item.name,
       type: item.type,
       region: item.region,
+      provider: item.users_cloud_accounts.provider as any,
       status: item.status,
       created_at: item.created_at,
       updated_at: item.updated_at,
       tags: (item.tags as Record<string, string>) || {},
       metadata: (item.metadata as Record<string, any>) || {},
-      cost_per_day: item.cost_per_day,
-      users_cloud_accounts: {
-        id: item.users_cloud_accounts.id,
-        name: item.users_cloud_accounts.name,
-        provider: item.users_cloud_accounts.provider as any,
-        user_id: item.users_cloud_accounts.user_id,
-        status: item.users_cloud_accounts.status,
-        created_at: item.users_cloud_accounts.created_at,
-        last_synced_at: item.users_cloud_accounts.last_synced_at,
-        error_message: item.users_cloud_accounts.error_message,
-        metadata: item.users_cloud_accounts.metadata as Record<string, any> || {}
-      }
+      cost_per_day: item.cost_per_day
     }));
 
     return {
@@ -109,28 +99,18 @@ export const getResourceDetails = async (resourceId: string): Promise<CloudResou
     // Transform data to match CloudResource interface
     const resource: CloudResource = {
       id: data.id,
-      cloud_account_id: data.cloud_account_id,
+      account_id: data.cloud_account_id,
       resource_id: data.resource_id,
       name: data.name,
       type: data.type,
       region: data.region,
+      provider: data.users_cloud_accounts.provider as any,
       status: data.status,
       created_at: data.created_at,
       updated_at: data.updated_at,
       tags: (data.tags as Record<string, string>) || {},
       metadata: (data.metadata as Record<string, any>) || {},
-      cost_per_day: data.cost_per_day,
-      users_cloud_accounts: {
-        id: data.users_cloud_accounts.id,
-        name: data.users_cloud_accounts.name,
-        provider: data.users_cloud_accounts.provider as any,
-        user_id: data.users_cloud_accounts.user_id,
-        status: data.users_cloud_accounts.status,
-        created_at: data.users_cloud_accounts.created_at,
-        last_synced_at: data.users_cloud_accounts.last_synced_at,
-        error_message: data.users_cloud_accounts.error_message,
-        metadata: data.users_cloud_accounts.metadata as Record<string, any> || {}
-      }
+      cost_per_day: data.cost_per_day
     };
 
     console.log("Resource details fetched successfully");
