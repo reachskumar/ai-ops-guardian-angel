@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, RefreshCw, Trash2, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { CloudAccount } from '@/services/cloud/types';
+import ConnectivityTestButton from './ConnectivityTestButton';
 
 interface ConnectedAccountsProps {
   accounts: CloudAccount[];
@@ -95,6 +96,13 @@ const ConnectedAccounts: React.FC<ConnectedAccountsProps> = ({
                     {account.status}
                   </Badge>
                 </div>
+
+                {/* Connectivity Test Button */}
+                <ConnectivityTestButton 
+                  accountId={account.id}
+                  provider={account.provider as any}
+                  accountName={account.name}
+                />
 
                 {/* Sync Status */}
                 <div className="flex items-center justify-between text-sm">
