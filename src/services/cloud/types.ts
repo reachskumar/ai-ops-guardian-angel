@@ -1,4 +1,3 @@
-
 export type CloudProvider = 'aws' | 'azure' | 'gcp';
 
 export interface CloudAccount {
@@ -15,18 +14,23 @@ export interface CloudAccount {
 
 export interface CloudResource {
   id: string;
-  cloud_account_id: string;
-  resource_id: string;
   name: string;
   type: string;
-  region: string;
   status: string;
+  region: string;
+  provider: CloudProvider;
+  account_id: string;
+  resource_id: string;
   created_at: string;
   updated_at: string;
-  tags: Record<string, string>;
-  metadata: Record<string, any>;
-  cost_per_day: number | null;
-  users_cloud_accounts?: CloudAccount;
+  cost_per_day?: number;
+  metadata?: Record<string, any>;
+  tags?: Record<string, string>;
+  metrics?: Array<{
+    name: string;
+    value: number;
+    unit: string;
+  }>;
 }
 
 export interface ResourceMetric {

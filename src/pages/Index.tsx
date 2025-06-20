@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/providers/AuthProvider";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -83,8 +82,6 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <DashboardHeader 
-          user={user}
-          profile={profile}
           totalResources={dashboardData.totalResources}
           activeAlerts={dashboardData.activeAlerts}
           averageHealth={dashboardData.averageHealth}

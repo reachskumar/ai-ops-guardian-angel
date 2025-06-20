@@ -36,8 +36,8 @@ const SizeSelector: React.FC<SizeSelectorProps> = ({
         </SelectTrigger>
         <SelectContent>
           {sizes.map((size) => (
-            <SelectItem key={size} value={size}>
-              {size}
+            <SelectItem key={size.id} value={size.id}>
+              {size.name} ({size.vcpus} vCPUs, {size.memory} GB RAM)
             </SelectItem>
           ))}
         </SelectContent>
