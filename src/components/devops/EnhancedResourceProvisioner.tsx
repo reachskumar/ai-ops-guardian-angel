@@ -164,6 +164,46 @@ const EnhancedResourceProvisioner: React.FC = () => {
     }
   ]);
 
+  const [notificationChannels, setNotificationChannels] = useState<SecureNotificationChannel[]>([
+    {
+      type: 'email',
+      enabled: true,
+      config: {
+        email: {
+          recipients: ['admin@company.com', 'devops@company.com']
+        }
+      }
+    },
+    {
+      type: 'slack',
+      enabled: true,
+      config: {
+        slack: {
+          webhookUrl: 'https://hooks.slack.com/services/...',
+          channel: '#devops'
+        }
+      }
+    },
+    {
+      type: 'teams',
+      enabled: false,
+      config: {
+        teams: {
+          webhookUrl: ''
+        }
+      }
+    },
+    {
+      type: 'webhook',
+      enabled: false,
+      config: {
+        webhook: {
+          url: ''
+        }
+      }
+    }
+  ]);
+
   const { toast } = useToast();
 
   const sendNotification = async (notification: any) => {
