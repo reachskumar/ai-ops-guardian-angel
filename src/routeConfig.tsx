@@ -1,4 +1,3 @@
-
 import {
   Home,
   Settings,
@@ -61,7 +60,7 @@ const routes: RouteConfig[] = [
     icon: <AlertTriangle />,
   },
   {
-    path: "/admin-panel",
+    path: "/admin",
     element: <AdminPanel />,
     title: "Admin Panel",
     icon: <Users />,
