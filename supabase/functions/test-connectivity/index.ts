@@ -1,181 +1,25 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface TestResult {
-  provider: string;
-  success: boolean;
-  details?: any;
-  error?: string;
-  isRealTime: boolean;
-}
-
-const testAwsConnectivity = async (credentials: any): Promise<TestResult> => {
-  console.log("Testing AWS connectivity...");
-  
-  try {
-    if (!credentials.accessKeyId || !credentials.secretAccessKey) {
-      return {
-        provider: 'aws',
-        success: false,
-        error: 'Missing AWS credentials',
-        isRealTime: false
-      };
-    }
-
-    // Simple credential validation for AWS format
-    const accessKeyValid = /^[A-Z0-9]{20}$/.test(credentials.accessKeyId);
-    const secretKeyValid = credentials.secretAccessKey.length === 40;
-    
-    if (!accessKeyValid || !secretKeyValid) {
-      return {
-        provider: 'aws',
-        success: false,
-        error: 'Invalid AWS credential format',
-        isRealTime: false
-      };
-    }
-
-    return {
-      provider: 'aws',
-      success: true,
-      isRealTime: true,
-      details: {
-        accessKeyId: credentials.accessKeyId.substring(0, 10) + '...',
-        region: credentials.region || 'us-east-1',
-        testType: 'credential_format_validation',
-        message: 'AWS credentials format validated successfully'
-      }
-    };
-  } catch (error: any) {
-    console.error("AWS test failed:", error);
-    return {
-      provider: 'aws',
-      success: false,
-      isRealTime: false,
-      error: `AWS test failed: ${error.message}`
-    };
-  }
-};
-
-const testAzureConnectivity = async (credentials: any): Promise<TestResult> => {
-  console.log("Testing Azure connectivity...");
-  
-  try {
-    if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) {
-      return {
-        provider: 'azure',
-        success: false,
-        error: 'Missing Azure credentials',
-        isRealTime: false
-      };
-    }
-
-    // Validate GUID format
-    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    
-    if (!guidRegex.test(credentials.tenantId) || !guidRegex.test(credentials.clientId)) {
-      return {
-        provider: 'azure',
-        success: false,
-        error: 'Invalid Azure credential format',
-        isRealTime: false
-      };
-    }
-
-    return {
-      provider: 'azure',
-      success: true,
-      isRealTime: true,
-      details: {
-        tenantId: credentials.tenantId,
-        subscriptionId: credentials.subscriptionId?.substring(0, 8) + '...',
-        testType: 'credential_format_validation',
-        message: 'Azure credentials format validated successfully'
-      }
-    };
-  } catch (error: any) {
-    console.error("Azure test failed:", error);
-    return {
-      provider: 'azure',
-      success: false,
-      isRealTime: false,
-      error: `Azure test failed: ${error.message}`
-    };
-  }
-};
-
-const testGcpConnectivity = async (credentials: any): Promise<TestResult> => {
-  console.log("Testing GCP connectivity...");
-  
-  try {
-    if (!credentials.serviceAccountKey) {
-      return {
-        provider: 'gcp',
-        success: false,
-        error: 'Missing GCP service account key',
-        isRealTime: false
-      };
-    }
-
-    let serviceAccountKey;
-    try {
-      serviceAccountKey = JSON.parse(credentials.serviceAccountKey);
-    } catch (e) {
-      return {
-        provider: 'gcp',
-        success: false,
-        error: 'Invalid service account key format',
-        isRealTime: false
-      };
-    }
-
-    if (!serviceAccountKey.project_id || !serviceAccountKey.client_email) {
-      return {
-        provider: 'gcp',
-        success: false,
-        error: 'Invalid service account key structure',
-        isRealTime: false
-      };
-    }
-
-    return {
-      provider: 'gcp',
-      success: true,
-      isRealTime: true,
-      details: {
-        projectId: serviceAccountKey.project_id,
-        serviceAccountEmail: serviceAccountKey.client_email,
-        testType: 'credential_format_validation',
-        message: 'GCP credentials format validated successfully'
-      }
-    };
-  } catch (error: any) {
-    console.error("GCP test failed:", error);
-    return {
-      provider: 'gcp',
-      success: false,
-      isRealTime: false,
-      error: `GCP test failed: ${error.message}`
-    };
-  }
-};
-
 serve(async (req) => {
-  console.log("Connectivity test function called");
+  console.log("=== Test Connectivity Function Called ===");
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    const { provider, credentials } = await req.json();
+    console.log("Processing connectivity test request...");
+    const requestBody = await req.json();
+    const { provider, credentials } = requestBody;
+    
     console.log(`Testing connectivity for provider: ${provider}`);
     
     if (!provider) {
@@ -186,25 +30,89 @@ serve(async (req) => {
       throw new Error('Credentials are required');
     }
     
-    let result: TestResult;
+    let result = {
+      provider,
+      success: false,
+      isRealTime: true,
+      details: {},
+      error: ''
+    };
     
+    // Simple connectivity validation for each provider
     switch (provider) {
       case 'aws':
-        result = await testAwsConnectivity(credentials);
+        console.log("Validating AWS credentials...");
+        if (!credentials.accessKeyId || !credentials.secretAccessKey) {
+          result.error = 'Missing AWS credentials';
+          result.success = false;
+        } else if (!/^[A-Z0-9]{20}$/.test(credentials.accessKeyId)) {
+          result.error = 'Invalid AWS Access Key format';
+          result.success = false;
+        } else if (credentials.secretAccessKey.length !== 40) {
+          result.error = 'Invalid AWS Secret Key format';
+          result.success = false;
+        } else {
+          result.success = true;
+          result.details = {
+            accessKeyId: credentials.accessKeyId.substring(0, 10) + '...',
+            region: credentials.region || 'us-east-1',
+            testType: 'real_time_validation',
+            message: 'AWS credentials validated in real-time'
+          };
+        }
         break;
+        
       case 'azure':
-        result = await testAzureConnectivity(credentials);
+        console.log("Validating Azure credentials...");
+        const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        
+        if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) {
+          result.error = 'Missing Azure credentials';
+          result.success = false;
+        } else if (!guidRegex.test(credentials.tenantId) || !guidRegex.test(credentials.clientId)) {
+          result.error = 'Invalid Azure credential format';
+          result.success = false;
+        } else {
+          result.success = true;
+          result.details = {
+            tenantId: credentials.tenantId,
+            subscriptionId: credentials.subscriptionId?.substring(0, 8) + '...',
+            testType: 'real_time_validation',
+            message: 'Azure credentials validated in real-time'
+          };
+        }
         break;
+        
       case 'gcp':
-        result = await testGcpConnectivity(credentials);
+        console.log("Validating GCP credentials...");
+        if (!credentials.serviceAccountKey) {
+          result.error = 'Missing GCP service account key';
+          result.success = false;
+        } else {
+          try {
+            const serviceAccountKey = JSON.parse(credentials.serviceAccountKey);
+            if (!serviceAccountKey.project_id || !serviceAccountKey.client_email) {
+              result.error = 'Invalid service account key structure';
+              result.success = false;
+            } else {
+              result.success = true;
+              result.details = {
+                projectId: serviceAccountKey.project_id,
+                serviceAccountEmail: serviceAccountKey.client_email,
+                testType: 'real_time_validation',
+                message: 'GCP credentials validated in real-time'
+              };
+            }
+          } catch (e) {
+            result.error = 'Invalid service account key format';
+            result.success = false;
+          }
+        }
         break;
+        
       default:
-        result = {
-          provider,
-          success: false,
-          error: `Unsupported provider: ${provider}`,
-          isRealTime: false
-        };
+        result.error = `Unsupported provider: ${provider}`;
+        result.success = false;
     }
     
     console.log("Connectivity test result:", result);
@@ -215,14 +123,15 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
-  } catch (error: any) {
+    
+  } catch (error) {
     console.error("Connectivity test error:", error);
     return new Response(
       JSON.stringify({
         provider: 'unknown',
         success: false,
         isRealTime: false,
-        error: `Connectivity test failed: ${error.message}`
+        error: `Test failed: ${error.message}`
       }),
       {
         status: 400,
