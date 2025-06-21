@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { CloudProvider } from './types';
 import { getAccountCredentials } from './accountService';
@@ -18,7 +17,7 @@ export const testCloudConnectivity = async (
   provider: CloudProvider
 ): Promise<ConnectivityTestResult> => {
   try {
-    console.log(`Starting real-time connectivity test for account: ${accountId}, provider: ${provider}`);
+    console.log(`Starting connectivity test for account: ${accountId}, provider: ${provider}`);
     
     // Get account credentials
     const credentials = await getAccountCredentials(accountId);
@@ -31,9 +30,9 @@ export const testCloudConnectivity = async (
       };
     }
     
-    console.log(`Found credentials for ${provider}, attempting real-time API test...`);
+    console.log(`Found credentials for ${provider}, testing...`);
     
-    // Try real-time edge function test with improved timeout and error handling
+    // Try edge function test with timeout
     try {
       const { data, error } = await Promise.race([
         supabase.functions.invoke('test-connectivity', {
@@ -43,42 +42,37 @@ export const testCloudConnectivity = async (
           }
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Real-time API test timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('Edge function timeout')), 8000)
         )
       ]) as any;
       
       if (error) {
-        console.warn('Real-time test failed:', error);
-        console.log('Falling back to credential validation...');
+        console.warn('Edge function test failed:', error);
         return await performValidationFallback(provider, accountId, credentials);
       }
       
       if (data && data.success) {
-        console.log('Real-time connectivity test successful:', data);
-        
+        console.log('Edge function test successful:', data);
         return {
           provider,
           success: true,
           details: {
             ...data.details,
-            isRealTime: true,
-            testType: 'live_api_test'
+            isRealTime: true
           },
-          error: data.error,
           isRealTime: true
         };
       } else {
-        console.warn('Real-time test returned unsuccessful result:', data);
+        console.warn('Edge function returned unsuccessful result:', data);
         return {
           provider,
           success: false,
-          error: data?.error || 'Real-time API test failed',
-          isRealTime: true
+          error: data?.error || 'Edge function test failed',
+          isRealTime: false
         };
       }
     } catch (edgeFunctionError: any) {
-      console.warn('Edge function unavailable for real-time test:', edgeFunctionError.message);
-      console.log('Falling back to credential validation...');
+      console.warn('Edge function unavailable:', edgeFunctionError.message);
       return await performValidationFallback(provider, accountId, credentials);
     }
   } catch (error: any) {
