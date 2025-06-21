@@ -12,7 +12,7 @@ export interface ConnectivityTestResult {
   isRealTime?: boolean;
 }
 
-// Enhanced real-time connectivity test
+// Enhanced real-time connectivity test with better error handling
 export const testCloudConnectivity = async (
   accountId: string,
   provider: CloudProvider
@@ -31,9 +31,9 @@ export const testCloudConnectivity = async (
       };
     }
     
-    console.log(`Found credentials for ${provider}, attempting real-time test...`);
+    console.log(`Found credentials for ${provider}, attempting real-time API test...`);
     
-    // Try real-time edge function test with shorter timeout for better UX
+    // Try real-time edge function test with improved timeout and error handling
     try {
       const { data, error } = await Promise.race([
         supabase.functions.invoke('test-connectivity', {
@@ -43,30 +43,42 @@ export const testCloudConnectivity = async (
           }
         }),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Real-time test timeout')), 8000)
+          setTimeout(() => reject(new Error('Real-time API test timeout after 10 seconds')), 10000)
         )
       ]) as any;
       
       if (error) {
-        console.warn('Real-time test failed, falling back to validation:', error);
+        console.warn('Real-time test failed:', error);
+        console.log('Falling back to credential validation...');
         return await performValidationFallback(provider, accountId, credentials);
       }
       
-      console.log('Real-time connectivity test successful:', data);
-      
-      return {
-        provider,
-        success: data.success,
-        details: {
-          ...data.details,
-          isRealTime: true,
-          testType: 'live_api_test'
-        },
-        error: data.error,
-        isRealTime: true
-      };
+      if (data && data.success) {
+        console.log('Real-time connectivity test successful:', data);
+        
+        return {
+          provider,
+          success: true,
+          details: {
+            ...data.details,
+            isRealTime: true,
+            testType: 'live_api_test'
+          },
+          error: data.error,
+          isRealTime: true
+        };
+      } else {
+        console.warn('Real-time test returned unsuccessful result:', data);
+        return {
+          provider,
+          success: false,
+          error: data?.error || 'Real-time API test failed',
+          isRealTime: true
+        };
+      }
     } catch (edgeFunctionError: any) {
-      console.warn('Real-time test unavailable, using validation fallback:', edgeFunctionError.message);
+      console.warn('Edge function unavailable for real-time test:', edgeFunctionError.message);
+      console.log('Falling back to credential validation...');
       return await performValidationFallback(provider, accountId, credentials);
     }
   } catch (error: any) {
@@ -80,7 +92,7 @@ export const testCloudConnectivity = async (
   }
 };
 
-// Enhanced fallback validation
+// Enhanced fallback validation with better messaging
 const performValidationFallback = async (
   provider: CloudProvider,
   accountId: string,
@@ -105,10 +117,11 @@ const performValidationFallback = async (
         details: {
           fallbackMode: true,
           testType: 'credential_validation',
-          message: 'Credentials format validated (real-time API test unavailable)',
+          message: 'Credentials validated. Real-time API test unavailable - check edge function logs.',
           accessKeyId: credentials.accessKeyId?.substring(0, 10) + '...',
           region: credentials.region || 'us-east-1',
-          accountId: awsValidation.accountId
+          accountId: awsValidation.accountId,
+          note: 'For real-time testing, ensure edge functions are working properly.'
         },
         isRealTime: false
       };
@@ -129,9 +142,10 @@ const performValidationFallback = async (
         details: {
           fallbackMode: true,
           testType: 'credential_validation',
-          message: 'Credentials format validated (real-time API test unavailable)',
+          message: 'Credentials validated. Real-time API test unavailable - check edge function logs.',
           tenantId: azureValidation.tenantId,
-          subscriptionId: azureValidation.subscriptionId?.substring(0, 8) + '...'
+          subscriptionId: azureValidation.subscriptionId?.substring(0, 8) + '...',
+          note: 'For real-time testing, ensure edge functions are working properly.'
         },
         isRealTime: false
       };
@@ -152,9 +166,10 @@ const performValidationFallback = async (
         details: {
           fallbackMode: true,
           testType: 'credential_validation',
-          message: 'Credentials format validated (real-time API test unavailable)',
+          message: 'Credentials validated. Real-time API test unavailable - check edge function logs.',
           projectId: gcpValidation.projectId,
-          serviceAccountEmail: gcpValidation.serviceAccountEmail
+          serviceAccountEmail: gcpValidation.serviceAccountEmail,
+          note: 'For real-time testing, ensure edge functions are working properly.'
         },
         isRealTime: false
       };
@@ -213,7 +228,7 @@ export const testAllConnectedAccounts = async (): Promise<ConnectivityTestResult
   }
 };
 
-// Real-time status monitoring (can be extended for WebSocket support)
+// Real-time status monitoring with improved intervals
 export const startRealTimeMonitoring = (
   accountId: string,
   provider: CloudProvider,
@@ -224,10 +239,20 @@ export const startRealTimeMonitoring = (
   // Initial test
   testCloudConnectivity(accountId, provider).then(onStatusChange);
   
-  // Set up periodic testing (every 30 seconds)
+  // Set up periodic testing (every 30 seconds for real-time monitoring)
   const interval = setInterval(async () => {
-    const result = await testCloudConnectivity(accountId, provider);
-    onStatusChange(result);
+    try {
+      const result = await testCloudConnectivity(accountId, provider);
+      onStatusChange(result);
+    } catch (error) {
+      console.error('Real-time monitoring error:', error);
+      onStatusChange({
+        provider,
+        success: false,
+        error: 'Monitoring failed',
+        isRealTime: false
+      });
+    }
   }, 30000);
   
   // Return cleanup function

@@ -18,10 +18,11 @@ interface TestResult {
   success: boolean;
   details?: any;
   error?: string;
+  isRealTime: boolean;
 }
 
 const testAwsConnectivity = async (credentials: any): Promise<TestResult> => {
-  console.log("Testing AWS connectivity...");
+  console.log("Testing AWS connectivity with real-time API calls...");
   
   try {
     // Validate required credentials
@@ -29,11 +30,12 @@ const testAwsConnectivity = async (credentials: any): Promise<TestResult> => {
       return {
         provider: 'aws',
         success: false,
-        error: 'Missing required AWS credentials (accessKeyId or secretAccessKey)'
+        error: 'Missing required AWS credentials (accessKeyId or secretAccessKey)',
+        isRealTime: false
       };
     }
 
-    // Test 1: Basic credential validation with STS
+    // Test with STS - this is a real API call
     const stsConfig = {
       region: credentials.region || 'us-east-1',
       credentials: {
@@ -47,63 +49,69 @@ const testAwsConnectivity = async (credentials: any): Promise<TestResult> => {
     const stsCommand = new GetCallerIdentityCommand({});
     const stsResponse = await stsClient.send(stsCommand);
     
-    console.log("AWS STS test successful:", stsResponse);
+    console.log("AWS STS real-time test successful:", stsResponse);
     
-    // Test 2: Basic EC2 permissions check
+    // Try EC2 permissions check as well
     try {
       const ec2Client = new EC2Client(stsConfig);
       const ec2Command = new DescribeInstancesCommand({ MaxResults: 5 });
       const ec2Response = await ec2Client.send(ec2Command);
       
-      console.log("AWS EC2 test successful. Found reservations:", ec2Response.Reservations?.length || 0);
+      console.log("AWS EC2 real-time test successful. Found reservations:", ec2Response.Reservations?.length || 0);
       
       return {
         provider: 'aws',
         success: true,
+        isRealTime: true,
         details: {
           accountId: stsResponse.Account,
           userId: stsResponse.UserId,
           arn: stsResponse.Arn,
           region: credentials.region || 'us-east-1',
           ec2Reservations: ec2Response.Reservations?.length || 0,
-          hasEc2Access: true
+          hasEc2Access: true,
+          testType: 'live_api_test'
         }
       };
     } catch (ec2Error: any) {
       console.log("EC2 access limited, but STS successful:", ec2Error.message);
-      // STS worked, but EC2 might not have permissions - that's still a valid connection
+      // STS worked, but EC2 might not have permissions - that's still a valid real-time connection
       return {
         provider: 'aws',
         success: true,
+        isRealTime: true,
         details: {
           accountId: stsResponse.Account,
           userId: stsResponse.UserId,
           arn: stsResponse.Arn,
           region: credentials.region || 'us-east-1',
           hasEc2Access: false,
-          ec2Warning: 'Limited EC2 permissions, but connection is valid'
+          ec2Warning: 'Limited EC2 permissions, but real-time connection is valid',
+          testType: 'live_api_test'
         }
       };
     }
   } catch (error: any) {
-    console.error("AWS connectivity test failed:", error);
+    console.error("AWS real-time connectivity test failed:", error);
     return {
       provider: 'aws',
       success: false,
-      error: `AWS connectivity failed: ${error.message}`
+      isRealTime: false,
+      error: `AWS real-time test failed: ${error.message}`
     };
   }
 };
 
 const testAzureConnectivity = async (credentials: any): Promise<TestResult> => {
-  console.log("Testing Azure connectivity...");
+  console.log("Testing Azure connectivity with real-time API calls...");
   
   try {
     if (!credentials.tenantId || !credentials.clientId || !credentials.clientSecret) {
       return {
         provider: 'azure',
         success: false,
-        error: 'Missing required Azure credentials (tenantId, clientId, or clientSecret)'
+        error: 'Missing required Azure credentials (tenantId, clientId, or clientSecret)',
+        isRealTime: false
       };
     }
 
@@ -118,46 +126,51 @@ const testAzureConnectivity = async (credentials: any): Promise<TestResult> => {
       return {
         provider: 'azure',
         success: false,
-        error: 'Missing Azure subscription ID'
+        error: 'Missing Azure subscription ID',
+        isRealTime: false
       };
     }
 
     const resourceClient = new ResourceManagementClient(credential, subscriptionId);
     
-    // Try to list resource groups as a connectivity test
+    // Try to list resource groups as a real-time connectivity test
     const rgIterator = resourceClient.resourceGroups.list();
     const firstResult = await rgIterator.next();
     
-    console.log("Azure connectivity test successful");
+    console.log("Azure real-time connectivity test successful");
     
     return {
       provider: 'azure',
       success: true,
+      isRealTime: true,
       details: {
         tenantId: credentials.tenantId,
         subscriptionId: subscriptionId,
-        hasResourceGroups: !firstResult.done
+        hasResourceGroups: !firstResult.done,
+        testType: 'live_api_test'
       }
     };
   } catch (error: any) {
-    console.error("Azure connectivity test failed:", error);
+    console.error("Azure real-time connectivity test failed:", error);
     return {
       provider: 'azure',
       success: false,
-      error: `Azure connectivity failed: ${error.message}`
+      isRealTime: false,
+      error: `Azure real-time test failed: ${error.message}`
     };
   }
 };
 
 const testGcpConnectivity = async (credentials: any): Promise<TestResult> => {
-  console.log("Testing GCP connectivity...");
+  console.log("Testing GCP connectivity with real-time API calls...");
   
   try {
     if (!credentials.serviceAccountKey) {
       return {
         provider: 'gcp',
         success: false,
-        error: 'Missing GCP service account key'
+        error: 'Missing GCP service account key',
+        isRealTime: false
       };
     }
 
@@ -168,33 +181,36 @@ const testGcpConnectivity = async (credentials: any): Promise<TestResult> => {
       scopes: ['https://www.googleapis.com/auth/cloud-platform.read-only']
     });
     
-    // Test getting an access token
+    // Test getting an access token - this is a real API call
     const client = await auth.getClient();
     const accessToken = await client.getAccessToken();
     
-    console.log("GCP connectivity test successful");
+    console.log("GCP real-time connectivity test successful");
     
     return {
       provider: 'gcp',
       success: true,
+      isRealTime: true,
       details: {
         projectId: serviceAccountKey.project_id,
         serviceAccountEmail: serviceAccountKey.client_email,
-        hasAccessToken: !!accessToken
+        hasAccessToken: !!accessToken.token,
+        testType: 'live_api_test'
       }
     };
   } catch (error: any) {
-    console.error("GCP connectivity test failed:", error);
+    console.error("GCP real-time connectivity test failed:", error);
     return {
       provider: 'gcp',
       success: false,
-      error: `GCP connectivity failed: ${error.message}`
+      isRealTime: false,
+      error: `GCP real-time test failed: ${error.message}`
     };
   }
 };
 
 serve(async (req) => {
-  console.log("Test connectivity function called");
+  console.log("Real-time connectivity test function called");
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -202,7 +218,7 @@ serve(async (req) => {
   
   try {
     const { provider, credentials } = await req.json();
-    console.log(`Testing connectivity for provider: ${provider}`);
+    console.log(`Testing real-time connectivity for provider: ${provider}`);
     
     if (!provider) {
       throw new Error('Provider is required');
@@ -228,11 +244,12 @@ serve(async (req) => {
         result = {
           provider,
           success: false,
-          error: `Unsupported provider: ${provider}`
+          error: `Unsupported provider: ${provider}`,
+          isRealTime: false
         };
     }
     
-    console.log("Connectivity test result:", result);
+    console.log("Real-time connectivity test result:", result);
     
     return new Response(
       JSON.stringify(result),
@@ -241,11 +258,13 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Test connectivity error:", error);
+    console.error("Real-time connectivity test error:", error);
     return new Response(
       JSON.stringify({
+        provider: 'unknown',
         success: false,
-        error: `Test connectivity failed: ${error.message}`
+        isRealTime: false,
+        error: `Real-time connectivity test failed: ${error.message}`
       }),
       {
         status: 400,
