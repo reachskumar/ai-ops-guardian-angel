@@ -29,6 +29,7 @@ import {
 // Import new management components
 import ResourceManagementPanel from '@/components/cloud/ResourceManagementPanel';
 import RealTimeResourceMonitor from '@/components/cloud/RealTimeResourceMonitor';
+import EdgeFunctionDebugger from '@/components/cloud/EdgeFunctionDebugger';
 
 // Import ResourceProvisioningDialog
 import ResourceProvisioningDialog from '@/components/cloud/ResourceProvisioningDialog';
@@ -191,6 +192,9 @@ const CloudResourcesPage: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {/* Edge Function Debugger - Only show in management mode */}
+          {managementMode && <EdgeFunctionDebugger />}
 
           {/* Error Alert */}
           <ConnectionErrorAlert 

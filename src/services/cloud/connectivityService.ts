@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { CloudProvider } from './types';
 import { getAccountCredentials } from './accountService';
@@ -11,13 +12,13 @@ export interface ConnectivityTestResult {
   isRealTime?: boolean;
 }
 
-// Enhanced real-time connectivity test with better error handling
+// Real-time connectivity test with actual cloud provider APIs
 export const testCloudConnectivity = async (
   accountId: string,
   provider: CloudProvider
 ): Promise<ConnectivityTestResult> => {
   try {
-    console.log(`Starting connectivity test for account: ${accountId}, provider: ${provider}`);
+    console.log(`Starting real connectivity test for account: ${accountId}, provider: ${provider}`);
     
     // Get account credentials
     const credentials = await getAccountCredentials(accountId);
@@ -30,10 +31,10 @@ export const testCloudConnectivity = async (
       };
     }
     
-    console.log(`Found credentials for ${provider}, attempting real-time test...`);
+    console.log(`Found credentials for ${provider}, attempting real API test...`);
     
     try {
-      console.log("Calling edge function for real-time test...");
+      console.log("Calling edge function for real API connectivity test...");
       
       const { data, error } = await supabase.functions.invoke('test-connectivity', {
         body: {
@@ -43,36 +44,37 @@ export const testCloudConnectivity = async (
       });
       
       if (error) {
-        console.warn('Edge function error:', error);
-        // Fall back to local validation
-        return await performValidationFallback(provider, accountId, credentials);
+        console.error('Edge function error:', error);
+        // Fall back to local validation with detailed error info
+        return await performValidationFallback(provider, accountId, credentials, `Edge function error: ${error.message}`);
       }
       
       if (data && data.success) {
-        console.log('Real-time test successful:', data);
+        console.log('Real API test successful:', data);
         return {
           provider,
           success: true,
           details: {
             ...data.details,
-            isRealTime: true
+            isRealTime: true,
+            timestamp: new Date().toISOString()
           },
           isRealTime: true
         };
       } else {
-        console.warn('Real-time test returned unsuccessful result:', data);
+        console.warn('Real API test returned unsuccessful result:', data);
         return {
           provider,
           success: false,
-          error: data?.error || 'Real-time test failed',
+          error: data?.error || 'Real API connectivity test failed',
           isRealTime: true
         };
       }
       
-    } catch (edgeFunctionError) {
-      console.warn('Edge function call failed:', edgeFunctionError);
-      // Fall back to local validation
-      return await performValidationFallback(provider, accountId, credentials);
+    } catch (edgeFunctionError: any) {
+      console.error('Edge function call failed:', edgeFunctionError);
+      // Fall back to local validation with detailed error info
+      return await performValidationFallback(provider, accountId, credentials, `Edge function unreachable: ${edgeFunctionError.message}`);
     }
     
   } catch (error: any) {
@@ -86,13 +88,15 @@ export const testCloudConnectivity = async (
   }
 };
 
-// Enhanced fallback validation with better messaging
+// Enhanced fallback validation with better error messaging
 const performValidationFallback = async (
   provider: CloudProvider,
   accountId: string,
-  credentials: Record<string, string>
+  credentials: Record<string, string>,
+  fallbackReason: string
 ): Promise<ConnectivityTestResult> => {
   console.log(`Performing validation fallback for ${provider} with account ID: ${accountId}`);
+  console.log(`Fallback reason: ${fallbackReason}`);
   
   switch (provider) {
     case 'aws':
@@ -110,12 +114,13 @@ const performValidationFallback = async (
         success: true,
         details: {
           fallbackMode: true,
-          testType: 'credential_validation',
-          message: 'Credentials validated locally. Real-time API test unavailable.',
-          accessKeyId: credentials.accessKeyId?.substring(0, 10) + '...',
+          testType: 'credential_format_validation',
+          message: 'Credentials format validated locally. Real API test unavailable.',
+          accessKeyId: credentials.accessKeyId?.substring(0, 10) + '***',
           region: credentials.region || 'us-east-1',
           accountId: awsValidation.accountId,
-          note: 'Edge function unavailable - using local validation'
+          fallbackReason: fallbackReason,
+          note: 'To enable real-time API testing, ensure edge functions are properly deployed and accessible.'
         },
         isRealTime: false
       };
@@ -135,11 +140,12 @@ const performValidationFallback = async (
         success: true,
         details: {
           fallbackMode: true,
-          testType: 'credential_validation',
-          message: 'Credentials validated locally. Real-time API test unavailable.',
+          testType: 'credential_format_validation',
+          message: 'Credentials format validated locally. Real API test unavailable.',
           tenantId: azureValidation.tenantId,
-          subscriptionId: azureValidation.subscriptionId?.substring(0, 8) + '...',
-          note: 'Edge function unavailable - using local validation'
+          subscriptionId: azureValidation.subscriptionId?.substring(0, 8) + '***',
+          fallbackReason: fallbackReason,
+          note: 'To enable real-time API testing, ensure edge functions are properly deployed and accessible.'
         },
         isRealTime: false
       };
@@ -159,11 +165,12 @@ const performValidationFallback = async (
         success: true,
         details: {
           fallbackMode: true,
-          testType: 'credential_validation',
-          message: 'Credentials validated locally. Real-time API test unavailable.',
+          testType: 'credential_format_validation',
+          message: 'Credentials format validated locally. Real API test unavailable.',
           projectId: gcpValidation.projectId,
           serviceAccountEmail: gcpValidation.serviceAccountEmail,
-          note: 'Edge function unavailable - using local validation'
+          fallbackReason: fallbackReason,
+          note: 'To enable real-time API testing, ensure edge functions are properly deployed and accessible.'
         },
         isRealTime: false
       };
@@ -222,7 +229,6 @@ export const testAllConnectedAccounts = async (): Promise<ConnectivityTestResult
   }
 };
 
-// Real-time status monitoring with improved intervals
 export const startRealTimeMonitoring = (
   accountId: string,
   provider: CloudProvider,
