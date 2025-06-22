@@ -4,17 +4,22 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
 };
 
 serve(async (req) => {
   console.log("=== Test Connectivity Function Called ===");
   console.log("Request method:", req.method);
   console.log("Request URL:", req.url);
+  console.log("Headers:", Object.fromEntries(req.headers.entries()));
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     console.log("Handling CORS preflight request");
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders 
+    });
   }
   
   try {
@@ -22,7 +27,9 @@ serve(async (req) => {
     
     let requestBody;
     try {
-      requestBody = await req.json();
+      const bodyText = await req.text();
+      console.log("Raw request body:", bodyText);
+      requestBody = JSON.parse(bodyText);
     } catch (parseError) {
       console.error("Failed to parse request body:", parseError);
       return new Response(
@@ -41,14 +48,38 @@ serve(async (req) => {
     
     const { provider, credentials } = requestBody;
     console.log(`Testing connectivity for provider: ${provider}`);
-    console.log("Credentials keys:", credentials ? Object.keys(credentials) : 'No credentials');
+    console.log("Credentials received:", credentials ? Object.keys(credentials) : 'No credentials');
     
     if (!provider) {
-      throw new Error('Provider is required');
+      console.error("No provider specified");
+      return new Response(
+        JSON.stringify({
+          provider: 'unknown',
+          success: false,
+          isRealTime: false,
+          error: 'Provider is required'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
     }
 
     if (!credentials || Object.keys(credentials).length === 0) {
-      throw new Error('Credentials are required');
+      console.error("No credentials provided");
+      return new Response(
+        JSON.stringify({
+          provider,
+          success: false,
+          isRealTime: false,
+          error: 'Credentials are required'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
+        }
+      );
     }
     
     let result = {
@@ -77,6 +108,7 @@ serve(async (req) => {
         break;
         
       default:
+        console.error(`Unsupported provider: ${provider}`);
         result.error = `Unsupported provider: ${provider}`;
         result.success = false;
     }
@@ -86,6 +118,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(result),
       {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
@@ -110,9 +143,11 @@ serve(async (req) => {
 // Real AWS connectivity testing using AWS STS API
 async function testAwsConnectivity(credentials: Record<string, string>) {
   try {
+    console.log("Starting AWS connectivity test...");
     const { accessKeyId, secretAccessKey, region = 'us-east-1' } = credentials;
     
     if (!accessKeyId || !secretAccessKey) {
+      console.error("Missing AWS credentials");
       return {
         provider: 'aws',
         success: false,
@@ -120,6 +155,8 @@ async function testAwsConnectivity(credentials: Record<string, string>) {
         error: 'Missing AWS credentials (accessKeyId, secretAccessKey)'
       };
     }
+    
+    console.log(`Testing with Access Key: ${accessKeyId.substring(0, 10)}...`);
     
     // Create AWS signature for STS GetCallerIdentity
     const service = 'sts';
@@ -130,11 +167,14 @@ async function testAwsConnectivity(credentials: Record<string, string>) {
     const dateStamp = now.toISOString().slice(0, 10).replace(/-/g, '');
     const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '');
     
+    console.log(`Making request to AWS STS: ${endpoint}`);
+    
     // Create canonical request
     const method = 'POST';
     const canonicalUri = '/';
     const canonicalQuerystring = '';
-    const payloadHash = await sha256('Action=GetCallerIdentity&Version=2011-06-15');
+    const payload = 'Action=GetCallerIdentity&Version=2011-06-15';
+    const payloadHash = await sha256(payload);
     
     const canonicalHeaders = [
       `host:${host}`,
@@ -169,25 +209,30 @@ async function testAwsConnectivity(credentials: Record<string, string>) {
     // Create authorization header
     const authorizationHeader = `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
     
+    console.log("Making authenticated request to AWS STS...");
+    
     // Make the API call
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Authorization': authorizationHeader,
-        'Content-Type': 'application/x-amz-target-1.1',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
         'X-Amz-Date': amzDate,
-        'X-Amz-Target': 'AWSSecurityTokenServiceV20110615.GetCallerIdentity'
+        'Host': host
       },
-      body: 'Action=GetCallerIdentity&Version=2011-06-15'
+      body: payload
     });
+    
+    console.log(`AWS STS Response status: ${response.status}`);
     
     if (response.ok) {
       const data = await response.text();
-      console.log("AWS STS response:", data);
+      console.log("AWS STS response received successfully");
       
       // Extract account ID from response
       const accountMatch = data.match(/<Account>(\d+)<\/Account>/);
       const userIdMatch = data.match(/<UserId>([^<]+)<\/UserId>/);
+      const arnMatch = data.match(/<Arn>([^<]+)<\/Arn>/);
       
       return {
         provider: 'aws',
@@ -196,9 +241,11 @@ async function testAwsConnectivity(credentials: Record<string, string>) {
         details: {
           accountId: accountMatch ? accountMatch[1] : 'Unknown',
           userId: userIdMatch ? userIdMatch[1] : 'Unknown',
+          arn: arnMatch ? arnMatch[1] : 'Unknown',
           region: region,
           testType: 'real_api_call',
-          message: 'Successfully authenticated with AWS STS API'
+          message: 'Successfully authenticated with AWS STS API',
+          accessKeyId: accessKeyId.substring(0, 10) + '***'
         }
       };
     } else {
@@ -209,7 +256,7 @@ async function testAwsConnectivity(credentials: Record<string, string>) {
         provider: 'aws',
         success: false,
         isRealTime: true,
-        error: `AWS API error: ${response.status} - ${errorText}`
+        error: `AWS API error (${response.status}): ${errorText.substring(0, 200)}`
       };
     }
     
@@ -227,6 +274,7 @@ async function testAwsConnectivity(credentials: Record<string, string>) {
 // Real Azure connectivity testing using Azure Resource Manager API
 async function testAzureConnectivity(credentials: Record<string, string>) {
   try {
+    console.log("Starting Azure connectivity test...");
     const { tenantId, clientId, clientSecret, subscriptionId } = credentials;
     
     if (!tenantId || !clientId || !clientSecret) {
@@ -238,6 +286,8 @@ async function testAzureConnectivity(credentials: Record<string, string>) {
       };
     }
     
+    console.log(`Testing Azure with Tenant: ${tenantId}`);
+    
     // Get access token from Azure AD
     const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const tokenParams = new URLSearchParams({
@@ -246,6 +296,8 @@ async function testAzureConnectivity(credentials: Record<string, string>) {
       client_secret: clientSecret,
       scope: 'https://management.azure.com/.default'
     });
+    
+    console.log("Getting Azure access token...");
     
     const tokenResponse = await fetch(tokenEndpoint, {
       method: 'POST',
@@ -262,12 +314,14 @@ async function testAzureConnectivity(credentials: Record<string, string>) {
         provider: 'azure',
         success: false,
         isRealTime: true,
-        error: `Azure authentication failed: ${tokenResponse.status}`
+        error: `Azure authentication failed (${tokenResponse.status}): ${errorText.substring(0, 200)}`
       };
     }
     
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
+    
+    console.log("Azure access token obtained, testing API...");
     
     // Test API call to get subscription info (if provided) or just verify token works
     let apiTestUrl = 'https://management.azure.com/subscriptions?api-version=2020-01-01';
@@ -284,7 +338,7 @@ async function testAzureConnectivity(credentials: Record<string, string>) {
     
     if (apiResponse.ok) {
       const data = await apiResponse.json();
-      console.log("Azure API response:", data);
+      console.log("Azure API test successful");
       
       return {
         provider: 'azure',
@@ -305,7 +359,7 @@ async function testAzureConnectivity(credentials: Record<string, string>) {
         provider: 'azure',
         success: false,
         isRealTime: true,
-        error: `Azure API error: ${apiResponse.status}`
+        error: `Azure API error (${apiResponse.status}): ${errorText.substring(0, 200)}`
       };
     }
     
@@ -323,6 +377,7 @@ async function testAzureConnectivity(credentials: Record<string, string>) {
 // Real GCP connectivity testing using Google Cloud Resource Manager API
 async function testGcpConnectivity(credentials: Record<string, string>) {
   try {
+    console.log("Starting GCP connectivity test...");
     const { serviceAccountKey } = credentials;
     
     if (!serviceAccountKey) {
@@ -342,7 +397,7 @@ async function testGcpConnectivity(credentials: Record<string, string>) {
         provider: 'gcp',
         success: false,
         isRealTime: true,
-        error: 'Invalid service account key format'
+        error: 'Invalid service account key format - must be valid JSON'
       };
     }
     
@@ -353,62 +408,20 @@ async function testGcpConnectivity(credentials: Record<string, string>) {
         provider: 'gcp',
         success: false,
         isRealTime: true,
-        error: 'Invalid service account key - missing required fields'
+        error: 'Invalid service account key - missing required fields (client_email, private_key, project_id)'
       };
     }
     
-    // Create JWT for Google Cloud API authentication
-    const now = Math.floor(Date.now() / 1000);
-    const header = {
-      alg: 'RS256',
-      typ: 'JWT'
+    console.log(`Testing GCP with Project: ${project_id}`);
+    
+    // For now, return a simulated success since proper JWT signing is complex
+    // In a production environment, you'd implement proper JWT signing with the private key
+    return {
+      provider: 'gcp',
+      success: false,
+      isRealTime: true,
+      error: 'GCP real-time testing not fully implemented yet - JWT signing required'
     };
-    
-    const payload = {
-      iss: client_email,
-      scope: 'https://www.googleapis.com/auth/cloud-platform',
-      aud: 'https://oauth2.googleapis.com/token',
-      exp: now + 3600,
-      iat: now
-    };
-    
-    // For simplicity, we'll make a basic API call to test connectivity
-    // In a real implementation, you'd use proper JWT signing with the private key
-    
-    // Test with a simple API call using the service account
-    const apiResponse = await fetch(`https://cloudresourcemanager.googleapis.com/v1/projects/${project_id}`, {
-      headers: {
-        'Authorization': `Bearer ${await getGcpAccessToken(parsedKey)}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (apiResponse.ok) {
-      const data = await apiResponse.json();
-      console.log("GCP API response:", data);
-      
-      return {
-        provider: 'gcp',
-        success: true,
-        isRealTime: true,
-        details: {
-          projectId: project_id,
-          serviceAccountEmail: client_email,
-          testType: 'real_api_call',
-          message: 'Successfully authenticated with Google Cloud Resource Manager API'
-        }
-      };
-    } else {
-      const errorText = await apiResponse.text();
-      console.error("GCP API error:", apiResponse.status, errorText);
-      
-      return {
-        provider: 'gcp',
-        success: false,
-        isRealTime: true,
-        error: `GCP API error: ${apiResponse.status}`
-      };
-    }
     
   } catch (error) {
     console.error("GCP connectivity test error:", error);
@@ -419,13 +432,6 @@ async function testGcpConnectivity(credentials: Record<string, string>) {
       error: `GCP test failed: ${error.message}`
     };
   }
-}
-
-// Helper function to get GCP access token (simplified)
-async function getGcpAccessToken(serviceAccount: any): Promise<string> {
-  // This is a simplified version - in production you'd implement proper JWT signing
-  // For now, return a placeholder that will trigger the API error path for testing
-  return 'placeholder-token';
 }
 
 // Crypto helper functions for AWS signatures
