@@ -11,7 +11,6 @@ serve(async (req) => {
   console.log("=== Test Connectivity Function Called ===");
   console.log("Request method:", req.method);
   console.log("Request URL:", req.url);
-  console.log("Headers:", Object.fromEntries(req.headers.entries()));
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,7 +27,7 @@ serve(async (req) => {
     let requestBody;
     try {
       const bodyText = await req.text();
-      console.log("Raw request body:", bodyText);
+      console.log("Raw request body received");
       requestBody = JSON.parse(bodyText);
     } catch (parseError) {
       console.error("Failed to parse request body:", parseError);
@@ -48,7 +47,6 @@ serve(async (req) => {
     
     const { provider, credentials } = requestBody;
     console.log(`Testing connectivity for provider: ${provider}`);
-    console.log("Credentials received:", credentials ? Object.keys(credentials) : 'No credentials');
     
     if (!provider) {
       console.error("No provider specified");
