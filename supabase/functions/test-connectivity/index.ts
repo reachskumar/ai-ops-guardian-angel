@@ -8,9 +8,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log(`Test connectivity function called: ${req.method} ${req.url}`);
+  console.log(`Function called: ${req.method} ${req.url}`);
   
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
       status: 200,
@@ -19,22 +18,19 @@ serve(async (req) => {
   }
   
   try {
-    // Simple response for any method
     return new Response(
       JSON.stringify({
         success: true,
         message: "Test connectivity function is working!",
-        timestamp: new Date().toISOString(),
-        method: req.method
+        timestamp: new Date().toISOString()
       }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
-    
-  } catch (error) {
-    console.error("Function error:", error);
+  } catch (error: any) {
+    console.error("Error:", error);
     return new Response(
       JSON.stringify({
         success: false,
