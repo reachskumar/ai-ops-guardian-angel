@@ -71,7 +71,8 @@ export const withRetry = async <T>(
       // Add jitter to prevent thundering herd
       const jitteredDelay = delay + Math.random() * 1000;
 
-      console.warn(`Operation failed, retrying in ${jitteredDelay}ms. Attempt ${attempt}/${maxAttempts}:`, error);
+      const errorMessage = error?.message || 'Unknown error';
+      console.warn(`Operation failed, retrying in ${jitteredDelay}ms. Attempt ${attempt}/${maxAttempts}:`, errorMessage);
       
       await new Promise(resolve => setTimeout(resolve, jitteredDelay));
     }
@@ -82,10 +83,14 @@ export const withRetry = async <T>(
 
 // Error logging utility
 export const logError = (error: Error, context: ErrorContext): void => {
+  const errorMessage = error?.message || 'Unknown error occurred';
+  const errorName = error?.name || 'Error';
+  const errorStack = error?.stack || 'No stack trace available';
+  
   const errorLog = {
-    message: error.message,
-    name: error.name,
-    stack: error.stack,
+    message: errorMessage,
+    name: errorName,
+    stack: errorStack,
     context,
     timestamp: new Date().toISOString()
   };
@@ -98,30 +103,36 @@ export const logError = (error: Error, context: ErrorContext): void => {
 
 // Network error detection
 export const isNetworkError = (error: any): boolean => {
+  const errorMessage = error?.message || '';
   return (
     error instanceof TypeError ||
-    error.message?.includes('fetch') ||
-    error.message?.includes('network') ||
-    error.code === 'NETWORK_ERROR' ||
-    (error.status >= 500 && error.status < 600) ||
-    error.status === 408 || // Request Timeout
-    error.status === 429    // Too Many Requests
+    errorMessage.includes('fetch') ||
+    errorMessage.includes('network') ||
+    error?.code === 'NETWORK_ERROR' ||
+    (error?.status >= 500 && error?.status < 600) ||
+    error?.status === 408 || // Request Timeout
+    error?.status === 429    // Too Many Requests
   );
 };
 
 // Authentication error detection
 export const isAuthError = (error: any): boolean => {
+  const errorMessage = error?.message || '';
   return (
-    error.status === 401 ||
-    error.status === 403 ||
-    error.message?.includes('unauthorized') ||
-    error.message?.includes('authentication') ||
-    error.message?.includes('invalid_grant')
+    error?.status === 401 ||
+    error?.status === 403 ||
+    errorMessage.includes('unauthorized') ||
+    errorMessage.includes('authentication') ||
+    errorMessage.includes('invalid_grant')
   );
 };
 
-// Format error messages for user display
-export const formatErrorMessage = (error: Error): string => {
+// Format error messages for user display - ensures string output
+export const formatErrorMessage = (error: Error | any): string => {
+  if (!error) {
+    return 'An unexpected error occurred. Please try again.';
+  }
+
   if (error instanceof AuthenticationError) {
     return 'Authentication failed. Please check your credentials and try again.';
   }
@@ -137,6 +148,28 @@ export const formatErrorMessage = (error: Error): string => {
     return 'Connection error. Please check your internet connection.';
   }
   
-  // Default fallback
-  return error.message || 'An unexpected error occurred. Please try again.';
+  // Ensure we always return a string, never an Error object
+  const errorMessage = error?.message || error?.toString?.() || 'Unknown error';
+  return typeof errorMessage === 'string' ? errorMessage : 'An unexpected error occurred. Please try again.';
+};
+
+// Safe error conversion to string
+export const safeErrorToString = (error: any): string => {
+  if (typeof error === 'string') {
+    return error;
+  }
+  
+  if (error?.message && typeof error.message === 'string') {
+    return error.message;
+  }
+  
+  if (error?.toString && typeof error.toString === 'function') {
+    try {
+      return error.toString();
+    } catch {
+      return 'Error occurred but could not be converted to string';
+    }
+  }
+  
+  return 'Unknown error occurred';
 };

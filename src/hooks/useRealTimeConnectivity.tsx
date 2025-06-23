@@ -32,10 +32,11 @@ export const useRealTimeConnectivity = ({
       return result;
     } catch (error: any) {
       console.error('Connection test error:', error);
+      const errorMessage = error?.message || 'Unknown error occurred';
       const errorResult: ConnectivityTestResult = {
         provider,
         success: false,
-        error: error.message,
+        error: errorMessage,
         isRealTime: false
       };
       setLastResult(errorResult);
@@ -59,9 +60,12 @@ export const useRealTimeConnectivity = ({
       
       // Notify on status changes
       if (lastResult && result.success !== lastResult.success) {
+        const statusMessage = result.success ? 'connected' : 'disconnected';
+        const errorInfo = result.error ? ` (${result.error})` : '';
+        
         toast({
           title: "Connection Status Changed",
-          description: `${accountName} is now ${result.success ? 'connected' : 'disconnected'}`,
+          description: `${accountName} is now ${statusMessage}${errorInfo}`,
           variant: result.success ? "default" : "destructive"
         });
       }
