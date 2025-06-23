@@ -11,6 +11,7 @@ serve(async (req) => {
   console.log("=== Test Connectivity Function Called ===");
   console.log("Request method:", req.method);
   console.log("Request URL:", req.url);
+  console.log("Function deployed and running!");
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
