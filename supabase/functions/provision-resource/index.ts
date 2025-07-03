@@ -466,8 +466,42 @@ serve(async (req) => {
     
     console.log('Provisioning result:', result);
     
+    // Save resource to database if provisioning was successful
+    if (result.success && result.resourceId) {
+      try {
+        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.49.4');
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        const { error: insertError } = await supabase
+          .from('cloud_resources')
+          .insert({
+            cloud_account_id: accountId,
+            resource_id: result.resourceId,
+            name: config.name,
+            type: resourceType,
+            region: config.region,
+            status: 'provisioning',
+            tags: config.tags || {},
+            metadata: result.details || {}
+          });
+        
+        if (insertError) {
+          console.error('Failed to save resource to database:', insertError);
+        } else {
+          console.log('Resource saved to database successfully');
+        }
+      } catch (dbError) {
+        console.error('Database save error:', dbError);
+      }
+    }
+    
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        ...result,
+        message: `Successfully started provisioning ${resourceType}`
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }

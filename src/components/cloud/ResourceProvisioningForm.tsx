@@ -229,6 +229,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
       // Prepare config for the resource
       const resourceConfig = {
         name: data.name,
+        type: data.type,
         size: data.size,
         region: data.region,
         tags: tagsObj,
