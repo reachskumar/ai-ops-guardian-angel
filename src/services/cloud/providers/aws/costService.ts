@@ -1,5 +1,5 @@
 
-// AWS-specific cost analysis
+// AWS-specific cost analysis using real Cost Explorer API
 export const getAwsCostData = async (
   accountId: string,
   timeRange: string = '30d',
@@ -10,24 +10,50 @@ export const getAwsCostData = async (
   error?: string;
 }> => {
   try {
-    // This would use AWS Cost Explorer API in a real implementation
-    console.log(`Getting AWS cost data for account ${accountId} over ${timeRange}`);
+    console.log(`Getting real AWS cost data for account ${accountId} over ${timeRange}`);
     
-    // Generate mock cost data for now
-    const days = parseInt(timeRange.replace('d', ''), 10);
-    const costs = Array(days).fill(0).map((_, i) => ({
-      date: new Date(Date.now() - (days - i - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      amount: Math.random() * 50 + 20,
-      service: ['EC2', 'S3', 'RDS', 'CloudFront'][Math.floor(Math.random() * 4)]
-    }));
+    if (!credentials || !credentials.accessKeyId || !credentials.secretAccessKey) {
+      throw new Error('Missing required AWS credentials (accessKeyId and/or secretAccessKey)');
+    }
+
+    // Use the Supabase edge function for real AWS Cost Explorer integration
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data, error } = await supabase.functions.invoke('get-cloud-costs', {
+      body: { 
+        provider: 'aws',
+        accountId,
+        timeRange,
+        credentials: {
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          region: credentials.region || 'us-east-1',
+          ...(credentials.sessionToken && { sessionToken: credentials.sessionToken })
+        }
+      }
+    });
+
+    if (error) {
+      console.error(`AWS cost data edge function error: ${error.message}`);
+      throw new Error(`Edge function error: ${error.message}`);
+    }
     
-    const total = costs.reduce((sum, day) => sum + day.amount, 0);
+    if (!data || !data.success) {
+      throw new Error('No cost data returned from edge function');
+    }
     
-    return {
-      costs,
-      total: parseFloat(total.toFixed(2))
+    console.log(`Successfully fetched real AWS cost data: $${data.totalCost}`);
+    return { 
+      costs: data.dailyCosts.map((d: any) => ({
+        date: d.date,
+        amount: d.cost,
+        service: d.service || 'Unknown'
+      })),
+      total: data.totalCost
     };
   } catch (error: any) {
+    console.error(`AWS cost data error for ${accountId}:`, error);
+    
+    // Return error instead of fallback for real integration
     return {
       costs: [],
       total: 0,
@@ -36,7 +62,7 @@ export const getAwsCostData = async (
   }
 };
 
-// AWS-specific cost optimization recommendations
+// AWS-specific cost optimization recommendations using real AWS APIs
 export const getAwsOptimizations = async (
   accountId: string,
   credentials?: Record<string, any>
@@ -52,37 +78,51 @@ export const getAwsOptimizations = async (
   error?: string;
 }> => {
   try {
-    // This would use AWS Cost Explorer Recommendations in a real implementation
-    console.log(`Getting AWS optimization recommendations for account ${accountId}`);
+    console.log(`Getting real AWS optimization recommendations for account ${accountId}`);
     
-    // AWS-specific optimizations
-    const recommendations = [
-      {
-        id: 'aws-opt-1',
-        title: 'Right-size EC2 instances',
-        description: 'Identified 3 EC2 instances that can be downsized based on utilization patterns',
-        resourceId: 'i-1234567890abcdef0',
-        resourceType: 'ec2',
-        savings: 42.50
-      },
-      {
-        id: 'aws-opt-2',
-        title: 'Reserved Instance opportunity',
-        description: 'Convert on-demand instances to Reserved Instances for consistent workloads',
-        resourceType: 'ec2',
-        savings: 120.75
-      },
-      {
-        id: 'aws-opt-3',
-        title: 'Unattached EBS volumes',
-        description: 'Remove 2 unattached EBS volumes that are incurring costs',
-        resourceType: 'ebs',
-        savings: 18.20
+    if (!credentials || !credentials.accessKeyId || !credentials.secretAccessKey) {
+      throw new Error('Missing required AWS credentials (accessKeyId and/or secretAccessKey)');
+    }
+
+    // Use the Supabase edge function for real AWS optimization recommendations
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data, error } = await supabase.functions.invoke('get-cost-optimizations', {
+      body: { 
+        provider: 'aws',
+        accountId,
+        credentials: {
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          region: credentials.region || 'us-east-1',
+          ...(credentials.sessionToken && { sessionToken: credentials.sessionToken })
+        }
       }
-    ];
+    });
+
+    if (error) {
+      console.error(`AWS optimization recommendations edge function error: ${error.message}`);
+      throw new Error(`Edge function error: ${error.message}`);
+    }
     
-    return { recommendations };
+    if (!data || !data.success) {
+      throw new Error('No optimization data returned from edge function');
+    }
+    
+    console.log(`Successfully fetched ${data.recommendations.length} real AWS optimization recommendations`);
+    return { 
+      recommendations: data.recommendations.map((rec: any) => ({
+        id: rec.id,
+        title: rec.title,
+        description: rec.description,
+        resourceId: rec.resourceId,
+        resourceType: rec.resourceType,
+        savings: rec.savings || rec.potentialSavings || 0
+      }))
+    };
   } catch (error: any) {
+    console.error(`AWS optimization recommendations error for ${accountId}:`, error);
+    
+    // Return error instead of fallback for real integration
     return {
       recommendations: [],
       error: `AWS recommendation error: ${error.message || 'Failed to retrieve recommendations'}`

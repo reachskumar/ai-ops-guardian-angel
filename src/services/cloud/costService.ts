@@ -7,29 +7,46 @@ export const getOptimizationRecommendations = async (): Promise<{
   error?: string;
 }> => {
   try {
-    const data = await import('./cost/optimizationService').then(module => {
-      return module.getOptimizationSuggestions();
+    console.log("Getting real AWS optimization recommendations");
+    
+    // Use the Supabase edge function for real AWS optimization recommendations
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data, error } = await supabase.functions.invoke('get-cost-optimizations', {
+      body: { 
+        provider: 'aws',
+        credentials: {
+          accessKeyId: localStorage.getItem('aws_access_key_id'),
+          secretAccessKey: localStorage.getItem('aws_secret_access_key'),
+          region: localStorage.getItem('aws_region') || 'us-east-1'
+        }
+      }
     });
 
-    // Convert suggestions to recommendations
-    const recommendations: OptimizationRecommendation[] = (data.suggestions || []).map(suggestion => ({
-      id: suggestion.id,
-      title: suggestion.title,
-      description: suggestion.description,
-      potentialSavings: suggestion.monthlySavings || 0,
-      impact: suggestion.monthlySavings || 0,
-      difficulty: suggestion.difficulty || 'medium',
+    if (error) {
+      console.error(`Optimization recommendations error: ${error.message}`);
+      throw new Error(`Edge function error: ${error.message}`);
+    }
+    
+    if (!data || !data.success) {
+      throw new Error('No optimization data returned');
+    }
+    
+    // Transform recommendations to match our interface
+    const recommendations: OptimizationRecommendation[] = data.recommendations.map((rec: any) => ({
+      id: rec.id,
+      title: rec.title,
+      description: rec.description,
+      potentialSavings: rec.monthlySavings || 0,
+      impact: rec.monthlySavings || 0,
+      difficulty: rec.difficulty || 'medium',
       status: 'pending',
-      resourceId: suggestion.resourceIds?.[0] || undefined,
-      resourceType: suggestion.category || undefined
+      resourceId: rec.resourceIds?.[0] || undefined,
+      resourceType: rec.category || undefined
     }));
-
-    return {
-      recommendations,
-      error: data.error
-    };
+    
+    return { recommendations };
   } catch (error: any) {
-    console.error("Error in getOptimizationRecommendations:", error);
+    console.error("Error getting AWS optimizations:", error);
     return {
       recommendations: [],
       error: error.message || 'Failed to retrieve optimization recommendations'

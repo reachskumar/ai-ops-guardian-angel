@@ -242,68 +242,90 @@ serve(async (req) => {
   }
   
   try {
-    const { accountIds } = await req.json();
+    const { accountIds, provider, accountId, credentials } = await req.json();
     
-    console.log('Fetching cost optimization recommendations from all providers');
-    
-    // In a real implementation, you'd:
-    // 1. Fetch connected cloud accounts from the database
-    // 2. Get their credentials securely
-    // 3. Call the appropriate optimization APIs based on provider
-    // 4. Aggregate the results
+    console.log(`Getting optimization recommendations for ${provider || 'all'} providers`);
     
     const allRecommendations = [];
     let totalPotentialSavings = 0;
 
-    // Mock aggregated recommendations from all providers
-    const mockRecommendations = [
-      {
-        id: 'multi-provider-1',
-        title: 'Right-size Virtual Machines',
-        description: 'Optimize VM sizes across AWS, Azure, and GCP based on utilization patterns',
-        monthlySavings: 150.75,
-        difficulty: 'medium',
-        category: 'compute',
-        provider: 'multi'
-      },
-      {
-        id: 'multi-provider-2',
-        title: 'Reserved Instance Opportunities',
-        description: 'Purchase reserved instances/committed use discounts for predictable workloads',
-        monthlySavings: 220.50,
-        difficulty: 'easy',
-        category: 'billing',
-        provider: 'multi'
-      },
-      {
-        id: 'multi-provider-3',
-        title: 'Unused Storage Cleanup',
-        description: 'Delete unattached storage volumes and unused snapshots',
-        monthlySavings: 85.25,
-        difficulty: 'easy',
-        category: 'storage',
-        provider: 'multi'
-      },
-      {
-        id: 'multi-provider-4',
-        title: 'Network Optimization',
-        description: 'Optimize data transfer costs and use CDN for static content',
-        monthlySavings: 45.80,
-        difficulty: 'medium',
-        category: 'network',
-        provider: 'multi'
+    // Route to appropriate provider for real optimization data
+    if (provider && credentials) {
+      try {
+        let optimizationData;
+        
+        switch (provider) {
+          case 'aws':
+            optimizationData = await getAwsOptimizations(credentials);
+            break;
+          case 'azure':
+            optimizationData = await getAzureOptimizations(credentials);
+            break;
+          case 'gcp':
+            optimizationData = await getGcpOptimizations(credentials);
+            break;
+          default:
+            throw new Error(`Unsupported provider: ${provider}`);
+        }
+        
+        allRecommendations.push(...optimizationData.recommendations);
+        totalPotentialSavings = optimizationData.totalSavings;
+        
+      } catch (providerError) {
+        console.error(`Error fetching optimizations from ${provider}:`, providerError);
+        throw providerError;
       }
-    ];
+    } else {
+      // Fallback to mock aggregated recommendations from all providers
+      const mockRecommendations = [
+        {
+          id: 'multi-provider-1',
+          title: 'Right-size Virtual Machines',
+          description: 'Optimize VM sizes across AWS, Azure, and GCP based on utilization patterns',
+          monthlySavings: 150.75,
+          difficulty: 'medium',
+          category: 'compute',
+          provider: 'multi'
+        },
+        {
+          id: 'multi-provider-2',
+          title: 'Reserved Instance Opportunities',
+          description: 'Purchase reserved instances/committed use discounts for predictable workloads',
+          monthlySavings: 220.50,
+          difficulty: 'easy',
+          category: 'billing',
+          provider: 'multi'
+        },
+        {
+          id: 'multi-provider-3',
+          title: 'Unused Storage Cleanup',
+          description: 'Delete unattached storage volumes and unused snapshots',
+          monthlySavings: 85.25,
+          difficulty: 'easy',
+          category: 'storage',
+          provider: 'multi'
+        },
+        {
+          id: 'multi-provider-4',
+          title: 'Network Optimization',
+          description: 'Optimize data transfer costs and use CDN for static content',
+          monthlySavings: 45.80,
+          difficulty: 'medium',
+          category: 'network',
+          provider: 'multi'
+        }
+      ];
 
-    allRecommendations.push(...mockRecommendations);
-    totalPotentialSavings = mockRecommendations.reduce((sum, opt) => sum + opt.monthlySavings, 0);
+      allRecommendations.push(...mockRecommendations);
+      totalPotentialSavings = mockRecommendations.reduce((sum, opt) => sum + opt.monthlySavings, 0);
+    }
     
     console.log(`Found ${allRecommendations.length} optimization recommendations with $${totalPotentialSavings.toFixed(2)} potential monthly savings`);
     
     return new Response(
       JSON.stringify({
         success: true,
-        suggestions: allRecommendations,
+        recommendations: allRecommendations,
         totalSavings: Math.round(totalPotentialSavings * 100) / 100
       }),
       {
