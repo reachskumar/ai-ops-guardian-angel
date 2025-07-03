@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { CloudResource, CloudAccount } from "./types";
+import { getAccountCredentials } from "./accountService";
 
 export const getCloudResources = async (): Promise<{ 
   resources: CloudResource[]; 
@@ -246,17 +247,75 @@ export const getResourceMetrics = async (resourceId: string, timeRange: string =
 export const provisionResource = async (
   accountId: string,
   resourceConfig: any
-): Promise<{ success: boolean; resourceId?: string; error?: string }> => {
+): Promise<{ success: boolean; resourceId?: string; error?: string; details?: any }> => {
   try {
-    console.log("Provisioning resource:", resourceConfig);
+    console.log("Starting real AWS resource provisioning for account:", accountId);
+    console.log("Resource configuration:", resourceConfig);
     
-    // Simulate resource provisioning
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Get account details to determine provider
+    const { data: accountData, error: accountError } = await supabase
+      .from('users_cloud_accounts')
+      .select('provider')
+      .eq('id', accountId)
+      .single();
     
-    const resourceId = `resource-${Date.now()}`;
+    if (accountError || !accountData) {
+      return { success: false, error: 'Failed to get account information' };
+    }
     
-    console.log(`Resource provisioned successfully: ${resourceId}`);
-    return { success: true, resourceId };
+    // Get account credentials
+    const credentials = await getAccountCredentials(accountId);
+    if (!credentials) {
+      return { success: false, error: 'No credentials found for this account' };
+    }
+    
+    // Call the provision-resource edge function with real credentials
+    const { data, error } = await supabase.functions.invoke('provision-resource', {
+      body: {
+        accountId,
+        provider: accountData.provider,
+        resourceType: resourceConfig.type || resourceConfig.resourceType,
+        config: {
+          name: resourceConfig.name,
+          region: resourceConfig.region,
+          size: resourceConfig.size,
+          tags: resourceConfig.tags,
+          description: resourceConfig.description,
+          businessJustification: resourceConfig.businessJustification,
+          vpc: resourceConfig.vpc,
+          subnet: resourceConfig.subnet,
+          securityGroups: resourceConfig.securityGroups,
+          storageSize: resourceConfig.storageSize,
+          encryption: resourceConfig.encryption,
+          ttl: resourceConfig.ttl,
+          autoDeprovision: resourceConfig.autoDeprovision
+        },
+        credentials
+      }
+    });
+
+    if (error) {
+      console.error('Edge function error:', error);
+      return {
+        success: false,
+        error: `Failed to provision resource: ${error.message}`
+      };
+    }
+
+    if (!data || !data.success) {
+      return {
+        success: false,
+        error: data?.error || 'Unknown provisioning error'
+      };
+    }
+
+    console.log('AWS resource provisioned successfully:', data);
+    
+    return {
+      success: true,
+      resourceId: data.resourceId,
+      details: data.details
+    };
   } catch (error: any) {
     console.error("Provision resource error:", error);
     return { success: false, error: error.message || 'Failed to provision resource' };
