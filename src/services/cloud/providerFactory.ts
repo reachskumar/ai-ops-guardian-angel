@@ -67,13 +67,15 @@ export const getRegions = (provider: CloudProvider) => {
   
   switch (provider) {
     case 'aws':
-      const awsRegions = (implementation as typeof awsProvider).getAwsRegions();
-      return awsRegions.map(r => r.name);
+      return (implementation as typeof awsProvider).getAwsRegions();
     case 'azure':
-      const azureRegions = (implementation as typeof azureProvider).getAzureRegions();
-      return azureRegions.map(r => r.name);
+      return (implementation as typeof azureProvider).getAzureRegions();
     case 'gcp':
-      return ['us-central1', 'europe-west1', 'asia-southeast1'];
+      return [
+        { id: 'us-central1', name: 'US Central (Iowa)' },
+        { id: 'europe-west1', name: 'Europe West (Belgium)' },
+        { id: 'asia-southeast1', name: 'Asia Southeast (Singapore)' }
+      ];
     default:
       return [];
   }

@@ -25,7 +25,7 @@ const ProviderDashboard: React.FC<ProviderDashboardProps> = ({ account }) => {
       
       // Get provider-specific regions as strings
       const availableRegions = getRegions(account.provider);
-      setRegions(availableRegions);
+      setRegions(availableRegions.map(r => r.name));
       
       setIsLoading(false);
     }

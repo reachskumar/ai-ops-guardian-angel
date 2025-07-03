@@ -30,8 +30,8 @@ const RegionSelector: React.FC<RegionSelectorProps> = ({
         </SelectTrigger>
         <SelectContent>
           {regions.map((region) => (
-            <SelectItem key={region} value={region}>
-              {region}
+            <SelectItem key={region.id} value={region.id}>
+              {region.name}
             </SelectItem>
           ))}
         </SelectContent>
