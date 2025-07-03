@@ -56,6 +56,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
   
   const form = useForm<ResourceFormValues>({
     resolver: zodResolver(resourceSchema),
+    mode: "onChange",
     defaultValues: {
       accountId: "",
       name: "",
