@@ -351,7 +351,9 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   <ResourceNameField 
                     value={form.watch("name")} 
-                    onChange={(e) => form.setValue("name", e.target.value)}
+                    onChange={(e) => {
+                      form.setValue("name", e.target.value, { shouldValidate: true });
+                    }}
                     error={form.formState.errors.name?.message}
                   />
                   
@@ -359,7 +361,9 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                     provider={selectedProvider}
                     category={category}
                     value={form.watch("type")}
-                    onChange={(value) => form.setValue("type", value)}
+                    onChange={(value) => {
+                      form.setValue("type", value, { shouldValidate: true });
+                    }}
                     error={form.formState.errors.type?.message}
                   />
                 </div>
@@ -369,21 +373,27 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                     provider={selectedProvider}
                     resourceType={form.watch("type")}
                     value={form.watch("size")}
-                    onChange={(value) => form.setValue("size", value)}
+                    onChange={(value) => {
+                      form.setValue("size", value, { shouldValidate: true });
+                    }}
                     error={form.formState.errors.size?.message}
                   />
                   
                   <RegionSelector
                     provider={selectedProvider}
                     value={form.watch("region")}
-                    onChange={(value) => form.setValue("region", value)}
+                    onChange={(value) => {
+                      form.setValue("region", value, { shouldValidate: true });
+                    }}
                     error={form.formState.errors.region?.message}
                   />
                 </div>
                 
                 <TagsField
                   value={form.watch("tags") || ""}
-                  onChange={(e) => form.setValue("tags", e.target.value)}
+                  onChange={(e) => {
+                    form.setValue("tags", e.target.value, { shouldValidate: true });
+                  }}
                 />
               </div>
               
