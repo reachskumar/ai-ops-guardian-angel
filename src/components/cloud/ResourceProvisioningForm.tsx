@@ -380,6 +380,17 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
                 />
               </div>
               
+              {/* Debug info - remove this later */}
+              <div className="text-xs text-muted-foreground mb-2">
+                <div>Form Valid: {form.formState.isValid ? 'Yes' : 'No'}</div>
+                <div>Account: {form.watch("accountId") || 'Not selected'}</div>
+                <div>Name: {form.watch("name") || 'Empty'}</div>
+                <div>Type: {form.watch("type") || 'Not selected'}</div>
+                <div>Size: {form.watch("size") || 'Not selected'}</div>
+                <div>Region: {form.watch("region") || 'Not selected'}</div>
+                <div>Errors: {Object.keys(form.formState.errors).join(', ') || 'None'}</div>
+              </div>
+              
               <div className="flex justify-between pt-4">
                 <Button 
                   type="button" 
