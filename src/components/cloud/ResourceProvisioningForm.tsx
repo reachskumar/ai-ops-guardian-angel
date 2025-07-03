@@ -7,20 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, AlertTriangle, Info } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getAccountCredentials } from "@/services/cloud/accountService";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Import our components
 import {
-  ResourceNameField,
-  ResourceTypeSelector,
-  SizeSelector,
-  RegionSelector,
-  TagsField,
-  AccountSelector,
   GcpCredentialStatus
 } from "./provisioning";
+import { getRegions, getInstanceSizes, getResourceTypes } from "@/services/cloud/providerFactory";
 
 // Define the schema for the form
 const resourceSchema = z.object({
@@ -320,118 +318,212 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         
         {["compute", "storage", "database", "network"].map((category) => (
           <TabsContent key={category} value={category}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-              {provisioningError && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Provisioning Failed</AlertTitle>
-                  <AlertDescription>
-                    {provisioningError}
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="space-y-4">
-                <AccountSelector
-                  accounts={availableAccounts}
-                  value={form.watch("accountId")}
-                  onChange={(value) => form.setValue("accountId", value)}
-                  error={form.formState.errors.accountId?.message}
-                />
-                
-                {selectedProvider === 'gcp' && form.watch("accountId") && (
-                  <GcpCredentialStatus
-                    hasCredentials={hasGcpCredentials(form.watch("accountId"))}
-                    accountId={form.watch("accountId")}
-                    credentialStatus={gcpCredentialStatus}
-                    errorMessage={gcpErrorMessage}
-                  />
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                {provisioningError && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Provisioning Failed</AlertTitle>
+                    <AlertDescription>
+                      {provisioningError}
+                    </AlertDescription>
+                  </Alert>
                 )}
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <ResourceNameField 
-                    value={form.watch("name")} 
-                    onChange={(e) => {
-                      form.setValue("name", e.target.value, { shouldValidate: true });
-                    }}
-                    error={form.formState.errors.name?.message}
+                <div className="space-y-4">
+                  {/* Account Selector */}
+                  <FormField
+                    control={form.control}
+                    name="accountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cloud Account</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select cloud account" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {availableAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.name} ({account.provider.toUpperCase()})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   
-                  <ResourceTypeSelector
-                    provider={selectedProvider}
-                    category={category}
-                    value={form.watch("type")}
-                    onChange={(value) => {
-                      form.setValue("type", value, { shouldValidate: true });
-                    }}
-                    error={form.formState.errors.type?.message}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <SizeSelector
-                    provider={selectedProvider}
-                    resourceType={form.watch("type")}
-                    value={form.watch("size")}
-                    onChange={(value) => {
-                      form.setValue("size", value, { shouldValidate: true });
-                    }}
-                    error={form.formState.errors.size?.message}
-                  />
-                  
-                  <RegionSelector
-                    provider={selectedProvider}
-                    value={form.watch("region")}
-                    onChange={(value) => {
-                      form.setValue("region", value, { shouldValidate: true });
-                    }}
-                    error={form.formState.errors.region?.message}
-                  />
-                </div>
-                
-                <TagsField
-                  value={form.watch("tags") || ""}
-                  onChange={(e) => {
-                    form.setValue("tags", e.target.value, { shouldValidate: true });
-                  }}
-                />
-              </div>
-              
-              {/* Debug info */}
-              <div className="text-xs text-muted-foreground mb-2 p-2 bg-gray-100 dark:bg-gray-800 rounded">
-                <div>Form Valid: {form.formState.isValid ? 'Yes' : 'No'}</div>
-                <div>Account: {form.watch("accountId") || 'Not selected'}</div>
-                <div>Name: '{form.watch("name") || 'Empty'}'</div>
-                <div>Type: '{form.watch("type") || 'Not selected'}'</div>
-                <div>Size: '{form.watch("size") || 'Not selected'}'</div>
-                <div>Region: '{form.watch("region") || 'Not selected'}'</div>
-                <div>Errors: {Object.keys(form.formState.errors).join(', ') || 'None'}</div>
-                <div>Provider: {selectedProvider}</div>
-              </div>
-              
-              <div className="flex justify-between pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={onCancel}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting || !form.formState.isValid || (selectedProvider === 'gcp' && gcpCredentialStatus !== 'valid')}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Provisioning...
-                    </>
-                  ) : (
-                    "Provision Resource"
+                  {selectedProvider === 'gcp' && form.watch("accountId") && (
+                    <GcpCredentialStatus
+                      hasCredentials={hasGcpCredentials(form.watch("accountId"))}
+                      accountId={form.watch("accountId")}
+                      credentialStatus={gcpCredentialStatus}
+                      errorMessage={gcpErrorMessage}
+                    />
                   )}
-                </Button>
-              </div>
-            </form>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Resource Name */}
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Resource Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter resource name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {/* Resource Type */}
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => {
+                        const resourceTypesData = getResourceTypes(selectedProvider, category);
+                        const resourceTypes = resourceTypesData.length > 0 ? resourceTypesData[0]?.types || [] : [];
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>Resource Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {resourceTypes.map((type) => (
+                                  <SelectItem key={type} value={type}>
+                                    {type.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Size Selector */}
+                    <FormField
+                      control={form.control}
+                      name="size"
+                      render={({ field }) => {
+                        const sizes = form.watch("type") ? getInstanceSizes(selectedProvider, form.watch("type")) : [];
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>Size/Tier</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              value={field.value}
+                              disabled={!form.watch("type") || sizes.length === 0}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select size" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {sizes.map((size) => (
+                                  <SelectItem key={size.id} value={size.id}>
+                                    {size.name} ({size.vcpus} vCPUs, {size.memory} GB RAM)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                    
+                    {/* Region Selector */}
+                    <FormField
+                      control={form.control}
+                      name="region"
+                      render={({ field }) => {
+                        const regions = getRegions(selectedProvider);
+                        
+                        return (
+                          <FormItem>
+                            <FormLabel>Region</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select region" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {regions.map((region) => (
+                                  <SelectItem key={region.id} value={region.id}>
+                                    {region.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Tags Field */}
+                  <FormField
+                    control={form.control}
+                    name="tags"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tags (Optional)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="key1=value1,key2=value2" 
+                            {...field} 
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="flex justify-between pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={onCancel}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={isSubmitting || !form.formState.isValid || (selectedProvider === 'gcp' && gcpCredentialStatus !== 'valid')}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Provisioning...
+                      </>
+                    ) : (
+                      "Provision Resource"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Form>
           </TabsContent>
         ))}
       </Tabs>
