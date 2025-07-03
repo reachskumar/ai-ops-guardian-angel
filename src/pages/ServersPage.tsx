@@ -66,9 +66,6 @@ const ServersPage: React.FC = () => {
       region: "us-east-1",
     },
   ];
-
-  console.log("ServersPage rendering, servers count:", servers.length);
-  console.log("About to render ServersPage content");
   
   return (
     <SidebarWithProvider>
