@@ -67,6 +67,9 @@ const ServersPage: React.FC = () => {
     },
   ];
 
+  console.log("ServersPage rendering, servers count:", servers.length);
+  console.log("About to render ServersPage content");
+  
   return (
     <SidebarWithProvider>
       <Helmet>
