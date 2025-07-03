@@ -81,12 +81,15 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         setSelectedProvider(account.provider);
         
         // Reset type, size, and region when provider changes
-        form.setValue("type", "");
-        form.setValue("size", "");
-        form.setValue("region", "");
+        form.setValue("type", "", { shouldValidate: true });
+        form.setValue("size", "", { shouldValidate: true });
+        form.setValue("region", "", { shouldValidate: true });
         
-        // Force form to re-validate
-        form.trigger();
+        // Clear all errors and force revalidation
+        form.clearErrors();
+        setTimeout(() => {
+          form.trigger();
+        }, 100);
         
         // Check GCP credentials if applicable
         if (account.provider === 'gcp') {
