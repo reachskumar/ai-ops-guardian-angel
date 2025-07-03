@@ -84,6 +84,9 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         form.setValue("size", "");
         form.setValue("region", "");
         
+        // Force form to re-validate
+        form.trigger();
+        
         // Check GCP credentials if applicable
         if (account.provider === 'gcp') {
           validateGcpCredentials(accountId);
@@ -93,7 +96,7 @@ const ResourceProvisioningForm: React.FC<ResourceProvisioningFormProps> = ({
         }
       }
     }
-  }, [form.watch("accountId"), accounts]);
+  }, [form.watch("accountId"), accounts, form]);
 
   // Load credentials for the selected account
   useEffect(() => {
