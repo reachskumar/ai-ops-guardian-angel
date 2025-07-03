@@ -469,31 +469,46 @@ serve(async (req) => {
     // Save resource to database if provisioning was successful
     if (result.success && result.resourceId) {
       try {
+        console.log('Attempting to save resource to database:', {
+          accountId,
+          resourceId: result.resourceId,
+          name: config.name,
+          type: resourceType,
+          region: config.region
+        });
+        
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.49.4');
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
         
-        const { error: insertError } = await supabase
+        const resourceData = {
+          cloud_account_id: accountId,
+          resource_id: result.resourceId,
+          name: config.name,
+          type: resourceType,
+          region: config.region,
+          status: 'provisioning',
+          tags: config.tags || {},
+          metadata: result.details || {}
+        };
+        
+        console.log('Inserting resource data:', resourceData);
+        
+        const { data: insertData, error: insertError } = await supabase
           .from('cloud_resources')
-          .insert({
-            cloud_account_id: accountId,
-            resource_id: result.resourceId,
-            name: config.name,
-            type: resourceType,
-            region: config.region,
-            status: 'provisioning',
-            tags: config.tags || {},
-            metadata: result.details || {}
-          });
+          .insert(resourceData)
+          .select();
         
         if (insertError) {
           console.error('Failed to save resource to database:', insertError);
+          console.error('Insert error details:', JSON.stringify(insertError, null, 2));
         } else {
-          console.log('Resource saved to database successfully');
+          console.log('Resource saved to database successfully:', insertData);
         }
       } catch (dbError) {
         console.error('Database save error:', dbError);
+        console.error('Database error details:', JSON.stringify(dbError, null, 2));
       }
     }
     
