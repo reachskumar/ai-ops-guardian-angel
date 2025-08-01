@@ -1,126 +1,189 @@
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import { CloudIntegrationsService } from './services/CloudIntegrationsService';
+import { ErrorHandler } from './middleware/ErrorHandler';
+import { AuthMiddleware } from './middleware/AuthMiddleware';
+import { Logger } from './utils/Logger';
 
 const app = express();
+const PORT = process.env.CLOUD_INTEGRATIONS_PORT || 8002;
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
   credentials: true
 }));
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
 app.use(limiter);
 
-// Core middleware
-app.use(express.json());
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  Logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip,
+    userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString()
+  });
   next();
 });
 
-// Cloud provider endpoints
-app.get('/providers', (req, res) => {
-  res.json({
-    providers: [
-      {
-        id: 'aws',
-        name: 'Amazon Web Services',
-        status: 'connected',
-        regions: ['us-east-1', 'us-west-2', 'eu-west-1']
-      },
-      {
-        id: 'azure',
-        name: 'Microsoft Azure',
-        status: 'connected',
-        regions: ['eastus', 'westus2', 'westeurope']
-      },
-      {
-        id: 'gcp',
-        name: 'Google Cloud Platform',
-        status: 'disconnected',
-        regions: ['us-central1', 'europe-west1', 'asia-southeast1']
-      }
-    ]
-  });
-});
-
-app.post('/sync/:provider', (req, res) => {
-  const { provider } = req.params;
-  
-  // Mock sync operation
-  setTimeout(() => {
-    res.json({
-      message: `Syncing ${provider} resources...`,
-      provider,
-      status: 'in_progress',
-      estimatedTime: '30 seconds'
-    });
-  }, 1000);
-});
-
-app.get('/resources/:provider', (req, res) => {
-  const { provider } = req.params;
-  
-  // Mock resources data
-  const mockResources = {
-    aws: [
-      { id: 'i-1234567890abcdef0', type: 'ec2', name: 'web-server-1', status: 'running' },
-      { id: 'vol-1234567890abcdef0', type: 'ebs', name: 'data-volume-1', status: 'in-use' }
-    ],
-    azure: [
-      { id: '/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Compute/virtualMachines/vm1', type: 'vm', name: 'app-server-1', status: 'running' },
-      { id: '/subscriptions/123/resourceGroups/rg1/providers/Microsoft.Storage/storageAccounts/sa1', type: 'storage', name: 'data-storage-1', status: 'available' }
-    ],
-    gcp: [
-      { id: 'projects/my-project/zones/us-central1-a/instances/instance-1', type: 'compute', name: 'gcp-server-1', status: 'running' },
-      { id: 'projects/my-project/buckets/bucket-1', type: 'storage', name: 'gcp-bucket-1', status: 'available' }
-    ]
-  };
-
-  res.json({
-    provider,
-    resources: mockResources[provider as keyof typeof mockResources] || [],
-    total: mockResources[provider as keyof typeof mockResources]?.length || 0
-  });
-});
+// Initialize services
+const cloudIntegrationsService = new CloudIntegrationsService();
+const errorHandler = new ErrorHandler();
+const authMiddleware = new AuthMiddleware();
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
+  res.json({
+    status: 'healthy',
+    service: 'cloud-integrations',
     timestamp: new Date().toISOString(),
-    service: 'inframind-cloud-integrations',
     version: '2.0.0'
   });
 });
 
-app.get('/', (req, res) => {
-      res.json({ 
-      message: 'InfraMind - Cloud Integration Services',
-      version: '2.0.0',
-      status: 'running',
-    endpoints: {
-      providers: 'GET /providers',
-      sync: 'POST /sync/:provider',
-      resources: 'GET /resources/:provider'
-    }
+// Protected routes
+app.use('/api', authMiddleware.authenticate);
+
+// AWS Integration
+app.post('/api/aws/connect', async (req, res, next) => {
+  try {
+    const { accessKeyId, secretAccessKey, region } = req.body;
+    const result = await cloudIntegrationsService.connectAWS(accessKeyId, secretAccessKey, region);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/aws/resources', async (req, res, next) => {
+  try {
+    const resources = await cloudIntegrationsService.getAWSResources();
+    res.json(resources);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/aws/costs', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const costs = await cloudIntegrationsService.getAWSCosts(startDate as string, endDate as string);
+    res.json(costs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Azure Integration
+app.post('/api/azure/connect', async (req, res, next) => {
+  try {
+    const { clientId, clientSecret, tenantId, subscriptionId } = req.body;
+    const result = await cloudIntegrationsService.connectAzure(clientId, clientSecret, tenantId, subscriptionId);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/azure/resources', async (req, res, next) => {
+  try {
+    const resources = await cloudIntegrationsService.getAzureResources();
+    res.json(resources);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/azure/costs', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const costs = await cloudIntegrationsService.getAzureCosts(startDate as string, endDate as string);
+    res.json(costs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GCP Integration
+app.post('/api/gcp/connect', async (req, res, next) => {
+  try {
+    const { projectId, keyFile } = req.body;
+    const result = await cloudIntegrationsService.connectGCP(projectId, keyFile);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/gcp/resources', async (req, res, next) => {
+  try {
+    const resources = await cloudIntegrationsService.getGCPResources();
+    res.json(resources);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/gcp/costs', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const costs = await cloudIntegrationsService.getGCPCosts(startDate as string, endDate as string);
+    res.json(costs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Multi-cloud operations
+app.get('/api/multi-cloud/resources', async (req, res, next) => {
+  try {
+    const resources = await cloudIntegrationsService.getAllCloudResources();
+    res.json(resources);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/multi-cloud/costs', async (req, res, next) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const costs = await cloudIntegrationsService.getAllCloudCosts(startDate as string, endDate as string);
+    res.json(costs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Error handling middleware
+app.use(errorHandler.handle);
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Not found',
+    message: `Route ${req.originalUrl} not found`
   });
 });
 
-const PORT = process.env.PORT || 8002;
 app.listen(PORT, () => {
-  console.log(`☁️ InfraMind Cloud Integrations running on port ${PORT}`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  Logger.info(`🌐 Cloud Integrations Service running on port ${PORT}`);
+  Logger.info(`🏥 Health check: http://localhost:${PORT}/health`);
 });
 
-export { app }; 
+export default app; 
