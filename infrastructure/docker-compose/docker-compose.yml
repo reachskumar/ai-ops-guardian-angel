@@ -1,0 +1,200 @@
+version: '3.8'
+
+services:
+  # Frontend Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3001
+      - VITE_AI_SERVICE_URL=http://localhost:3002
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - ai-ops-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./backend
+      dockerfile: ../docker/api-gateway.Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - AI_SERVICE_URL=http://ai-services:3002
+      - DATA_SERVICE_URL=http://data-services:3003
+      - CLOUD_SERVICE_URL=http://cloud-integrations:3004
+    depends_on:
+      - ai-services
+      - data-services
+      - cloud-integrations
+      - mongodb
+      - redis
+    networks:
+      - ai-ops-network
+
+  # AI Services
+  ai-services:
+    build:
+      context: ./backend/ai-services
+      dockerfile: ../../docker/ai-services.Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017/ai-ops-platform
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./backend/ai-services:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - ai-ops-network
+
+  # Data Services
+  data-services:
+    build:
+      context: ./backend/data-services
+      dockerfile: ../../docker/data-services.Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - MONGODB_URI=mongodb://mongodb:27017/ai-ops-platform
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./backend/data-services:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - ai-ops-network
+
+  # Cloud Integration Services
+  cloud-integrations:
+    build:
+      context: ./backend/cloud-integrations
+      dockerfile: ../../docker/cloud-integrations.Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - MONGODB_URI=mongodb://mongodb:27017/ai-ops-platform
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - GCP_SERVICE_ACCOUNT_KEY=${GCP_SERVICE_ACCOUNT_KEY}
+    volumes:
+      - ./backend/cloud-integrations:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+    networks:
+      - ai-ops-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=ai-ops-platform
+    volumes:
+      - mongodb_data:/data/db
+      - ./backend/data-services/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - ai-ops-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - ai-ops-network
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/certs:/etc/nginx/certs
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - ai-ops-network
+    profiles:
+      - production
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    networks:
+      - ai-ops-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3005:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - ai-ops-network
+    profiles:
+      - monitoring
+
+volumes:
+  mongodb_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  ai-ops-network:
+    driver: bridge 

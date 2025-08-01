@@ -1,0 +1,379 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* InfraMind Design System - Premium SaaS Platform */
+
+@layer base {
+  :root {
+    /* Enhanced base colors with more vibrancy */
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+
+    /* Card components with enhanced depth */
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    /* Popover components */
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    /* Vibrant primary brand colors */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 98%;
+    --primary-glow: 221 83% 70%;
+    --primary-dark: 217 91% 45%;
+
+    /* Enhanced secondary colors */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
+
+    /* Improved muted colors */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Vibrant accent colors */
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 98%;
+    --accent-glow: 262 83% 70%;
+
+    /* Enhanced status colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --success-glow: 142 76% 50%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --warning-glow: 38 92% 65%;
+
+    /* AWS, Azure, GCP brand colors */
+    --aws: 16 100% 66%;
+    --aws-foreground: 0 0% 98%;
+    --azure: 213 100% 50%;
+    --azure-foreground: 0 0% 98%;
+    --gcp: 62 100% 50%;
+    --gcp-foreground: 0 0% 98%;
+
+    /* Enhanced border and inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+
+    /* Layout with enhanced radius */
+    --radius: 0.75rem;
+
+    /* Dynamic gradients for more vibrant UI */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
+    --gradient-secondary: linear-gradient(135deg, hsl(220 14% 96%), hsl(220 13% 91%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 50%, hsl(290 100% 70%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.6));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 50%));
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%), hsl(38 92% 65%));
+    --gradient-aws: linear-gradient(135deg, hsl(16 100% 66%), hsl(16 100% 76%));
+    --gradient-azure: linear-gradient(135deg, hsl(213 100% 50%), hsl(213 100% 65%));
+    --gradient-gcp: linear-gradient(135deg, hsl(62 100% 50%), hsl(62 100% 65%));
+    
+    /* Enhanced shadows with color */
+    --shadow-elegant: 0 10px 30px -10px hsl(217 91% 60% / 0.25);
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.4);
+    --shadow-glow-accent: 0 0 40px hsl(262 83% 58% / 0.4);
+    --shadow-card: 0 4px 6px -1px hsl(220 9% 46% / 0.1);
+    --shadow-success: 0 0 30px hsl(142 76% 36% / 0.3);
+    --shadow-warning: 0 0 30px hsl(38 92% 50% / 0.3);
+
+    /* Enhanced animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-spring: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark mode base */
+    --background: 224 71% 4%;
+    --foreground: 0 0% 98%;
+
+    /* Dark mode cards */
+    --card: 224 71% 6%;
+    --card-foreground: 0 0% 98%;
+
+    /* Dark mode popovers */
+    --popover: 224 71% 6%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Dark mode primary - maintain brand colors */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 98%;
+    --primary-glow: 221 83% 70%;
+
+    /* Dark mode secondary */
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Dark mode muted */
+    --muted: 215 28% 17%;
+    --muted-foreground: 217 9% 65%;
+
+    /* Dark mode accent - maintain brand purple */
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Dark mode status */
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+
+    /* Dark mode borders */
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 217 91% 60%;
+
+    /* Dark mode gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(262 83% 58%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 28% 17%), hsl(215 28% 25%));
+    --gradient-hero: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(224 71% 6% / 0.8), hsl(224 71% 6% / 0.4));
+
+    /* Dark mode shadows */
+    --shadow-elegant: 0 10px 30px -10px hsl(0 0% 0% / 0.3);
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.4);
+    --shadow-card: 0 4px 6px -1px hsl(0 0% 0% / 0.2);
+
+    /* Dark mode sidebar */
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 215 28% 17%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer components {
+  /* Enhanced InfraMind component styles */
+  .infra-gradient {
+    background: var(--gradient-primary);
+  }
+  
+  .infra-hero-gradient {
+    background: var(--gradient-hero);
+  }
+  
+  .infra-card {
+    background: var(--gradient-card);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-card);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+  
+  .infra-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .infra-glow-accent {
+    box-shadow: var(--shadow-glow-accent);
+  }
+  
+  .infra-transition {
+    transition: var(--transition-smooth);
+  }
+  
+  .infra-bounce {
+    transition: var(--transition-bounce);
+  }
+
+  .infra-spring {
+    transition: var(--transition-spring);
+  }
+
+  /* Cloud provider specific styles */
+  .aws-gradient {
+    background: var(--gradient-aws);
+  }
+  
+  .azure-gradient {
+    background: var(--gradient-azure);
+  }
+  
+  .gcp-gradient {
+    background: var(--gradient-gcp);
+  }
+
+  /* Status specific styles */
+  .success-glow {
+    box-shadow: var(--shadow-success);
+  }
+  
+  .warning-glow {
+    box-shadow: var(--shadow-warning);
+  }
+
+  /* Enhanced animation utilities */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-pulse-glow {
+    animation: pulseGlow 3s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Chart and dashboard specific animations */
+  .animate-draw {
+    animation: draw 1s ease-out;
+  }
+
+  .animate-count-up {
+    animation: countUp 2s ease-out;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+
+  @keyframes glow {
+    from { box-shadow: var(--shadow-elegant); }
+    to { box-shadow: var(--shadow-glow); }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: var(--shadow-card); }
+    50% { box-shadow: var(--shadow-glow); }
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes fadeInUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  @keyframes draw {
+    from { stroke-dashoffset: 1000; }
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes countUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 4s ease infinite;
+  }
+
+  /* Interactive hover effects */
+  .hover-lift {
+    transition: var(--transition-smooth);
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+  }
+
+  .hover-glow {
+    transition: var(--transition-smooth);
+  }
+  
+  .hover-glow:hover {
+    box-shadow: var(--shadow-glow);
+  }
+
+  /* Status indicators */
+  .status-indicator {
+    @apply w-3 h-3 rounded-full;
+  }
+  
+  .status-healthy {
+    @apply bg-success animate-pulse-glow;
+  }
+  
+  .status-warning {
+    @apply bg-warning animate-pulse-glow;
+  }
+  
+  .status-error {
+    @apply bg-destructive animate-pulse-glow;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-ops-config
+  namespace: ai-ops-production
+data:
+  NODE_ENV: "production"
+  ENVIRONMENT: "production"
+  DEBUG: "false"
+  API_GATEWAY_PORT: "3001"
+  AI_SERVICES_PORT: "8001"
+  DATA_SERVICES_PORT: "8003"
+  CLOUD_INTEGRATIONS_PORT: "8002"
+  SECURITY_SERVICES_PORT: "8004"
+  REAL_TIME_SERVICES_PORT: "8005"
+  LOG_LEVEL: "INFO"
+  ENABLE_METRICS: "true"
+  METRICS_PORT: "9090"
+  RATE_LIMIT_REQUESTS: "1000"
+  RATE_LIMIT_WINDOW: "900"
+  CORS_ORIGINS: "https://your-domain.com,https://www.your-domain.com" 

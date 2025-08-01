@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-ops-production
+  labels:
+    name: ai-ops-production
+    environment: production 

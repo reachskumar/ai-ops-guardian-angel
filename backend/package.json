@@ -1,0 +1,46 @@
+{
+  "name": "@ai-ops-guardian/backend",
+  "version": "1.0.0",
+  "description": "Backend services for AI Ops Guardian Angel platform",
+  "author": "AI Ops Guardian Team",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ai-services\" \"npm run dev:cloud-integrations\" \"npm run dev:data-services\"",
+    "dev:ai-services": "cd ai-services && npm run dev",
+    "dev:cloud-integrations": "cd cloud-integrations && npm run dev", 
+    "dev:data-services": "cd data-services && npm run dev",
+    "build": "npm run build:ai-services && npm run build:cloud-integrations && npm run build:data-services",
+    "build:ai-services": "cd ai-services && npm run build",
+    "build:cloud-integrations": "cd cloud-integrations && npm run build",
+    "build:data-services": "cd data-services && npm run build",
+    "lint": "npm run lint:ai-services && npm run lint:cloud-integrations && npm run lint:data-services",
+    "lint:ai-services": "cd ai-services && npm run lint",
+    "lint:cloud-integrations": "cd cloud-integrations && npm run lint",
+    "lint:data-services": "cd data-services && npm run lint",
+    "test": "npm run test:ai-services && npm run test:cloud-integrations && npm run test:data-services",
+    "test:ai-services": "cd ai-services && npm run test",
+    "test:cloud-integrations": "cd cloud-integrations && npm run test",
+    "test:data-services": "cd data-services && npm run test",
+    "clean": "find . -name 'dist' -type d -exec rm -rf {} + && find . -name 'node_modules' -type d -exec rm -rf {} +",
+    "install:all": "npm run install:ai-services && npm run install:cloud-integrations && npm run install:data-services",
+    "install:ai-services": "cd ai-services && npm install",
+    "install:cloud-integrations": "cd cloud-integrations && npm install",
+    "install:data-services": "cd data-services && npm install",
+    "start": "concurrently \"npm run start:ai-services\" \"npm run start:cloud-integrations\" \"npm run start:data-services\"",
+    "start:ai-services": "cd ai-services && npm start",
+    "start:cloud-integrations": "cd cloud-integrations && npm start",
+    "start:data-services": "cd data-services && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
+  },
+  "keywords": [
+    "backend",
+    "ai",
+    "microservices",
+    "devops",
+    "cloud"
+  ]
+} 
