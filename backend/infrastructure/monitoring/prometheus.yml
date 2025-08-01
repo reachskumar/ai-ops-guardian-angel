@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:3001']
+
+  - job_name: 'data-services'
+    static_configs:
+      - targets: ['data-services:8003']
+
+  - job_name: 'ai-services'
+    static_configs:
+      - targets: ['ai-services:8001']
+
+  - job_name: 'cloud-integrations'
+    static_configs:
+      - targets: ['cloud-integrations:8002']
+
+  - job_name: 'security-services'
+    static_configs:
+      - targets: ['security-services:8004']
+
+  - job_name: 'real-time-services'
+    static_configs:
+      - targets: ['real-time-services:8005']

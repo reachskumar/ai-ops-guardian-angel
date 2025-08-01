@@ -1,0 +1,133 @@
+version: '3.8'
+services:
+  # Core infrastructure
+  mongodb:
+    image: mongo:7
+    ports: ["27017:27017"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes: ["mongodb_data:/data/db"]
+    networks: ["inframind-network"]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: redis-server --appendonly yes
+    volumes: ["redis_data:/data"]
+    networks: ["inframind-network"]
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports: ["3001:3001"]
+    environment:
+      - NODE_ENV=development
+      - FRONTEND_URL=http://localhost:3000
+    depends_on: ["ai-services", "data-services", "cloud-integrations", "security-services", "real-time-services"]
+    networks: ["inframind-network"]
+    volumes:
+      - ./api-gateway:/app
+      - /app/node_modules
+
+  # AI Services
+  ai-services:
+    build:
+      context: ./ai-services
+      dockerfile: Dockerfile
+    ports: ["8001:8001"]
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/inframind?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on: ["mongodb", "redis"]
+    networks: ["inframind-network"]
+    volumes:
+      - ./ai-services:/app
+      - /app/__pycache__
+
+  # Data Services
+  data-services:
+    build:
+      context: ./data-services
+      dockerfile: Dockerfile
+    ports: ["8003:8003"]
+    environment:
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/inframind?authSource=admin
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - FRONTEND_URL=http://localhost:3000
+    depends_on: ["mongodb", "redis"]
+    networks: ["inframind-network"]
+    volumes:
+      - ./data-services:/app
+      - /app/node_modules
+
+  # Cloud Integrations
+  cloud-integrations:
+    build:
+      context: ./cloud-integrations
+      dockerfile: Dockerfile
+    ports: ["8002:8002"]
+    environment:
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/inframind?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on: ["mongodb", "redis"]
+    networks: ["inframind-network"]
+    volumes:
+      - ./cloud-integrations:/app
+      - /app/node_modules
+
+  # Security Services
+  security-services:
+    build:
+      context: ./security-services
+      dockerfile: Dockerfile
+    ports: ["8004:8004"]
+    environment:
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/inframind?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on: ["mongodb", "redis"]
+    networks: ["inframind-network"]
+    volumes:
+      - ./security-services:/app
+      - /app/node_modules
+
+  # Real-time Services
+  real-time-services:
+    build:
+      context: ./real-time-services
+      dockerfile: Dockerfile
+    ports: ["8005:8005"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - FRONTEND_URL=http://localhost:3000
+    depends_on: ["redis"]
+    networks: ["inframind-network"]
+    volumes:
+      - ./real-time-services:/app
+      - /app/node_modules
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus
+    ports: ["9090:9090"]
+    volumes: ["./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml"]
+    networks: ["inframind-network"]
+
+  grafana:
+    image: grafana/grafana
+    ports: ["3010:3000"]
+    environment: ["GF_SECURITY_ADMIN_PASSWORD=admin"]
+    volumes: ["./monitoring/grafana:/var/lib/grafana"]
+    networks: ["inframind-network"]
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  inframind-network:
+    driver: bridge
