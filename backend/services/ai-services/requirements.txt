@@ -35,6 +35,11 @@ transformers==4.36.2
 qdrant-client==1.7.0
 sentence-transformers==2.2.2
 faiss-cpu==1.7.4
+langgraph==0.0.40
+langchain==0.1.0
+langchain-openai==0.0.5
+langchain-core==0.1.0
+pyyaml==6.0.1
 
 # Cloud provider SDKs
 boto3==1.34.0
