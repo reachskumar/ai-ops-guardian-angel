@@ -84,7 +84,13 @@ class Settings(BaseSettings):
     max_tokens: int = 4096
     temperature: float = 0.1
 
-        # Database Settings - MongoDB Atlas Configuration
+    # Vector Database Settings - Qdrant
+    qdrant_url: str = Field(default="http://localhost:6333", env="QDRANT_URL")
+    qdrant_api_key: Optional[str] = Field(default=None, env="QDRANT_API_KEY")
+    qdrant_collection_name: str = Field(default="ai_ops_knowledge", env="QDRANT_COLLECTION_NAME")
+    qdrant_vector_size: int = Field(default=384, env="QDRANT_VECTOR_SIZE")
+
+    # Database Settings - MongoDB Atlas Configuration
     mongodb_uri: str = Field(
         default="mongodb://localhost:27017/ai_ops_platform",
         env="MONGODB_URI"
