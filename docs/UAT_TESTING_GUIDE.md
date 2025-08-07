@@ -1,5 +1,5 @@
 # 🧪 UAT Testing Guide
-## AI Ops Guardian Angel - User Acceptance Testing
+## InfraMind - User Acceptance Testing
 
 **Version:** 1.0  
 **Date:** January 15, 2024  
@@ -9,7 +9,7 @@
 
 ## 🎯 **UAT Testing Overview**
 
-This guide provides comprehensive testing scenarios for the AI Ops Guardian Angel platform. The platform is designed as a multi-tenant SaaS solution with AI-powered cloud operations management.
+This guide provides comprehensive testing scenarios for the InfraMind platform. The platform is designed as a multi-tenant SaaS solution with AI-powered cloud operations management.
 
 ### **Testing Environment**
 - **Frontend URL:** `http://localhost:8080/uat`
@@ -553,7 +553,7 @@ This guide provides comprehensive testing scenarios for the AI Ops Guardian Ange
 
 ## 🚀 **Ready for UAT Testing**
 
-The AI Ops Guardian Angel platform is now ready for comprehensive UAT testing. All core features are implemented and functional, providing a robust foundation for user acceptance testing.
+The InfraMind platform is now ready for comprehensive UAT testing. All core features are implemented and functional, providing a robust foundation for user acceptance testing.
 
 **Key Testing URLs:**
 - **Landing Page:** `http://localhost:8080/uat`

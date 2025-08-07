@@ -1,4 +1,4 @@
-# AI Ops Guardian Angel - AI Services Requirements
+# InfraMind - AI Services Requirements
 # Core FastAPI and web framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0

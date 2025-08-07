@@ -1,6 +1,6 @@
 # 🔐 OAuth Social Authentication Setup Guide
 
-## 🚀 **InfraMind AI Ops Guardian Angel - Social Authentication**
+## 🚀 **InfraMind - Social Authentication**
 
 This guide will help you set up real OAuth authentication with Google, Microsoft, and GitHub for your InfraMind platform.
 
@@ -73,7 +73,7 @@ To enable real OAuth authentication, follow these steps:
    - Go to "APIs & Services" > "OAuth consent screen"
    - Choose "External" user type
    - Fill in app information:
-     - App name: "InfraMind AI Ops Guardian Angel"
+     - App name: "InfraMind"
      - User support email: your-email@domain.com
      - Developer contact: your-email@domain.com
 
@@ -95,7 +95,7 @@ To enable real OAuth authentication, follow these steps:
    - Go to [Azure Portal](https://portal.azure.com/)
    - Navigate to "Azure Active Directory" > "App registrations"
    - Click "New registration"
-   - Name: "InfraMind AI Ops Guardian Angel"
+   - Name: "InfraMind"
    - Supported account types: "Accounts in any organizational directory and personal Microsoft accounts"
 
 2. **Configure Authentication:**
@@ -116,7 +116,7 @@ To enable real OAuth authentication, follow these steps:
    - Go to [GitHub Developer Settings](https://github.com/settings/developers)
    - Click "New OAuth App"
    - Fill in details:
-     - Application name: "InfraMind AI Ops Guardian Angel"
+     - Application name: "InfraMind"
      - Homepage URL: `http://localhost:8080` (development)
      - Authorization callback URL: `http://localhost:8080/auth/callback`
 

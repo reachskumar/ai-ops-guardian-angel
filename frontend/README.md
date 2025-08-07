@@ -1,6 +1,6 @@
-# 🛡️ InfraMind AI Ops Guardian Angel - Frontend
+# 🛡️ InfraMind InfraMind - Frontend
 
-A modern, responsive React frontend for the AI Ops Guardian Angel platform, built with Vite, TypeScript, and Tailwind CSS.
+A modern, responsive React frontend for the InfraMind platform, built with Vite, TypeScript, and Tailwind CSS.
 
 ## 🚀 Quick Start
 
@@ -84,7 +84,7 @@ VITE_CLOUD_INTEGRATIONS_URL=http://localhost:8002
 VITE_DATA_SERVICES_URL=http://localhost:8003
 
 # Application Settings
-VITE_APP_NAME=InfraMind AI Ops Guardian Angel
+VITE_APP_NAME=InfraMind InfraMind
 VITE_APP_VERSION=1.0.0
 ```
 

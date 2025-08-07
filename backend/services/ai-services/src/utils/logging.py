@@ -9,7 +9,14 @@ from typing import Optional
 from datetime import datetime
 from pathlib import Path
 
-from ..config.settings import settings
+try:
+    from ..config.settings import settings
+except ImportError:
+    # Fallback for when running as main module
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config.settings import settings
 
 
 class ColoredFormatter(logging.Formatter):

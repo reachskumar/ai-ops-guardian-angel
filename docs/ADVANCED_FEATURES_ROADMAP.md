@@ -1,4 +1,4 @@
-# 🚀 Advanced Features Roadmap - AI Ops Guardian Angel
+# 🚀 Advanced Features Roadmap - InfraMind
 
 ## 🎯 **Next-Generation Features to Implement**
 

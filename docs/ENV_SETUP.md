@@ -11,7 +11,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # Application Configuration
 VITE_APP_URL=http://localhost:8080
-VITE_APP_NAME="AI Ops Guardian Angel"
+VITE_APP_NAME="InfraMind"
 VITE_APP_VERSION=1.0.0
 NODE_ENV=development
 VITE_ENVIRONMENT=development

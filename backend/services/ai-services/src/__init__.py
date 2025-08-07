@@ -1,5 +1,5 @@
 """
-AI Ops Guardian Angel - AI Services Package
+InfraMind - AI Services Package
 Production-ready AI/ML services for DevOps automation
 
 This package contains:
@@ -78,11 +78,19 @@ from .agents.hitl.auto_remediation_agent import auto_remediation_agent
 from .plugins.plugin_sdk import plugin_sdk
 from .rag.vector_store import VectorStore, RAGSystem
 
-# API routers
-from .api.chat import router as chat_router
-from .api.agents import router as agents_router
-from .api.iac_endpoints import router as iac_router
-from .api.rag_endpoints import router as rag_router
+# API routers (optional - only needed for FastAPI mode)
+try:
+    from .api.chat import router as chat_router
+    from .api.agents import router as agents_router
+    from .api.iac_endpoints import router as iac_router
+    from .api.rag_endpoints import router as rag_router
+    API_ROUTERS_AVAILABLE = True
+except ImportError:
+    API_ROUTERS_AVAILABLE = False
+    chat_router = None
+    agents_router = None
+    iac_router = None
+    rag_router = None
 from .api.langgraph_endpoints import router as langgraph_router
 from .api.hitl_endpoints import router as hitl_router
 from .api.plugin_endpoints import router as plugin_router

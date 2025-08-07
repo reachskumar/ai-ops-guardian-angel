@@ -5,7 +5,7 @@
 This project follows a modular, microservices architecture with clear separation between backend services, frontend applications, and infrastructure components.
 
 ```
-ai-ops-guardian-angel/
+inframind/
 ├── backend/                    # All backend services
 │   ├── services/              # Microservices
 │   │   ├── api-gateway/      # API Gateway service (Port 3001)

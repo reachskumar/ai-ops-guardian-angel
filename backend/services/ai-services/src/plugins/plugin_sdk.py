@@ -17,7 +17,15 @@ import yaml
 import os
 from pathlib import Path
 
-from ...config.settings import settings
+try:
+    from ...config.settings import settings
+except ImportError:
+    # Fallback when running standalone
+    class MockSettings:
+        PLUGIN_DIRECTORY = "./plugins"
+        MAX_PLUGIN_SIZE = 1024 * 1024  # 1MB
+        ALLOWED_PLUGIN_TYPES = ["agent", "tool", "integration"]
+    settings = MockSettings()
 
 
 class PluginType(str, Enum):

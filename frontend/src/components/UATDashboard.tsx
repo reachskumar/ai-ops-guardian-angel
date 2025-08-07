@@ -355,7 +355,7 @@ const UATDashboard: React.FC = () => {
                 <Menu className="h-5 w-5" />
               </Button>
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-gray-900">AI Ops Guardian Angel</h1>
+                <h1 className="text-2xl font-bold text-gray-900">InfraMind</h1>
               </div>
             </div>
             

@@ -1,5 +1,5 @@
 """
-AI Ops Guardian Angel - Configuration Settings
+InfraMind - Configuration Settings
 Centralized configuration for all AI agents and services
 """
 
@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     """Main configuration settings"""
 
     # Application Settings
-    app_name: str = "AI Ops Guardian Angel"
+    app_name: str = "InfraMind"
     app_version: str = "2.0.0"
     environment: Environment = Environment.DEVELOPMENT
     debug: bool = True
