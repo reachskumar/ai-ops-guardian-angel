@@ -109,7 +109,7 @@ const Sidebar = () => {
   return (
     <div className="w-64 bg-card border-r border-border min-h-screen p-4">
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-primary">AI Ops Guardian Angel</h2>
+        <h2 className="text-lg font-bold text-primary">InfraMind</h2>
         <p className="text-sm text-muted-foreground">AI-Powered DevOps Platform</p>
       </div>
 

@@ -22,6 +22,19 @@ try:
 except ImportError:
     LANGGRAPH_AVAILABLE = False
     logging.warning("LangGraph not available. Install with: pip install langgraph langchain")
+    
+    # Create dummy classes when LangGraph is not available
+    class HumanMessage:
+        def __init__(self, content: str):
+            self.content = content
+    
+    class AIMessage:
+        def __init__(self, content: str):
+            self.content = content
+    
+    class SystemMessage:
+        def __init__(self, content: str):
+            self.content = content
 
 from ...config.settings import settings
 

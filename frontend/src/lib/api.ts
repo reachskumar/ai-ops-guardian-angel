@@ -1,4 +1,4 @@
-// API Configuration and Integration for InfraMind AI Ops Guardian Angel
+// API Configuration and Integration for InfraMind
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8001';
 const API_GATEWAY_URL = (import.meta as any).env?.VITE_API_GATEWAY_URL || 'http://localhost:3001';

@@ -1,4 +1,4 @@
-# 🛡️ AI Ops Guardian Angel
+# 🧠 InfraMind
 
 An intelligent DevOps platform that combines AI-powered automation with human oversight to streamline infrastructure management, deployments, and cloud operations.
 
@@ -50,8 +50,8 @@ The platform is built using a modern, scalable architecture:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-org/ai-ops-guardian-angel.git
-   cd ai-ops-guardian-angel
+   git clone https://github.com/your-org/inframind.git
+   cd inframind
    ```
 
 2. **Install dependencies**
@@ -76,7 +76,7 @@ The platform is built using a modern, scalable architecture:
 ## 📁 Project Structure
 
 ```
-ai-ops-guardian-angel/
+inframind/
 ├── src/
 │   ├── components/          # React components
 │   ├── pages/              # Application pages
@@ -162,8 +162,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 💬 Support
 
 - **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/ai-ops-guardian-angel/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/ai-ops-guardian-angel/discussions)
+- **Issues**: [GitHub Issues](https://github.com/your-org/inframind/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/your-org/inframind/discussions)
 
 ## 🏆 Acknowledgments
 

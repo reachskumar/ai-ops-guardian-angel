@@ -1,8 +1,8 @@
 {
-  "name": "@ai-ops-guardian/backend",
+  "name": "@inframind/backend",
   "version": "1.0.0",
-  "description": "Backend services for AI Ops Guardian Angel platform",
-  "author": "AI Ops Guardian Team",
+  "description": "Backend services for InfraMind platform",
+  "author": "InfraMind Team",
   "license": "MIT",
   "private": true,
   "scripts": {

@@ -1,0 +1,138 @@
+{
+  "timestamp": "2025-08-04T20:22:08.096229",
+  "results": [
+    {
+      "service": "frontend",
+      "status": "error",
+      "error": ""
+    },
+    {
+      "service": "frontend_health",
+      "status": "error",
+      "error": ""
+    },
+    {
+      "service": "ai_services",
+      "status": "healthy",
+      "response_time": "N/A",
+      "data": {
+        "status": "healthy",
+        "service": "ai-services",
+        "timestamp": "2025-08-04T20:22:07.703007",
+        "version": "2.0.0"
+      }
+    },
+    {
+      "service": "data_services",
+      "status": "healthy",
+      "response_time": "N/A",
+      "data": {
+        "status": "healthy",
+        "timestamp": "2025-08-04T14:52:07.706Z",
+        "service": "inframind-data-services",
+        "version": "2.0.0",
+        "database": "connected"
+      }
+    },
+    {
+      "service": "cloud_integrations",
+      "status": "healthy",
+      "response_time": "N/A",
+      "data": {
+        "status": "healthy",
+        "timestamp": "2025-08-04T14:52:07.716Z",
+        "service": "cloud-integrations",
+        "version": "2.0.0",
+        "providers": [
+          "aws",
+          "azure",
+          "gcp"
+        ],
+        "connections": [
+          "mock-aws",
+          "mock-azure",
+          "mock-gcp"
+        ]
+      }
+    },
+    {
+      "service": "security_services",
+      "status": "healthy",
+      "response_time": "N/A",
+      "data": {
+        "status": "healthy",
+        "timestamp": "2025-08-04T14:52:07.719Z",
+        "service": "inframind-data-services",
+        "version": "2.0.0",
+        "database": "connected"
+      }
+    },
+    {
+      "service": "real_time_services",
+      "status": "healthy",
+      "response_time": "N/A",
+      "data": {
+        "status": "healthy",
+        "timestamp": "2025-08-04T14:52:07.728Z",
+        "service": "real-time-services",
+        "version": "2.0.0",
+        "websocket_enabled": true,
+        "notifications": [
+          "system",
+          "security",
+          "cost"
+        ]
+      }
+    },
+    {
+      "test": "AI Chat Integration",
+      "status": "success",
+      "response": "Hello! I'm your AI assistant for cloud operations. I can help with cost optimization, security analysis, infrastructure management, and more. How can I assist you today?",
+      "agent_used": "general"
+    },
+    {
+      "test": "AI Agents Endpoint",
+      "status": "success",
+      "agents_count": 4,
+      "agents": [
+        {
+          "id": "cost_optimization",
+          "name": "Cost Optimization Agent",
+          "description": "Helps optimize cloud costs and identify savings opportunities",
+          "status": "active"
+        },
+        {
+          "id": "security",
+          "name": "Security Analysis Agent",
+          "description": "Analyzes security posture and identifies vulnerabilities",
+          "status": "active"
+        },
+        {
+          "id": "infrastructure",
+          "name": "Infrastructure Agent",
+          "description": "Manages and optimizes infrastructure resources",
+          "status": "active"
+        },
+        {
+          "id": "general",
+          "name": "General Assistant",
+          "description": "General AI assistant for cloud operations",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "test": "Frontend Routes",
+      "status": "partial",
+      "successful_routes": 0,
+      "failed_routes": 10,
+      "total_routes": 10
+    },
+    {
+      "test": "Data Services Auth",
+      "status": "success",
+      "user_id": "6890c9189e958a1dac225df7",
+      "token_received": true
+    }
+  ]
+}

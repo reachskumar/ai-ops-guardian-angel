@@ -56,7 +56,7 @@ const Navigation = () => {
                 <Bot className="w-6 h-6 text-primary" />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-lg font-bold">AI Ops Guardian Angel</h1>
+                <h1 className="text-lg font-bold">InfraMind</h1>
                 <p className="text-xs text-muted-foreground">AI-Powered DevOps Platform</p>
               </div>
             </Link>
@@ -74,6 +74,50 @@ const Navigation = () => {
                 className="block w-full pl-10 pr-3 py-2 border border-border rounded-md bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="hidden md:flex items-center space-x-6">
+            <Link 
+              to="/dashboard" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/dashboard' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Dashboard
+            </Link>
+            <Link 
+              to="/cloud-connection" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/cloud-connection' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Connect Cloud
+            </Link>
+            <Link 
+              to="/resources" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/resources' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Resources
+            </Link>
+            <Link 
+              to="/chat" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/chat' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              AI Chat
+            </Link>
           </div>
 
           {/* Right Side Actions */}

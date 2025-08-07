@@ -20,6 +20,27 @@ try:
 except ImportError:
     QDRANT_AVAILABLE = False
     logging.warning("Qdrant client not available. Install with: pip install qdrant-client")
+    
+    # Create dummy models when Qdrant is not available
+    class MockModels:
+        class Filter:
+            def __init__(self, *args, **kwargs):
+                pass
+        
+        class FieldCondition:
+            def __init__(self, *args, **kwargs):
+                pass
+                
+        class MatchValue:
+            def __init__(self, *args, **kwargs):
+                pass
+                
+        class Range:
+            def __init__(self, *args, **kwargs):
+                pass
+    
+    models = MockModels()
+    rest = MockModels()
 
 # Text processing and embeddings
 try:
@@ -29,8 +50,30 @@ try:
 except ImportError:
     EMBEDDINGS_AVAILABLE = False
     logging.warning("Sentence transformers not available. Install with: pip install sentence-transformers")
+    
+    # Create dummy numpy when not available
+    class MockNumpy:
+        def array(self, *args, **kwargs):
+            return []
+        def dot(self, *args, **kwargs):
+            return 0.0
+        def linalg(self):
+            class MockLinalg:
+                def norm(self, *args, **kwargs):
+                    return 1.0
+            return MockLinalg()
+    
+    np = MockNumpy()
 
-from ..config.settings import settings
+try:
+    from ..config.settings import settings
+except ImportError:
+    # Fallback when running standalone
+    class MockSettings:
+        QDRANT_HOST = "localhost"
+        QDRANT_PORT = 6333
+        EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+    settings = MockSettings()
 
 
 class VectorStore:

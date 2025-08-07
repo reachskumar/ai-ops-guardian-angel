@@ -1,753 +1,332 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Cloud, Shield, Key, Eye, CheckCircle, AlertTriangle,
-  Plus, Settings, RefreshCw, TestTube, Database, Server,
-  Globe, Lock, User, Building, ArrowRight, ExternalLink
-} from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Alert, AlertDescription } from './ui/alert';
-import { Separator } from './ui/separator';
-import { Progress } from './ui/progress';
-import { aiServicesAPI } from '../lib/api';
-import { useToast } from '../hooks/use-toast';
-import { useAuth } from '../lib/auth';
 
-interface CloudProvider {
+interface AWSResource {
   id: string;
   name: string;
-  icon: string;
-  color: string;
-  description: string;
-  status: 'connected' | 'disconnected' | 'testing' | 'error';
-  accounts: CloudAccount[];
-}
-
-interface CloudAccount {
-  id: string;
-  name: string;
-  accountId: string;
+  type: string;
   region: string;
-  status: 'active' | 'inactive' | 'error';
-  resources: number;
-  cost: number;
+  status: string;
+  cost?: number;
 }
 
-const CloudConnection: React.FC = () => {
-  const { toast } = useToast();
+const CloudConnection = () => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [resources, setResources] = useState<AWSResource[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState('');
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
-  const [showSecrets, setShowSecrets] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
-  const [providers, setProviders] = useState<CloudProvider[]>([]);
-  const [connectionData, setConnectionData] = useState({
-    accessKey: '',
-    secretKey: '',
-    region: 'us-east-1',
-    subscriptionId: '',
-    tenantId: '',
-    clientId: '',
-    clientSecret: '',
-    projectId: '',
-    serviceAccountKey: '',
-  });
 
-  const cloudProviders: CloudProvider[] = [
-    {
-      id: 'aws',
-      name: 'Amazon Web Services',
-      icon: '☁️',
-      color: 'bg-orange-500',
-      description: 'Connect your AWS accounts for comprehensive cloud management',
-      status: 'disconnected',
-      accounts: []
-    },
-    {
-      id: 'azure',
-      name: 'Microsoft Azure',
-      icon: '☁️',
-      color: 'bg-blue-500',
-      description: 'Integrate Azure subscriptions for multi-cloud operations',
-      status: 'disconnected',
-      accounts: []
-    },
-    {
-      id: 'gcp',
-      name: 'Google Cloud Platform',
-      icon: '☁️',
-      color: 'bg-red-500',
-      description: 'Connect GCP projects for unified cloud management',
-      status: 'disconnected',
-      accounts: []
-    },
-    {
-      id: 'oci',
-      name: 'Oracle Cloud Infrastructure',
-      icon: '☁️',
-      color: 'bg-red-600',
-      description: 'Integrate OCI tenancies for complete cloud coverage',
-      status: 'disconnected',
-      accounts: []
-    }
-  ];
-
-  // Check authentication on component mount
   useEffect(() => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to connect to cloud providers.",
-        variant: "destructive",
-      });
-      navigate('/auth');
-      return;
-    }
-    
-    loadConnectedProviders();
-  }, [isAuthenticated, navigate, toast]);
+    // Check if AWS credentials are available
+    checkAWSConnection();
+  }, []);
 
-  const loadConnectedProviders = async () => {
+  const checkAWSConnection = async () => {
     try {
-      const response = await aiServicesAPI.getCloudProviders();
-      if (response.success && response.data) {
-        const connectedProviders = response.data.providers || [];
-        const updatedProviders = cloudProviders.map(provider => {
-          const connected = connectedProviders.find((p: any) => p.provider === provider.id);
-          return {
-            ...provider,
-            status: connected ? 'connected' : 'disconnected',
-            accounts: connected?.accounts || []
-          };
-        });
-        setProviders(updatedProviders);
+      const response = await fetch('http://localhost:8001/aws/ec2');
+      if (response.ok) {
+        setIsConnected(true);
+        setConnectionStatus('Connected to AWS');
+        fetchResources();
       } else {
-        setProviders(cloudProviders);
+        setConnectionStatus('AWS credentials not found');
       }
     } catch (error) {
-      console.error('Failed to load providers:', error);
-      setProviders(cloudProviders);
+      setConnectionStatus('Error connecting to AWS');
     }
   };
 
-  const handleConnect = async (providerId: string) => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to connect to cloud providers.",
-        variant: "destructive",
-      });
-      navigate('/auth');
-      return;
-    }
-    
-    setIsConnecting(true);
-    setSelectedProvider(providerId);
-    
+  const fetchResources = async () => {
+    setIsLoading(true);
     try {
-      // Get credentials based on provider
-      const credentials = getCredentialsForProvider(providerId);
-      
-      const response = await aiServicesAPI.connectCloudProvider(providerId, credentials);
-      
-      if (response.success) {
-        toast({
-          title: "Connection Successful",
-          description: response.data?.message || `Successfully connected to ${providerId.toUpperCase()}`,
-        });
-        
-        // Reload providers to show updated status
-        await loadConnectedProviders();
-      } else {
-        throw new Error(response.error || 'Connection failed');
+      // Fetch real AWS resources
+      const [ec2Response, s3Response] = await Promise.all([
+        fetch('http://localhost:8001/aws/ec2'),
+        fetch('http://localhost:8001/aws/s3')
+      ]);
+
+      const resources: AWSResource[] = [];
+
+      if (ec2Response.ok) {
+        const ec2Data = await ec2Response.json();
+        if (ec2Data.instances) {
+          ec2Data.instances.forEach((instance: any) => {
+            resources.push({
+              id: instance.InstanceId,
+              name: instance.Name || 'Unnamed Instance',
+              type: 'EC2 Instance',
+              region: instance.Region,
+              status: instance.State,
+              cost: instance.MonthlyCost
+            });
+          });
+        }
       }
+
+      if (s3Response.ok) {
+        const s3Data = await s3Response.json();
+        if (s3Data.buckets) {
+          s3Data.buckets.forEach((bucket: any) => {
+            resources.push({
+              id: bucket.Name,
+              name: bucket.Name,
+              type: 'S3 Bucket',
+              region: bucket.Region,
+              status: 'Active',
+              cost: bucket.MonthlyCost
+            });
+          });
+        }
+      }
+
+      setResources(resources);
     } catch (error) {
-      let errorMessage = 'Unknown error';
-      
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-      
-      // Provide specific guidance for common errors
-      if (errorMessage.includes('InvalidClientTokenId') || errorMessage.includes('InvalidAccessKeyId')) {
-        errorMessage = 'Invalid AWS credentials. Please use real Access Key ID and Secret Access Key from your AWS IAM user.';
-      } else if (errorMessage.includes('Unauthorized') || errorMessage.includes('401')) {
-        errorMessage = 'Authentication failed. Please log in again and try connecting.';
-      } else if (errorMessage.includes('credential validation failed')) {
-        errorMessage = 'Invalid credentials. Please check your cloud provider credentials and try again.';
-      }
-      
-      toast({
-        title: "Connection Failed",
-        description: `Failed to connect to ${providerId.toUpperCase()}: ${errorMessage}`,
-        variant: "destructive",
-      });
+      console.error('Error fetching resources:', error);
     } finally {
-      setIsConnecting(false);
+      setIsLoading(false);
     }
   };
 
-  const getCredentialsForProvider = (providerId: string) => {
-    switch (providerId) {
-      case 'aws':
-        return {
-          access_key_id: connectionData.accessKey,
-          secret_access_key: connectionData.secretKey,
-          region: connectionData.region || 'us-east-1'
-        };
-      case 'azure':
-        return {
-          subscription_id: connectionData.subscriptionId,
-          client_id: connectionData.clientId,
-          client_secret: connectionData.clientSecret,
-          tenant_id: connectionData.tenantId
-        };
-      case 'gcp':
-        return {
-          service_account_key: connectionData.serviceAccountKey
-        };
-      case 'oci':
-        return {
-          tenancy_ocid: connectionData.tenantId,
-          user_ocid: connectionData.clientId,
-          fingerprint: connectionData.accessKey,
-          private_key: connectionData.secretKey
-        };
-      default:
-        return {};
+  const connectAWS = async () => {
+    setIsLoading(true);
+    setConnectionStatus('Connecting to AWS...');
+    
+    try {
+      // Test AWS connection
+      const response = await fetch('http://localhost:8001/aws/ec2');
+      if (response.ok) {
+        setIsConnected(true);
+        setConnectionStatus('Successfully connected to AWS!');
+        fetchResources();
+      } else {
+        setConnectionStatus('Failed to connect. Please check your AWS credentials.');
+      }
+    } catch (error) {
+      setConnectionStatus('Connection error. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleTestConnection = async (providerId: string) => {
-    // Simulate connection testing
-    const provider = providers.find(p => p.id === providerId);
-    if (provider) {
-      // Update status to testing
-      setTimeout(() => {
-        // Update status based on test result
-      }, 2000);
-    }
+  const goToResources = () => {
+    navigate('/resources');
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'connected': return 'text-green-600';
-      case 'disconnected': return 'text-gray-500';
-      case 'testing': return 'text-yellow-600';
-      case 'error': return 'text-red-600';
-      default: return 'text-gray-500';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'connected': return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'disconnected': return <Cloud className="h-4 w-4 text-gray-500" />;
-      case 'testing': return <RefreshCw className="h-4 w-4 text-yellow-600 animate-spin" />;
-      case 'error': return <AlertTriangle className="h-4 w-4 text-red-600" />;
-      default: return <Cloud className="h-4 w-4 text-gray-500" />;
-    }
+  const goToChat = () => {
+    navigate('/chat');
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      {/* Authentication Status */}
-      {!isAuthenticated && (
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Authentication Required:</strong> Please{' '}
-            <Button 
-              variant="link" 
-              className="p-0 h-auto font-semibold text-blue-600"
-              onClick={() => navigate('/auth')}
-            >
-              log in
-            </Button>{' '}
-            to connect to cloud providers.
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {isAuthenticated && (
-        <Alert>
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Authenticated as:</strong> {user?.email || 'Unknown user'}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Cloud Provider Connections
-        </h1>
-        <p className="text-lg text-gray-600">
-          Connect your cloud providers to enable AI-powered infrastructure management
-        </p>
+    <div className="max-w-7xl mx-auto p-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-foreground">Cloud Connection</h1>
+        <p className="text-muted-foreground mt-2">Connect your cloud accounts to manage resources with AI</p>
       </div>
 
-      {/* Important Notice */}
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Production Setup Required:</strong> This is a production-ready system that requires real cloud provider credentials. 
-          <br /><br />
-          <strong>For AWS:</strong> Use real Access Key ID and Secret Access Key from your AWS IAM user
-          <br />
-          <strong>For Azure:</strong> Use real Service Principal credentials (Client ID, Client Secret, Tenant ID, Subscription ID)
-          <br />
-          <strong>For GCP:</strong> Use real Service Account JSON key file content
-          <br /><br />
-          <strong>Note:</strong> Test/demo credentials will be rejected. Only real credentials will work.
-        </AlertDescription>
-      </Alert>
-
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="connect">Connect Providers</TabsTrigger>
-          <TabsTrigger value="accounts">Connected Accounts</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {providers.map((provider) => (
-              <Card key={provider.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-8 h-8 rounded-lg ${provider.color} flex items-center justify-center text-white`}>
-                        {provider.icon}
-                      </div>
-                      <div>
-                        <CardTitle className="text-sm">{provider.name}</CardTitle>
-                        <CardDescription className="text-xs">
-                          {provider.accounts.length} accounts
-                        </CardDescription>
-                      </div>
-                    </div>
-                    {getStatusIcon(provider.status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {provider.description}
-                  </p>
-                  <div className="flex space-x-2">
-                    <Button 
-                      size="sm" 
-                      variant={provider.status === 'connected' ? 'outline' : 'default'}
-                      onClick={() => handleConnect(provider.id)}
-                      disabled={!isAuthenticated || (isConnecting && selectedProvider === provider.id)}
-                    >
-                      {isConnecting && selectedProvider === provider.id ? (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : !isAuthenticated ? (
-                        'Login Required'
-                      ) : provider.status === 'connected' ? (
-                        'Manage'
-                      ) : (
-                        'Connect'
-                      )}
-                    </Button>
-                    {provider.status === 'connected' && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleTestConnection(provider.id)}
-                      >
-                        <TestTube className="h-3 w-3 mr-1" />
-                        Test
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Connection Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Connection Status</CardTitle>
-              <CardDescription>
-                Overview of your cloud provider connections and health
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {providers.map((provider) => (
-                  <div key={provider.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        provider.status === 'connected' ? 'bg-green-500' :
-                        provider.status === 'testing' ? 'bg-yellow-500' :
-                        provider.status === 'error' ? 'bg-red-500' : 'bg-gray-300'
-                      }`} />
-                      <div>
-                        <p className="font-medium">{provider.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {provider.accounts.length} accounts connected
-                        </p>
-                      </div>
-                    </div>
-                    <Badge variant={
-                      provider.status === 'connected' ? 'default' :
-                      provider.status === 'testing' ? 'secondary' :
-                      provider.status === 'error' ? 'destructive' : 'outline'
-                    }>
-                      {provider.status}
-                    </Badge>
-                  </div>
-                ))}
+      {/* Connection Status */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* AWS Connection */}
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                <span className="text-orange-600 font-bold">AWS</span>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <div>
+                <h3 className="font-semibold text-foreground">Amazon Web Services</h3>
+                <p className="text-sm text-muted-foreground">Connect your AWS account</p>
+              </div>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              isConnected 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-gray-100 text-gray-700'
+            }`}>
+              {isConnected ? 'Connected' : 'Not Connected'}
+            </div>
+          </div>
+          
+          <p className="text-sm text-muted-foreground mb-4">
+            {connectionStatus || 'Click connect to link your AWS account'}
+          </p>
+          
+          <button
+            onClick={connectAWS}
+            disabled={isLoading}
+            className={`w-full py-2 px-4 rounded-lg font-medium ${
+              isConnected
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            } disabled:opacity-50`}
+          >
+            {isLoading ? 'Connecting...' : (isConnected ? 'Reconnect' : 'Connect AWS')}
+          </button>
+        </div>
 
-        {/* Connect Providers Tab */}
-        <TabsContent value="connect" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* AWS Connection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <div className="w-6 h-6 bg-orange-500 rounded mr-2 flex items-center justify-center text-white text-xs">
-                    AWS
-                  </div>
-                  Amazon Web Services
-                </CardTitle>
-                <CardDescription>
-                  Connect using Access Keys or IAM Role
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="aws-access-key">Access Key ID</Label>
-                  <Input
-                    id="aws-access-key"
-                    type="text"
-                    placeholder="AKIA..."
-                    value={connectionData.accessKey}
-                    onChange={(e) => setConnectionData({...connectionData, accessKey: e.target.value})}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="aws-secret-key">Secret Access Key</Label>
-                  <div className="relative">
-                    <Input
-                      id="aws-secret-key"
-                      type={showSecrets ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={connectionData.secretKey}
-                      onChange={(e) => setConnectionData({...connectionData, secretKey: e.target.value})}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => setShowSecrets(!showSecrets)}
-                    >
-                      {showSecrets ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
+        {/* Azure Connection */}
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <span className="text-blue-600 font-bold">AZ</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Microsoft Azure</h3>
+                <p className="text-sm text-muted-foreground">Connect your Azure account</p>
+              </div>
+            </div>
+            <div className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              Not Connected
+            </div>
+          </div>
+          
+          <p className="text-sm text-muted-foreground mb-4">
+            Azure integration coming soon
+          </p>
+          
+          <button
+            disabled
+            className="w-full py-2 px-4 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
+          >
+            Coming Soon
+          </button>
+        </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="aws-region">Default Region</Label>
-                  <Input
-                    id="aws-region"
-                    type="text"
-                    placeholder="us-east-1"
-                    value={connectionData.region}
-                    onChange={(e) => setConnectionData({...connectionData, region: e.target.value})}
-                  />
-                </div>
+        {/* GCP Connection */}
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                <span className="text-red-600 font-bold">GC</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Google Cloud Platform</h3>
+                <p className="text-sm text-muted-foreground">Connect your GCP account</p>
+              </div>
+            </div>
+            <div className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              Not Connected
+            </div>
+          </div>
+          
+          <p className="text-sm text-muted-foreground mb-4">
+            GCP integration coming soon
+          </p>
+          
+          <button
+            disabled
+            className="w-full py-2 px-4 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed"
+          >
+            Coming Soon
+          </button>
+        </div>
+      </div>
 
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleConnect('aws')}
-                  disabled={isConnecting && selectedProvider === 'aws'}
-                >
-                  {isConnecting && selectedProvider === 'aws' ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="h-4 w-4 mr-2" />
-                      Connect AWS Account
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Azure Connection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <div className="w-6 h-6 bg-blue-500 rounded mr-2 flex items-center justify-center text-white text-xs">
-                    AZ
-                  </div>
-                  Microsoft Azure
-                </CardTitle>
-                <CardDescription>
-                  Connect using Service Principal
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="azure-tenant-id">Tenant ID</Label>
-                  <Input
-                    id="azure-tenant-id"
-                    type="text"
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    value={connectionData.tenantId}
-                    onChange={(e) => setConnectionData({...connectionData, tenantId: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="azure-client-id">Client ID</Label>
-                  <Input
-                    id="azure-client-id"
-                    type="text"
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    value={connectionData.clientId}
-                    onChange={(e) => setConnectionData({...connectionData, clientId: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="azure-client-secret">Client Secret</Label>
-                  <div className="relative">
-                    <Input
-                      id="azure-client-secret"
-                      type={showSecrets ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={connectionData.clientSecret}
-                      onChange={(e) => setConnectionData({...connectionData, clientSecret: e.target.value})}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => setShowSecrets(!showSecrets)}
-                    >
-                      {showSecrets ? <Eye className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="azure-subscription-id">Subscription ID</Label>
-                  <Input
-                    id="azure-subscription-id"
-                    type="text"
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    value={connectionData.subscriptionId}
-                    onChange={(e) => setConnectionData({...connectionData, subscriptionId: e.target.value})}
-                  />
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleConnect('azure')}
-                  disabled={isConnecting && selectedProvider === 'azure'}
-                >
-                  {isConnecting && selectedProvider === 'azure' ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="h-4 w-4 mr-2" />
-                      Connect Azure Subscription
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* GCP Connection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <div className="w-6 h-6 bg-red-500 rounded mr-2 flex items-center justify-center text-white text-xs">
-                    GCP
-                  </div>
-                  Google Cloud Platform
-                </CardTitle>
-                <CardDescription>
-                  Connect using Service Account Key
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gcp-project-id">Project ID</Label>
-                  <Input
-                    id="gcp-project-id"
-                    type="text"
-                    placeholder="my-project-123"
-                    value={connectionData.projectId}
-                    onChange={(e) => setConnectionData({...connectionData, projectId: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="gcp-service-account">Service Account Key (JSON)</Label>
-                  <textarea
-                    id="gcp-service-account"
-                    className="w-full h-32 p-3 border rounded-md resize-none"
-                    placeholder='{"type": "service_account", "project_id": "..."}'
-                    value={connectionData.serviceAccountKey}
-                    onChange={(e) => setConnectionData({...connectionData, serviceAccountKey: e.target.value})}
-                  />
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleConnect('gcp')}
-                  disabled={isConnecting && selectedProvider === 'gcp'}
-                >
-                  {isConnecting && selectedProvider === 'gcp' ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="h-4 w-4 mr-2" />
-                      Connect GCP Project
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* OCI Connection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <div className="w-6 h-6 bg-red-600 rounded mr-2 flex items-center justify-center text-white text-xs">
-                    OCI
-                  </div>
-                  Oracle Cloud Infrastructure
-                </CardTitle>
-                <CardDescription>
-                  Connect using API Keys
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="oci-user-id">User OCID</Label>
-                  <Input
-                    id="oci-user-id"
-                    type="text"
-                    placeholder="ocid1.user.oc1.."
-                    value={connectionData.accessKey}
-                    onChange={(e) => setConnectionData({...connectionData, accessKey: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="oci-tenancy-id">Tenancy OCID</Label>
-                  <Input
-                    id="oci-tenancy-id"
-                    type="text"
-                    placeholder="ocid1.tenancy.oc1.."
-                    value={connectionData.secretKey}
-                    onChange={(e) => setConnectionData({...connectionData, secretKey: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="oci-fingerprint">Fingerprint</Label>
-                  <Input
-                    id="oci-fingerprint"
-                    type="text"
-                    placeholder="aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
-                    value={connectionData.region}
-                    onChange={(e) => setConnectionData({...connectionData, region: e.target.value})}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="oci-private-key">Private Key</Label>
-                  <textarea
-                    id="oci-private-key"
-                    className="w-full h-32 p-3 border rounded-md resize-none"
-                    placeholder="-----BEGIN PRIVATE KEY-----..."
-                    value={connectionData.serviceAccountKey}
-                    onChange={(e) => setConnectionData({...connectionData, serviceAccountKey: e.target.value})}
-                  />
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={() => handleConnect('oci')}
-                  disabled={isConnecting && selectedProvider === 'oci'}
-                >
-                  {isConnecting && selectedProvider === 'oci' ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Key className="h-4 w-4 mr-2" />
-                      Connect OCI Tenancy
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+      {/* Connected Resources */}
+      {isConnected && (
+        <div className="bg-card border rounded-lg p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-foreground">Your AWS Resources</h2>
+            <div className="flex space-x-2">
+              <button
+                onClick={goToResources}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+              >
+                View All Resources
+              </button>
+              <button
+                onClick={goToChat}
+                className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80"
+              >
+                AI Chat
+              </button>
+            </div>
           </div>
 
-          {/* Security Notice */}
-          <Alert>
-            <Shield className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Security Notice:</strong> All credentials are encrypted and stored securely. 
-              We never store plain text secrets and use industry-standard encryption for all sensitive data.
-            </AlertDescription>
-          </Alert>
-        </TabsContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : resources.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {resources.slice(0, 6).map((resource) => (
+                <div key={resource.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-medium text-foreground">{resource.name}</h3>
+                      <p className="text-sm text-muted-foreground">{resource.type}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      resource.status === 'running' || resource.status === 'Active'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {resource.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <p>Region: {resource.region}</p>
+                    {resource.cost && <p>Monthly: ${resource.cost}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">☁️</div>
+              <h3 className="text-lg font-medium text-foreground mb-2">No resources found</h3>
+              <p className="text-muted-foreground">
+                Your AWS account is connected but no resources were found.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Connected Accounts Tab */}
-        <TabsContent value="accounts" className="space-y-6">
-          <div className="text-center py-8">
-            <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Connected Accounts</h3>
-            <p className="text-gray-600 mb-4">
-              Connect your cloud providers to start managing your infrastructure
-            </p>
-            <Button onClick={() => setSelectedProvider('overview')}>
-              <Plus className="h-4 w-4 mr-2" />
-              Connect Your First Provider
-            </Button>
+      {/* Quick Actions */}
+      {isConnected && (
+        <div className="mt-8 bg-card border rounded-lg p-6">
+          <h2 className="text-xl font-semibold text-foreground mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => navigate('/chat')}
+              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="text-2xl mb-2">🤖</div>
+              <h3 className="font-medium text-foreground">AI Chat</h3>
+              <p className="text-sm text-muted-foreground">Ask AI to manage your resources</p>
+            </button>
+            
+            <button
+              onClick={() => navigate('/resources')}
+              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="text-2xl mb-2">📊</div>
+              <h3 className="font-medium text-foreground">Resource List</h3>
+              <p className="text-sm text-muted-foreground">View all your cloud resources</p>
+            </button>
+            
+            <button
+              onClick={() => navigate('/cost-optimization')}
+              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="text-2xl mb-2">💰</div>
+              <h3 className="font-medium text-foreground">Cost Analysis</h3>
+              <p className="text-sm text-muted-foreground">Optimize your cloud spending</p>
+            </button>
+            
+            <button
+              onClick={() => navigate('/security')}
+              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="text-2xl mb-2">🔒</div>
+              <h3 className="font-medium text-foreground">Security</h3>
+              <p className="text-sm text-muted-foreground">Check security posture</p>
+            </button>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 };

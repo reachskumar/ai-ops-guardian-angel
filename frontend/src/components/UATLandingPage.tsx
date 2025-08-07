@@ -142,7 +142,7 @@ const UATLandingPage: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-gray-900">AI Ops Guardian Angel</h1>
+                <h1 className="text-2xl font-bold text-gray-900">InfraMind</h1>
               </div>
             </div>
             
@@ -266,7 +266,7 @@ const UATLandingPage: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="text-2xl">Live Platform Demo</DialogTitle>
               <DialogDescription>
-                Experience the AI Ops Guardian Angel platform in action. Explore all features and capabilities.
+                Experience the InfraMind platform in action. Explore all features and capabilities.
               </DialogDescription>
             </DialogHeader>
             
@@ -583,7 +583,7 @@ const UATLandingPage: React.FC = () => {
             Ready to Transform Your Cloud Operations?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join hundreds of organizations already using AI Ops Guardian Angel 
+            Join hundreds of organizations already using InfraMind 
             to optimize costs, enhance security, and improve performance.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -604,7 +604,7 @@ const UATLandingPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-lg font-semibold mb-4">AI Ops Guardian Angel</h3>
+              <h3 className="text-lg font-semibold mb-4">InfraMind</h3>
               <p className="text-gray-400">
                 AI-powered cloud operations platform for modern enterprises.
               </p>
@@ -638,7 +638,7 @@ const UATLandingPage: React.FC = () => {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 AI Ops Guardian Angel. All rights reserved.</p>
+            <p>&copy; 2024 InfraMind. All rights reserved.</p>
           </div>
         </div>
       </footer>

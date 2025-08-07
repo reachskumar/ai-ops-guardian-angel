@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# InfraMind AI Ops Guardian Angel - Frontend Startup Script
+# InfraMind - Frontend Startup Script
 
 echo "🚀 Starting InfraMind Frontend..."
 
@@ -27,7 +27,7 @@ VITE_CLOUD_INTEGRATIONS_URL=http://localhost:8002
 VITE_DATA_SERVICES_URL=http://localhost:8003
 
 # Application Settings
-VITE_APP_NAME=InfraMind AI Ops Guardian Angel
+VITE_APP_NAME=InfraMind
 VITE_APP_VERSION=1.0.0
 EOF
     echo "✅ .env file created"

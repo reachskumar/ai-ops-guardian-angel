@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 AI Ops Guardian Angel - Backend Setup & Startup"
+echo "🚀 InfraMind - Backend Setup & Startup"
 echo "=================================================="
 
 # Function to check if a command exists
@@ -37,7 +37,7 @@ echo "✅ Prerequisites check passed"
 if [ ! -f .env ]; then
     echo "📝 Creating .env file with default values..."
     cat > .env << 'EOF'
-# AI Ops Guardian Angel - Environment Configuration
+# InfraMind - Environment Configuration
 NODE_ENV=development
 ENVIRONMENT=development
 

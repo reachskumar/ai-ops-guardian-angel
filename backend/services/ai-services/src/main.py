@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AI Ops Guardian Angel - AI Services
+InfraMind - AI Services
 Production-ready AI/ML services for DevOps automation
 """
 
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="AI Ops Guardian Angel - AI Services",
+    title="InfraMind - AI Services",
     description="Production-ready AI/ML services for DevOps automation with 28 specialized agents",
     version="2.0.0",
     docs_url="/docs",
@@ -164,7 +164,7 @@ async def get_system_status() -> Dict[str, Any]:
 async def root():
     """Root endpoint"""
     return {
-        "message": "AI Ops Guardian Angel - AI Services",
+        "message": "InfraMind - AI Services",
         "version": "2.0.0",
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -358,7 +358,7 @@ async def system_features():
 
 
 if __name__ == "__main__":
-    logger.info("Starting AI Ops Guardian Angel - AI Services")
+    logger.info("Starting InfraMind - AI Services")
     uvicorn.run(
         "main:app",
         host=settings.api_host,
