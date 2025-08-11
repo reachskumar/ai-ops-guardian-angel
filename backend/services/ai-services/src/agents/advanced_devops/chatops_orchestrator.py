@@ -128,4 +128,8 @@ class ChatOpsOrchestrator:
         inputs = {"type": type_, "version": version}
         return self.gh.dispatch_workflow("hotfix-release.yml", ref=ref, inputs=inputs)
 
+    def gitops_pr(self, environment: str, service: str, image_tag: str, ref: str = "main") -> Dict[str, Any]:
+        inputs = {"environment": environment, "service": service, "image_tag": image_tag}
+        return self.gh.dispatch_workflow("gitops-pr.yml", ref=ref, inputs=inputs)
+
 

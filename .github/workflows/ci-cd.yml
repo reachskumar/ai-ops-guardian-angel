@@ -26,6 +26,20 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
 
+      - name: Run tfsec (IaC scan)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: true
+
+      - name: Run Checkov (IaC policy)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          soft_fail: true
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         if: always()
@@ -205,7 +219,7 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
           export KUBECONFIG=kubeconfig
 
-      - name: Deploy to staging
+      - name: Deploy to staging (rolling)
         run: |
           # Update image tags in Kubernetes manifests
           sed -i "s|IMAGE_TAG|${{ github.sha }}|g" infrastructure/k8s/staging/
@@ -220,6 +234,12 @@ jobs:
 
       - name: Run integration tests
         run: |
+      - name: Enforce SLO gate (staging)
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL_STAGING }}
+          THRESHOLD: "0.01"
+        run: |
+          python3 scripts/ci/slo_gate.py
           # Wait for services to be ready
           sleep 30
           
@@ -246,7 +266,7 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
           export KUBECONFIG=kubeconfig
 
-      - name: Deploy to production
+      - name: Deploy to production (rolling)
         run: |
           # Update image tags in Kubernetes manifests
           sed -i "s|IMAGE_TAG|${{ github.sha }}|g" infrastructure/k8s/production/
@@ -258,6 +278,13 @@ jobs:
           kubectl rollout status deployment/api-gateway -n ai-ops-production
           kubectl rollout status deployment/ai-services -n ai-ops-production
           kubectl rollout status deployment/frontend -n ai-ops-production
+
+      - name: SLO gate (prod)
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL_PRODUCTION }}
+          THRESHOLD: "0.005"
+        run: |
+          python3 scripts/ci/slo_gate.py
 
       - name: Run smoke tests
         run: |
@@ -273,3 +300,18 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
             --data '{"text":"✅ Production deployment successful! Version: ${{ github.sha }}"}'
             ${{ secrets.SLACK_WEBHOOK_URL }} 
+
+      - name: Page on-call on failure
+        if: failure()
+        run: |
+          curl -X POST 'https://events.pagerduty.com/v2/enqueue' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "routing_key": "${{ secrets.PAGERDUTY_ROUTING_KEY }}",
+              "event_action": "trigger",
+              "payload": {
+                "summary": "Prod deploy failed for ${{ github.sha }}",
+                "severity": "critical",
+                "source": "github-actions"
+              }
+            }'

@@ -1,0 +1,57 @@
+name: ChatOps - GitOps PR Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "staging or production"
+        required: true
+        type: choice
+        options: [staging, production]
+      service:
+        description: "Service to update"
+        required: true
+        type: choice
+        options: [api-gateway, ai-services, frontend]
+      image_tag:
+        description: "New image tag (sha or semver)"
+        required: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup git
+        run: |
+          git config user.name "chatops-bot"
+          git config user.email "chatops@example.com"
+
+      - name: Create branch and update manifests
+        env:
+          ENV: ${{ github.event.inputs.environment }}
+          SERVICE: ${{ github.event.inputs.service }}
+          TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          BRANCH=gitops/update-${ENV}-${SERVICE}-${TAG}
+          git checkout -b "$BRANCH"
+          DIR="infrastructure/k8s/${ENV}"
+          if [ "${ENV}" = "production" ]; then DIR="infrastructure/k8s/production"; fi
+          sed -i "" -e "s|IMAGE_TAG|${TAG}|g" "$DIR/${SERVICE}.yaml"
+          git add "$DIR/${SERVICE}.yaml"
+          git commit -m "chore(gitops): ${SERVICE} -> ${TAG} (${ENV})"
+          git push origin "$BRANCH"
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(gitops): update image tag"
+          branch: ${{ steps.update.outputs.branch || '' }}
+          base: ${{ github.ref_name }}
+          title: "GitOps: Update ${{ github.event.inputs.service }} to ${{ github.event.inputs.image_tag }} in ${{ github.event.inputs.environment }}"
+          body: "Automated PR to update image tag."
+

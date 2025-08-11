@@ -398,6 +398,9 @@ class DevOpsChatAgent(BaseAgent):
                     result = self.chatops.logs(environment=env, service=service)
                 elif action == 'node' and node_name and subaction:
                     result = self.chatops.node(node_name=node_name, subaction=subaction, environment=env)
+                elif action == 'gitops_pr':
+                    image_tag = entities.get('image_tag') or 'latest'
+                    result = self.chatops.gitops_pr(environment=env, service=service, image_tag=image_tag)
                 else:
                     # Default to restart if not specified
                     result = self.chatops.restart(environment=env, service=service)
