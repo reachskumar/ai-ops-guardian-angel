@@ -7,7 +7,7 @@ on:
         description: "Operation to perform (deploy|scale|restart|rollout|logs)"
         required: true
         type: choice
-        options: [deploy, scale, restart, rollout, logs, node, hpa_update, quota_update, config_apply, secret_apply]
+        options: [deploy, scale, restart, rollout, logs, node, hpa_update, quota_update, config_apply, secret_apply, events, node_replace]
       environment:
         description: "Target environment (staging|production)"
         required: true
@@ -137,6 +137,9 @@ jobs:
                 kubectl -n "$NAMESPACE" logs "$p" --all-containers --tail="${TAIL:-200}" > "logs/${p##*/}.log" || true
               done
               ;;
+            events)
+              kubectl -n "$NAMESPACE" get events --sort-by=.metadata.creationTimestamp > logs/events.log || true
+              ;;
             node)
               if [ -z "${NODE_NAME:-}" ]; then echo "node_name is required"; exit 1; fi
               case "${SUBACTION:-status}" in
@@ -145,6 +148,12 @@ jobs:
                 uncordon) kubectl uncordon "$NODE_NAME" ;;
                 *) kubectl get node "$NODE_NAME" -o wide ;;
               esac
+              ;;
+            node_replace)
+              if [ -z "${NODE_NAME:-}" ]; then echo "node_name is required"; exit 1; fi
+              kubectl cordon "$NODE_NAME" || true
+              kubectl drain "$NODE_NAME" --ignore-daemonsets --delete-emptydir-data --force || true
+              echo "Please replace node at the infrastructure layer, then run node uncordon." 
               ;;
             hpa_update)
               if [ -z "${MIN_REPLICAS:-}" ] || [ -z "${MAX_REPLICAS:-}" ] || [ -z "${TARGET_CPU:-}" ]; then echo "min_replicas, max_replicas and target_cpu are required"; exit 1; fi

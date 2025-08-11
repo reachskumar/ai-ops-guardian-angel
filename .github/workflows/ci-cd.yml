@@ -5,6 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage to run (security-scan|backend-test|frontend-test|build-images|deploy-staging|deploy-production)"
+        required: true
+        default: "security-scan"
 
 env:
   REGISTRY: ghcr.io
@@ -13,6 +19,7 @@ env:
 jobs:
   # Security and Code Quality
   security-scan:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'security-scan' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -78,6 +85,7 @@ jobs:
 
   # Backend Testing
   backend-test:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'backend-test' }}
     runs-on: ubuntu-latest
     services:
       mongodb:
@@ -145,6 +153,7 @@ jobs:
 
   # Frontend Testing
   frontend-test:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'frontend-test' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -174,6 +183,7 @@ jobs:
 
   # Build and Push Docker Images
   build-images:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'build-images' }}
     needs: [backend-test, frontend-test]
     runs-on: ubuntu-latest
     permissions:
@@ -311,6 +321,7 @@ jobs:
 
   # Deploy to Staging
   deploy-staging:
+    if: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'deploy-staging') && github.ref == 'refs/heads/develop' }}
     needs: build-images
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
@@ -358,6 +369,7 @@ jobs:
 
   # Deploy to Production
   deploy-production:
+    if: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'deploy-production') && github.ref == 'refs/heads/main' }}
     needs: build-images
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'

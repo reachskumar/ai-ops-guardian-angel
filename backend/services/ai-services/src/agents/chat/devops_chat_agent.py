@@ -396,6 +396,8 @@ class DevOpsChatAgent(BaseAgent):
                     result = self.chatops.rollout(environment=env, service=service, subaction=subaction)
                 elif action == 'logs':
                     result = self.chatops.logs(environment=env, service=service)
+                elif action == 'events':
+                    result = self.chatops.logs(environment=env, service=service)  # events uploaded alongside logs
                 elif action == 'node' and node_name and subaction:
                     result = self.chatops.node(node_name=node_name, subaction=subaction, environment=env)
                 elif action == 'gitops_pr':

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: ai-ops-staging
+  labels: { app: frontend }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/reachskumar/ai-ops-guardian-angel/frontend:IMAGE_TAG
+          ports: [{ containerPort: 3000 }]
+          resources:
+            limits: { cpu: "300m", memory: "256Mi" }
+            requests: { cpu: "50m", memory: "64Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: ai-ops-staging
+spec:
+  selector: { app: frontend }
+  ports: [{ port: 80, targetPort: 3000 }]
+
