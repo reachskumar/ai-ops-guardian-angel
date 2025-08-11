@@ -29,14 +29,24 @@ const ClusterOnboarding: React.FC = () => {
   };
 
   const handleInstallControllers = async () => {
-    // Use GitOps PR workflow to push controller manifests via tenant repo (simple signal dispatch)
-    // In a real flow, this would dispatch a repo workflow that runs helm installs in their cluster
-    alert('Dispatching install-controllers workflow (placeholder).');
+    await call(`/api/v1/integrations/${tenantId}/bootstrap/controllers`, {
+      repo,
+      kubeconfig_b64: kubeconfigB64
+    });
+    alert('Cluster controllers installation dispatched.');
   };
 
   const handleAddRepoSecrets = async () => {
-    // Call backend to set repo secrets via GitHub App (future enhancement)
-    alert('Adding repo secrets via backend (placeholder).');
+    await call(`/api/v1/integrations/${tenantId}/github/repo-secrets`, {
+      repo,
+      secrets: {
+        PROMETHEUS_URL_STAGING: promStg,
+        PROMETHEUS_URL_PRODUCTION: promProd,
+        SLACK_WEBHOOK_URL: slackWebhook,
+        PAGERDUTY_ROUTING_KEY: pagerDuty
+      }
+    });
+    alert('Repo secrets configured.');
   };
 
   return (

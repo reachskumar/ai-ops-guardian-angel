@@ -9,6 +9,8 @@ import requests
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from ..utils.secrets_provider import SecretsProvider
+from ..tools.devops.github_app_client import GitHubAppClient
+from ..tools.devops.github_repo_secrets import GitHubRepoSecrets
 
 try:
     from fastapi import APIRouter, HTTPException
@@ -552,6 +554,10 @@ if FASTAPI_AVAILABLE:
         repo: str
         secrets: Dict[str, str]
 
+    class BootstrapRequest(BaseModel):
+        repo: str
+        kubeconfig_b64: str
+
     @router.post("/{tenant_id}/test")
     async def test_integration_endpoint(tenant_id: str, body: TestRequest):
         try:
@@ -625,8 +631,37 @@ if FASTAPI_AVAILABLE:
         else:
             raise HTTPException(status_code=400, detail="Unsupported ITSM provider")
 
+    @router.post("/{tenant_id}/bootstrap/controllers")
+    async def bootstrap_controllers(tenant_id: str, body: BootstrapRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        app_id = sp.get(tenant_id, "github_app_id")
+        private_key = sp.get(tenant_id, "github_app_private_key")
+        installation_id = sp.get(tenant_id, "github_installation_id")
+        if not all([app_id, private_key, installation_id]):
+            raise HTTPException(status_code=400, detail="Missing GitHub App credentials for tenant")
+        app = GitHubAppClient(app_id, private_key)
+        token = app.get_installation_token(installation_id)
+        # Dispatch tenant-bootstrap.yml in this repo or tenant repo; here we assume this repo
+        from ..tools.devops.github_actions_client import GitHubActionsClient
+        gh = GitHubActionsClient(repo_full_name=os.getenv("GITHUB_REPO"), token=token)
+        result = gh.dispatch_workflow(
+            workflow_file="tenant-bootstrap.yml",
+            ref="main",
+            inputs={"kubeconfig_b64": body.kubeconfig_b64},
+        )
+        return {"success": True, "dispatch": result}
+
     @router.post("/{tenant_id}/github/repo-secrets")
     async def set_repo_secrets(tenant_id: str, body: RepoSecretRequest):
-        """Placeholder endpoint to set repo secrets via GitHub App in future."""
-        # In a production version, use GitHub App token + REST to set secrets at repo level
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        app_id = sp.get(tenant_id, "github_app_id")
+        private_key = sp.get(tenant_id, "github_app_private_key")
+        installation_id = sp.get(tenant_id, "github_installation_id")
+        if not all([app_id, private_key, installation_id]):
+            raise HTTPException(status_code=400, detail="Missing GitHub App credentials for tenant")
+        app = GitHubAppClient(app_id, private_key)
+        token = app.get_installation_token(installation_id)
+        client = GitHubRepoSecrets(body.repo, token)
+        for k, v in body.secrets.items():
+            client.set_secret(k, v)
         return {"success": True, "repo": body.repo, "count": len(body.secrets)}

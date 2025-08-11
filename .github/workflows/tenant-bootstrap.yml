@@ -1,0 +1,47 @@
+name: Tenant Bootstrap - Install Controllers
+
+on:
+  workflow_dispatch:
+    inputs:
+      kubeconfig_b64:
+        description: "Base64 kubeconfig"
+        required: true
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: latest
+
+      - name: Configure kubeconfig
+        run: |
+          echo "${{ github.event.inputs.kubeconfig_b64 }}" | base64 -d > kubeconfig
+          echo "KUBECONFIG=$PWD/kubeconfig" >> $GITHUB_ENV
+
+      - name: Install Gatekeeper
+        run: |
+          kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -f https://raw.githubusercontent.com/open-policy-agent/gatekeeper/release-3.16/deploy/gatekeeper.yaml
+
+      - name: Install Argo Rollouts Controller
+        run: |
+          kubectl create namespace argo-rollouts --dry-run=client -o yaml | kubectl apply -f -
+          kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+
+      - name: Install External Secrets Operator
+        run: |
+          kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f -
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo update
+          helm upgrade --install external-secrets external-secrets/external-secrets -n external-secrets
+
+      - name: Install Sigstore Policy Controller
+        run: |
+          kubectl apply -f https://github.com/sigstore/policy-controller/releases/latest/download/policy-controller.yaml
+
+
