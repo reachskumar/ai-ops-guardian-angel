@@ -540,6 +540,14 @@ if FASTAPI_AVAILABLE:
         provider: str
         secrets: Dict[str, str]
 
+    class TicketRequest(BaseModel):
+        provider: str  # jira or servicenow
+        project_or_table: str
+        summary: str
+        description: str
+        severity: Optional[str] = None
+        change_request: Optional[bool] = False
+
     @router.post("/{tenant_id}/test")
     async def test_integration_endpoint(tenant_id: str, body: TestRequest):
         try:
@@ -569,3 +577,46 @@ if FASTAPI_AVAILABLE:
             if sp.delete(tenant_id, f"{provider}_{suffix}"):
                 deleted_any = True
         return {"success": True, "deleted": deleted_any}
+
+    @router.post("/{tenant_id}/itsm/ticket")
+    async def create_ticket(tenant_id: str, body: TicketRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        if body.provider == "jira":
+            base = sp.get(tenant_id, "jira_url")
+            user = sp.get(tenant_id, "jira_user")
+            token = sp.get(tenant_id, "jira_token")
+            if not all([base, user, token]):
+                raise HTTPException(status_code=400, detail="Missing Jira credentials")
+            url = f"{base}/rest/api/3/issue"
+            auth = (user, token)
+            payload = {
+                "fields": {
+                    "project": {"key": body.project_or_table},
+                    "summary": body.summary,
+                    "description": body.description,
+                    "issuetype": {"name": "Task" if not body.change_request else "Change"}
+                }
+            }
+            r = requests.post(url, auth=auth, json=payload, timeout=20)
+            if r.status_code >= 300:
+                raise HTTPException(status_code=400, detail=f"Jira error: {r.text}")
+            return {"success": True, "id": r.json().get("key")}
+        elif body.provider == "servicenow":
+            base = sp.get(tenant_id, "snow_url")
+            user = sp.get(tenant_id, "snow_user")
+            token = sp.get(tenant_id, "snow_token")
+            if not all([base, user, token]):
+                raise HTTPException(status_code=400, detail="Missing ServiceNow credentials")
+            table = body.project_or_table
+            url = f"{base}/api/now/table/{table}"
+            headers = {"Accept": "application/json"}
+            r = requests.post(url, auth=(user, token), headers=headers, json={
+                "short_description": body.summary,
+                "description": body.description,
+                "severity": body.severity or "3"
+            }, timeout=20)
+            if r.status_code >= 300:
+                raise HTTPException(status_code=400, detail=f"ServiceNow error: {r.text}")
+            return {"success": True, "id": r.json().get("result", {}).get("sys_id")}
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported ITSM provider")
