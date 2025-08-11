@@ -1,0 +1,119 @@
+name: ChatOps - Kubernetes Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Operation to perform (deploy|scale|restart|rollout|logs)"
+        required: true
+        type: choice
+        options: [deploy, scale, restart, rollout, logs]
+      environment:
+        description: "Target environment (staging|production)"
+        required: true
+        type: choice
+        options: [staging, production]
+      service:
+        description: "Service name (api-gateway|ai-services|frontend)"
+        required: true
+        type: choice
+        options: [api-gateway, ai-services, frontend]
+      strategy:
+        description: "Deployment strategy (rolling|blue_green|canary)"
+        required: false
+        default: rolling
+      replicas:
+        description: "Number of replicas (for scale)"
+        required: false
+      subaction:
+        description: "Rollout subaction (status|pause|resume|undo)"
+        required: false
+      tail:
+        description: "Tail lines for logs"
+        required: false
+        default: "200"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: latest
+
+      - name: Configure kubeconfig
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          fi
+          echo "KUBECONFIG=$PWD/kubeconfig" >> $GITHUB_ENV
+
+      - name: Select namespace
+        id: ns
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "ns=ai-ops-production" >> $GITHUB_OUTPUT
+          else
+            echo "ns=ai-ops-staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Execute operation
+        env:
+          NAMESPACE: ${{ steps.ns.outputs.ns }}
+          SERVICE: ${{ github.event.inputs.service }}
+          ACTION: ${{ github.event.inputs.action }}
+          STRATEGY: ${{ github.event.inputs.strategy }}
+          REPLICAS: ${{ github.event.inputs.replicas }}
+          SUBACTION: ${{ github.event.inputs.subaction }}
+          TAIL: ${{ github.event.inputs.tail }}
+        run: |
+          set -euo pipefail
+          echo "Action: $ACTION, Service: $SERVICE, Namespace: $NAMESPACE"
+          DEPLOYMENT="$SERVICE"
+          case "$ACTION" in
+            deploy)
+              # Rolling deploy by default: restart to pick up new image tag in manifests
+              kubectl -n "$NAMESPACE" rollout restart deployment "$DEPLOYMENT"
+              kubectl -n "$NAMESPACE" rollout status deployment "$DEPLOYMENT" --timeout=5m
+              ;;
+            scale)
+              if [ -z "${REPLICAS:-}" ]; then echo "replicas is required"; exit 1; fi
+              kubectl -n "$NAMESPACE" scale deployment "$DEPLOYMENT" --replicas="$REPLICAS"
+              kubectl -n "$NAMESPACE" rollout status deployment "$DEPLOYMENT" --timeout=5m
+              ;;
+            restart)
+              kubectl -n "$NAMESPACE" rollout restart deployment "$DEPLOYMENT"
+              kubectl -n "$NAMESPACE" rollout status deployment "$DEPLOYMENT" --timeout=5m
+              ;;
+            rollout)
+              case "${SUBACTION:-status}" in
+                status)
+                  kubectl -n "$NAMESPACE" rollout status deployment "$DEPLOYMENT" --timeout=2m
+                  ;;
+                pause)
+                  kubectl -n "$NAMESPACE" rollout pause deployment "$DEPLOYMENT"
+                  ;;
+                resume)
+                  kubectl -n "$NAMESPACE" rollout resume deployment "$DEPLOYMENT"
+                  ;;
+                undo)
+                  kubectl -n "$NAMESPACE" rollout undo deployment "$DEPLOYMENT"
+                  ;;
+              esac
+              ;;
+            logs)
+              POD=$(kubectl -n "$NAMESPACE" get pods -l app="$DEPLOYMENT" -o jsonpath='{.items[0].metadata.name}')
+              kubectl -n "$NAMESPACE" logs "$POD" --tail="${TAIL:-200}" || true
+              ;;
+            *)
+              echo "Unknown action: $ACTION"; exit 1;
+              ;;
+          esac
+
+
