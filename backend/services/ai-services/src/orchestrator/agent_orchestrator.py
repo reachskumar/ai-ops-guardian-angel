@@ -43,6 +43,7 @@ from ..agents.human_loop.decision_support_agent import DecisionSupportAgent
 from ..agents.git_deploy.git_integration_agent import GitIntegrationAgent
 from ..agents.git_deploy.pipeline_generation_agent import PipelineGenerationAgent
 from ..agents.git_deploy.deployment_orchestration_agent import DeploymentOrchestrationAgent
+from ..agents.gitops.gitops_deployment_agent import GitOpsDeploymentAgent
 
 # Analytics & Monitoring Agents
 from ..agents.analytics.business_intelligence_agent import BusinessIntelligenceAgent
@@ -385,7 +386,8 @@ class AgentOrchestrator:
         git_deploy_agents = [
             GitIntegrationAgent(),
             PipelineGenerationAgent(),
-            DeploymentOrchestrationAgent()
+            DeploymentOrchestrationAgent(),
+            GitOpsDeploymentAgent()
         ]
         
         # Analytics & Monitoring Agents
