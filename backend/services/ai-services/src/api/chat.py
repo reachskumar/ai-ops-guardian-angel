@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     context: Optional[str] = None
     user_id: Optional[str] = None
     session_id: Optional[str] = None
+    tenant_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -56,7 +57,12 @@ async def chat_endpoint(request: ChatRequest):
         from ..agents.chat.devops_chat_agent import DevOpsChatAgent
         agent = DevOpsChatAgent()
         user_id = request.user_id or "anonymous"
-        result = await agent.process_message(request.message, user_id=user_id, session_id=request.session_id)
+        # Pass tenant_id via context for downstream dispatch
+        result = await agent.process_message(
+            request.message,
+            user_id=user_id,
+            session_id=request.session_id,
+        )
         return ChatResponse(
             response=result.get('message', ''),
             timestamp=result.get('timestamp', ''),

@@ -319,7 +319,7 @@ class DevOpsChatAgent(BaseAgent):
             'analysis_timestamp': datetime.now().isoformat()
         }
 
-    async def process_message(self, message: str, user_id: str, session_id: str = None) -> Dict[str, Any]:
+    async def process_message(self, message: str, user_id: str, session_id: str = None, tenant_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Main entry point for processing user messages
         """
@@ -341,7 +341,7 @@ class DevOpsChatAgent(BaseAgent):
                     IntentType.DEPLOYMENT,
                     IntentType.KUBERNETES_MANAGEMENT,
                 ]:
-                    response = await self._handle_chatops(message, parsed_intent)
+                    response = await self._handle_chatops(message, parsed_intent, tenant_id=tenant_id)
                 else:
                     response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
             
@@ -370,7 +370,7 @@ class DevOpsChatAgent(BaseAgent):
                 'timestamp': datetime.now().isoformat()
             }
 
-    async def _handle_chatops(self, message: str, parsed_intent: ParsedIntent) -> Dict[str, Any]:
+    async def _handle_chatops(self, message: str, parsed_intent: ParsedIntent, tenant_id: Optional[str]) -> Dict[str, Any]:
         entities = parsed_intent.entities
         env = entities.get('environment', 'staging')
         service = entities.get('service', 'ai-services')
@@ -379,6 +379,7 @@ class DevOpsChatAgent(BaseAgent):
         replicas = entities.get('replicas')
         node_name = entities.get('node_name')
         try:
+            self.chatops = ChatOpsOrchestrator(tenant_id=tenant_id) if tenant_id else self.chatops
             if parsed_intent.intent_type == IntentType.DEPLOYMENT:
                 result = self.chatops.deploy(environment=env, service=service, strategy='rolling')
                 return {

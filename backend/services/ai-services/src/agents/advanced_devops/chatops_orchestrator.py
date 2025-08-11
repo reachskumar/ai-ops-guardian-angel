@@ -7,13 +7,29 @@ from __future__ import annotations
 from typing import Dict, Any, Optional
 
 from ...tools.devops.github_actions_client import GitHubActionsClient
+from ...tools.devops.github_app_client import GitHubAppClient
+from ...utils.secrets_provider import SecretsProvider
 
 
 class ChatOpsOrchestrator:
     """Maps high-level intents to workflow dispatch calls."""
 
-    def __init__(self, repo_full_name: Optional[str] = None, token: Optional[str] = None) -> None:
-        self.gh = GitHubActionsClient(repo_full_name=repo_full_name, token=token)
+    def __init__(self, repo_full_name: Optional[str] = None, token: Optional[str] = None, tenant_id: Optional[str] = None) -> None:
+        self.tenant_id = tenant_id
+        if tenant_id:
+            # Resolve per-tenant GitHub App token and repo
+            sp = SecretsProvider()
+            app_id = sp.get(tenant_id, "github_app_id")
+            private_key = sp.get(tenant_id, "github_app_private_key")
+            installation_id = sp.get(tenant_id, "github_installation_id")
+            repo = sp.get(tenant_id, "github_repo")
+            if not all([app_id, private_key, installation_id, repo]):
+                raise ValueError("Missing tenant GitHub integration secrets")
+            gh_app = GitHubAppClient(app_id=app_id, private_key_pem=private_key)
+            inst_token = gh_app.get_installation_token(installation_id)
+            self.gh = GitHubActionsClient(repo_full_name=repo, token=inst_token)
+        else:
+            self.gh = GitHubActionsClient(repo_full_name=repo_full_name, token=token)
 
     def deploy(
         self,
