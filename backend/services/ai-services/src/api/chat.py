@@ -38,6 +38,7 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = None
     session_id: Optional[str] = None
     tenant_id: Optional[str] = None
+    params: Optional[Dict[str, Any]] = None
 
 class ChatResponse(BaseModel):
     response: str
