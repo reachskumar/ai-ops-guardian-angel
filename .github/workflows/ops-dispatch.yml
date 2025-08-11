@@ -7,7 +7,7 @@ on:
         description: "Operation to perform (deploy|scale|restart|rollout|logs)"
         required: true
         type: choice
-        options: [deploy, scale, restart, rollout, logs, node, hpa_update, quota_update, config_apply, secret_apply, events, node_replace]
+        options: [deploy, scale, restart, rollout, logs, node, hpa_update, quota_update, config_apply, secret_apply, events, node_replace, promote, abort]
       environment:
         description: "Target environment (staging|production)"
         required: true
@@ -105,6 +105,14 @@ jobs:
               # Rolling deploy by default: restart to pick up new image tag in manifests
               kubectl -n "$NAMESPACE" rollout restart deployment "$DEPLOYMENT"
               kubectl -n "$NAMESPACE" rollout status deployment "$DEPLOYMENT" --timeout=5m
+              ;;
+            promote)
+              # Promote Argo Rollout to 100%
+              kubectl -n "$NAMESPACE" argo rollouts promote "$DEPLOYMENT" || true
+              ;;
+            abort)
+              # Abort current canary and rollback
+              kubectl -n "$NAMESPACE" argo rollouts abort "$DEPLOYMENT" || true
               ;;
             scale)
               if [ -z "${REPLICAS:-}" ]; then echo "replicas is required"; exit 1; fi

@@ -403,6 +403,10 @@ class DevOpsChatAgent(BaseAgent):
                 elif action == 'gitops_pr':
                     image_tag = entities.get('image_tag') or 'latest'
                     result = self.chatops.gitops_pr(environment=env, service=service, image_tag=image_tag)
+                elif action == 'promote':
+                    result = self.chatops.promote(environment=env, service=service)
+                elif action == 'abort':
+                    result = self.chatops.abort(environment=env, service=service)
                 else:
                     # Default to restart if not specified
                     result = self.chatops.restart(environment=env, service=service)
