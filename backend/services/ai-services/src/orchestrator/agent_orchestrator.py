@@ -57,6 +57,7 @@ from ..agents.advanced_devops.kubernetes_agent import KubernetesAgent
 # Specialized DevOps Agents
 from ..agents.specialized_devops.artifact_management_agent import ArtifactManagementAgent
 from ..agents.specialized_devops.performance_testing_agent import PerformanceTestingAgent
+from ..agents.cloud.cloud_ops_agent import CloudOpsAgent
 from ..config.settings import AgentType, settings
 from ..utils.logging import get_logger
 from ..utils.metrics import system_metrics
@@ -413,7 +414,8 @@ class AgentOrchestrator:
         # Specialized DevOps Agents
         specialized_devops_agents = [
             ArtifactManagementAgent(),
-            PerformanceTestingAgent()
+            PerformanceTestingAgent(),
+            CloudOpsAgent()
         ]
         
         # Combine all advanced agents

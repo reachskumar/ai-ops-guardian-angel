@@ -342,6 +342,9 @@ class DevOpsChatAgent(BaseAgent):
                     IntentType.KUBERNETES_MANAGEMENT,
                 ]:
                     response = await self._handle_chatops(message, parsed_intent, tenant_id=tenant_id)
+                elif parsed_intent.intent_type == IntentType.INFRASTRUCTURE:
+                    # Simple route to CloudOpsAgent for now
+                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
                 else:
                     response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
             

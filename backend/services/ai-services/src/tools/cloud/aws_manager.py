@@ -1,3 +1,118 @@
+from __future__ import annotations
+
+from typing import List, Dict, Any, Optional
+import boto3
+from botocore.config import Config
+
+
+class AWSManager:
+    """AWS operations wrapper (inventory + basic lifecycle and networking)."""
+
+    def __init__(self, access_key_id: str, secret_access_key: str, region: str) -> None:
+        session = boto3.Session(
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key,
+            region_name=region,
+        )
+        cfg = Config(retries={"max_attempts": 5, "mode": "standard"})
+        self.ec2 = session.client("ec2", config=cfg)
+        self.rds = session.client("rds", config=cfg)
+        self.route53 = session.client("route53", config=cfg)
+        self.cloudfront = session.client("cloudfront", config=cfg)
+        self.wafv2 = session.client("wafv2", config=cfg)
+
+    # Inventory
+    def list_instances(self, states: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        filters = []
+        if states:
+            filters.append({"Name": "instance-state-name", "Values": states})
+        resp = self.ec2.describe_instances(Filters=filters) if filters else self.ec2.describe_instances()
+        out: List[Dict[str, Any]] = []
+        for r in resp.get("Reservations", []):
+            for i in r.get("Instances", []):
+                out.append({
+                    "instance_id": i["InstanceId"],
+                    "type": i.get("InstanceType"),
+                    "state": i.get("State", {}).get("Name"),
+                    "az": i.get("Placement", {}).get("AvailabilityZone"),
+                    "name": next((t["Value"] for t in i.get("Tags", []) if t["Key"] == "Name"), None),
+                })
+        return out
+
+    # Lifecycle
+    def start_instances(self, instance_ids: List[str]) -> Dict[str, Any]:
+        return self.ec2.start_instances(InstanceIds=instance_ids)
+
+    def stop_instances(self, instance_ids: List[str]) -> Dict[str, Any]:
+        return self.ec2.stop_instances(InstanceIds=instance_ids)
+
+    def reboot_instances(self, instance_ids: List[str]) -> Dict[str, Any]:
+        return self.ec2.reboot_instances(InstanceIds=instance_ids)
+
+    def resize_instance(self, instance_id: str, instance_type: str) -> Dict[str, Any]:
+        return self.ec2.modify_instance_attribute(InstanceId=instance_id, InstanceType={"Value": instance_type})
+
+    # Security groups
+    def authorize_sg_ingress(self, sg_id: str, protocol: str, from_port: int, to_port: int, cidr: str) -> Dict[str, Any]:
+        return self.ec2.authorize_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=[
+                {
+                    "IpProtocol": protocol,
+                    "FromPort": from_port,
+                    "ToPort": to_port,
+                    "IpRanges": [{"CidrIp": cidr}],
+                }
+            ],
+        )
+
+    def revoke_sg_ingress(self, sg_id: str, protocol: str, from_port: int, to_port: int, cidr: str) -> Dict[str, Any]:
+        return self.ec2.revoke_security_group_ingress(
+            GroupId=sg_id,
+            IpPermissions=[
+                {
+                    "IpProtocol": protocol,
+                    "FromPort": from_port,
+                    "ToPort": to_port,
+                    "IpRanges": [{"CidrIp": cidr}],
+                }
+            ],
+        )
+
+    # Snapshots
+    def create_ebs_snapshot(self, volume_id: str, description: str = "") -> Dict[str, Any]:
+        return self.ec2.create_snapshot(VolumeId=volume_id, Description=description)
+
+    # DNS / CDN
+    def route53_upsert_record(self, hosted_zone_id: str, name: str, rtype: str, value: str, ttl: int = 60) -> Dict[str, Any]:
+        return self.route53.change_resource_record_sets(
+            HostedZoneId=hosted_zone_id,
+            ChangeBatch={
+                "Changes": [
+                    {
+                        "Action": "UPSERT",
+                        "ResourceRecordSet": {
+                            "Name": name,
+                            "Type": rtype,
+                            "TTL": ttl,
+                            "ResourceRecords": [{"Value": value}],
+                        },
+                    }
+                ]
+            },
+        )
+
+    def cloudfront_invalidate(self, distribution_id: str, paths: List[str]) -> Dict[str, Any]:
+        caller_ref = "invalidate-" + "-".join(paths)[:120]
+        return self.cloudfront.create_invalidation(
+            DistributionId=distribution_id,
+            InvalidationBatch={"Paths": {"Quantity": len(paths), "Items": paths}, "CallerReference": caller_ref},
+        )
+
+    # WAF (placeholder minimal)
+    def list_waf_web_acls(self, scope: str = "CLOUDFRONT") -> Dict[str, Any]:
+        return self.wafv2.list_web_acls(Scope=scope, Limit=25)
+
 """
 AWS Cloud Manager - Real AWS API integration for resource management
 Provides comprehensive AWS resource discovery, management, and monitoring
