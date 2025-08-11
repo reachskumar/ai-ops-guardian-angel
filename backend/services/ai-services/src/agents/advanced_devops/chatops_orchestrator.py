@@ -89,6 +89,15 @@ class ChatOpsOrchestrator:
         inputs = {"action": "abort", "environment": environment, "service": service}
         return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
 
+    def cloud_ops(self, provider: str, action: str, region: str, params_json: str, ref: str = "main") -> Dict[str, Any]:
+        inputs = {
+            "provider": provider,
+            "action": action,
+            "region": region,
+            "params": params_json,
+        }
+        return self.gh.dispatch_workflow("cloud-ops.yml", ref=ref, inputs=inputs)
+
     def node(self, node_name: str, subaction: str, environment: str = "staging", ref: str = "main") -> Dict[str, Any]:
         inputs = {
             "action": "node",

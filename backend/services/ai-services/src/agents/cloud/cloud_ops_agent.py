@@ -22,6 +22,17 @@ class CloudOpsAgent(BaseAgent):
                 "ebs_snapshot",
                 "dns_upsert",
                 "cdn_invalidate",
+                "asg_scale",
+                "rds_snapshot",
+                "rds_failover",
+                "alb_register",
+                "alb_deregister",
+                "lambda_publish",
+                "lambda_traffic",
+                "vpc_peering_create",
+                "vpc_peering_accept",
+                "privatelink_create",
+                "egress_audit",
             ],
             required_tools=["aws"],
             max_concurrent_tasks=5,
@@ -62,6 +73,28 @@ class CloudOpsAgent(BaseAgent):
             return self.aws.route53_upsert_record(ctx["zone_id"], ctx["name"], ctx["rtype"], ctx["value"], ctx.get("ttl", 60))  # type: ignore
         if task.task_type == "cdn_invalidate":
             return self.aws.cloudfront_invalidate(ctx["distribution_id"], ctx["paths"])  # type: ignore
+        if task.task_type == "asg_scale":
+            return self.aws.asg_set_desired_capacity(ctx["asg_name"], int(ctx["desired"]))  # type: ignore
+        if task.task_type == "rds_snapshot":
+            return self.aws.rds_create_snapshot(ctx["db_instance_id"], ctx["snapshot_id"])  # type: ignore
+        if task.task_type == "rds_failover":
+            return self.aws.rds_failover(ctx["db_instance_id"])  # type: ignore
+        if task.task_type == "alb_register":
+            return self.aws.alb_register_targets(ctx["target_group_arn"], ctx["target_ids"])  # type: ignore
+        if task.task_type == "alb_deregister":
+            return self.aws.alb_deregister_targets(ctx["target_group_arn"], ctx["target_ids"])  # type: ignore
+        if task.task_type == "lambda_publish":
+            return self.aws.lambda_publish_version(ctx["function_name"], ctx.get("description", ""))  # type: ignore
+        if task.task_type == "lambda_traffic":
+            return self.aws.lambda_update_alias(ctx["function_name"], ctx["alias"], ctx["version"], ctx.get("weights"))  # type: ignore
+        if task.task_type == "vpc_peering_create":
+            return self.aws.create_vpc_peering(ctx["vpc_id"], ctx["peer_vpc_id"], ctx.get("peer_region"))  # type: ignore
+        if task.task_type == "vpc_peering_accept":
+            return self.aws.accept_vpc_peering(ctx["peering_connection_id"])  # type: ignore
+        if task.task_type == "privatelink_create":
+            return self.aws.create_interface_endpoint(ctx["vpc_id"], ctx["service_name"], ctx["subnet_ids"], ctx["sg_ids"])  # type: ignore
+        if task.task_type == "egress_audit":
+            return self.aws.egress_audit()
         return {"error": "Unsupported task"}
 
 

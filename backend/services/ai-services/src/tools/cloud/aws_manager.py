@@ -20,6 +20,9 @@ class AWSManager:
         self.route53 = session.client("route53", config=cfg)
         self.cloudfront = session.client("cloudfront", config=cfg)
         self.wafv2 = session.client("wafv2", config=cfg)
+        self.autoscaling = session.client("autoscaling", config=cfg)
+        self.elbv2 = session.client("elbv2", config=cfg)
+        self.lambda_ = session.client("lambda", config=cfg)
 
     # Inventory
     def list_instances(self, states: Optional[List[str]] = None) -> List[Dict[str, Any]]:
@@ -112,6 +115,75 @@ class AWSManager:
     # WAF (placeholder minimal)
     def list_waf_web_acls(self, scope: str = "CLOUDFRONT") -> Dict[str, Any]:
         return self.wafv2.list_web_acls(Scope=scope, Limit=25)
+
+    # Auto Scaling
+    def asg_set_desired_capacity(self, asg_name: str, desired: int) -> Dict[str, Any]:
+        return self.autoscaling.set_desired_capacity(AutoScalingGroupName=asg_name, DesiredCapacity=desired, HonorCooldown=False)
+
+    # RDS operations
+    def rds_create_snapshot(self, db_instance_id: str, snapshot_id: str) -> Dict[str, Any]:
+        return self.rds.create_db_snapshot(DBInstanceIdentifier=db_instance_id, DBSnapshotIdentifier=snapshot_id)
+
+    def rds_failover(self, db_instance_id: str) -> Dict[str, Any]:
+        # Reboot with failover for Multi-AZ deployments
+        return self.rds.reboot_db_instance(DBInstanceIdentifier=db_instance_id, ForceFailover=True)
+
+    # ALB/ELB operations
+    def alb_register_targets(self, target_group_arn: str, target_ids: list[str]) -> Dict[str, Any]:
+        targets = [{"Id": tid} for tid in target_ids]
+        return self.elbv2.register_targets(TargetGroupArn=target_group_arn, Targets=targets)
+
+    def alb_deregister_targets(self, target_group_arn: str, target_ids: list[str]) -> Dict[str, Any]:
+        targets = [{"Id": tid} for tid in target_ids]
+        return self.elbv2.deregister_targets(TargetGroupArn=target_group_arn, Targets=targets)
+
+    # Lambda deploy/traffic
+    def lambda_publish_version(self, function_name: str, description: str = "") -> Dict[str, Any]:
+        return self.lambda_.publish_version(FunctionName=function_name, Description=description)
+
+    def lambda_update_alias(self, function_name: str, alias_name: str, function_version: str, weights: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
+        routing = {"AdditionalVersionWeights": weights or {}}
+        return self.lambda_.update_alias(
+            FunctionName=function_name,
+            Name=alias_name,
+            FunctionVersion=function_version,
+            RoutingConfig=routing,
+        )
+
+    # VPC peering / PrivateLink
+    def create_vpc_peering(self, vpc_id: str, peer_vpc_id: str, peer_region: Optional[str] = None) -> Dict[str, Any]:
+        params: Dict[str, Any] = {"VpcId": vpc_id, "PeerVpcId": peer_vpc_id}
+        if peer_region:
+            params["PeerRegion"] = peer_region
+        return self.ec2.create_vpc_peering_connection(**params)
+
+    def accept_vpc_peering(self, peering_connection_id: str) -> Dict[str, Any]:
+        return self.ec2.accept_vpc_peering_connection(VpcPeeringConnectionId=peering_connection_id)
+
+    def create_interface_endpoint(self, vpc_id: str, service_name: str, subnet_ids: list[str], sg_ids: list[str]) -> Dict[str, Any]:
+        return self.ec2.create_vpc_endpoint(
+            VpcId=vpc_id,
+            ServiceName=service_name,
+            VpcEndpointType="Interface",
+            SubnetIds=subnet_ids,
+            SecurityGroupIds=sg_ids,
+        )
+
+    # Egress audit
+    def egress_audit(self) -> Dict[str, Any]:
+        out: Dict[str, Any] = {"findings": []}
+        sgs = self.ec2.describe_security_groups().get("SecurityGroups", [])
+        for sg in sgs:
+            for perm in sg.get("IpPermissionsEgress", []):
+                for rng in perm.get("IpRanges", []):
+                    if rng.get("CidrIp") == "0.0.0.0/0":
+                        out["findings"].append({
+                            "group_id": sg["GroupId"],
+                            "to_port": perm.get("ToPort"),
+                            "protocol": perm.get("IpProtocol"),
+                            "cidr": rng.get("CidrIp"),
+                        })
+        return out
 
 """
 AWS Cloud Manager - Real AWS API integration for resource management

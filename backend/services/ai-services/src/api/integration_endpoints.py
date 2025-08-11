@@ -566,6 +566,17 @@ if FASTAPI_AVAILABLE:
         require_reviews: bool = True
         required_approving_review_count: int = 1
 
+    class CloudOpsDispatchRequest(BaseModel):
+        provider: str
+        action: str
+        region: str
+        params: Optional[Dict[str, Any]] = None
+        dry_run: Optional[bool] = False
+        require_approval: Optional[bool] = True
+        confirm: Optional[str] = ""
+        cost_threshold: Optional[str] = "0"
+        override: Optional[str] = ""
+
     @router.post("/{tenant_id}/test")
     async def test_integration_endpoint(tenant_id: str, body: TestRequest):
         try:
@@ -683,6 +694,33 @@ if FASTAPI_AVAILABLE:
             required_approving_review_count=body.required_approving_review_count,
         )
         return {"success": True, "repo": body.repo, "branch": body.branch}
+
+    @router.post("/{tenant_id}/cloud/ops")
+    async def dispatch_cloud_ops(tenant_id: str, body: CloudOpsDispatchRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        app_id = sp.get(tenant_id, "github_app_id")
+        private_key = sp.get(tenant_id, "github_app_private_key")
+        installation_id = sp.get(tenant_id, "github_installation_id")
+        repo = sp.get(tenant_id, "github_repo") or os.getenv("GITHUB_REPO")
+        if not all([app_id, private_key, installation_id, repo]):
+            raise HTTPException(status_code=400, detail="Missing GitHub App credentials or repo for tenant")
+        app = GitHubAppClient(app_id, private_key)
+        token = app.get_installation_token(installation_id)
+        from ..tools.devops.github_actions_client import GitHubActionsClient
+        inputs = {
+            "provider": body.provider,
+            "action": body.action,
+            "region": body.region,
+            "params": json.dumps(body.params or {}),
+            "dry_run": "true" if body.dry_run else "false",
+            "require_approval": "true" if (body.require_approval is not False) else "false",
+            "confirm": body.confirm or "",
+            "cost_threshold": body.cost_threshold or "0",
+            "override": body.override or "",
+        }
+        gh = GitHubActionsClient(repo_full_name=repo, token=token)
+        result = gh.dispatch_workflow("cloud-ops.yml", ref="main", inputs=inputs)
+        return {"success": True, "dispatch": result}
 
     @router.post("/{tenant_id}/github/repo-secrets")
     async def set_repo_secrets(tenant_id: str, body: RepoSecretRequest):

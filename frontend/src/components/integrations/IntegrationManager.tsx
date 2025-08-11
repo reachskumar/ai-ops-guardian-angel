@@ -23,6 +23,7 @@ import {
   Zap
 } from 'lucide-react';
 import ClusterOnboarding from './ClusterOnboarding';
+import CloudOpsPanel from '../CloudOpsPanel';
 
 interface Integration {
   id: string;
@@ -318,6 +319,7 @@ const IntegrationManager: React.FC = () => {
         {/* Integration List */}
         <div className="lg:col-span-2">
           <ClusterOnboarding />
+          <CloudOpsPanel />
           {categories.map(category => {
             const categoryIntegrations = integrations.filter(
               integration => integration.category === category
