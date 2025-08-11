@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: api-gateway
   namespace: ai-ops-production
@@ -11,6 +11,16 @@ spec:
   selector:
     matchLabels:
       app: api-gateway
+  strategy:
+    canary:
+      canaryService: api-gateway-canary
+      stableService: api-gateway-service
+      steps:
+        - setWeight: 10
+        - pause: {duration: 300}
+        - setWeight: 50
+        - pause: {duration: 600}
+        - setWeight: 100
   template:
     metadata:
       labels:
@@ -67,3 +77,17 @@ spec:
     port: 80
     targetPort: 3001
   type: ClusterIP 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-canary
+  namespace: ai-ops-production
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3001
+  type: ClusterIP

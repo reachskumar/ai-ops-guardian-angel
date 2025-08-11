@@ -12,6 +12,7 @@ const ClusterOnboarding: React.FC = () => {
   const [promProd, setPromProd] = useState('');
   const [slackWebhook, setSlackWebhook] = useState('');
   const [pagerDuty, setPagerDuty] = useState('');
+  const [branch, setBranch] = useState('main');
 
   const call = async (path: string, body: any) => {
     const resp = await fetch(path, {
@@ -29,14 +30,24 @@ const ClusterOnboarding: React.FC = () => {
   };
 
   const handleInstallControllers = async () => {
-    // Use GitOps PR workflow to push controller manifests via tenant repo (simple signal dispatch)
-    // In a real flow, this would dispatch a repo workflow that runs helm installs in their cluster
-    alert('Dispatching install-controllers workflow (placeholder).');
+    await call(`/api/v1/integrations/${tenantId}/bootstrap/controllers`, {
+      repo,
+      kubeconfig_b64: kubeconfigB64
+    });
+    alert('Cluster controllers installation dispatched.');
   };
 
   const handleAddRepoSecrets = async () => {
-    // Call backend to set repo secrets via GitHub App (future enhancement)
-    alert('Adding repo secrets via backend (placeholder).');
+    await call(`/api/v1/integrations/${tenantId}/github/repo-secrets`, {
+      repo,
+      secrets: {
+        PROMETHEUS_URL_STAGING: promStg,
+        PROMETHEUS_URL_PRODUCTION: promProd,
+        SLACK_WEBHOOK_URL: slackWebhook,
+        PAGERDUTY_ROUTING_KEY: pagerDuty
+      }
+    });
+    alert('Repo secrets configured.');
   };
 
   return (
@@ -77,12 +88,31 @@ const ClusterOnboarding: React.FC = () => {
             <Label>Kubeconfig (base64)</Label>
             <Input value={kubeconfigB64} onChange={(e) => setKubeconfigB64(e.target.value)} />
           </div>
+          <div>
+            <Label>Protected Branch</Label>
+            <Input value={branch} onChange={(e) => setBranch(e.target.value)} />
+          </div>
         </div>
 
         <div className="flex gap-3">
           <Button onClick={handleSaveSecrets}>Save Monitoring/Alerting</Button>
           <Button variant="outline" onClick={handleInstallControllers}>Install Controllers</Button>
           <Button variant="outline" onClick={handleAddRepoSecrets}>Add Repo Secrets</Button>
+          <Button variant="outline" onClick={async () => {
+            await call(`/api/v1/integrations/${tenantId}/github/protect-repo`, {
+              repo,
+              branch,
+              required_checks: [
+                'security-scan',
+                'backend-test',
+                'frontend-test',
+                'build-images'
+              ],
+              require_reviews: true,
+              required_approving_review_count: 1
+            });
+            alert('Branch protection applied.');
+          }}>Protect Repo</Button>
         </div>
       </CardContent>
     </Card>

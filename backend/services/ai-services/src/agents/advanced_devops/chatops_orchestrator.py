@@ -81,6 +81,14 @@ class ChatOpsOrchestrator:
         }
         return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
 
+    def promote(self, environment: str, service: str, ref: str = "main") -> Dict[str, Any]:
+        inputs = {"action": "promote", "environment": environment, "service": service}
+        return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
+
+    def abort(self, environment: str, service: str, ref: str = "main") -> Dict[str, Any]:
+        inputs = {"action": "abort", "environment": environment, "service": service}
+        return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
+
     def node(self, node_name: str, subaction: str, environment: str = "staging", ref: str = "main") -> Dict[str, Any]:
         inputs = {
             "action": "node",

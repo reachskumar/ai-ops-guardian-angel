@@ -43,6 +43,7 @@ from ..agents.human_loop.decision_support_agent import DecisionSupportAgent
 from ..agents.git_deploy.git_integration_agent import GitIntegrationAgent
 from ..agents.git_deploy.pipeline_generation_agent import PipelineGenerationAgent
 from ..agents.git_deploy.deployment_orchestration_agent import DeploymentOrchestrationAgent
+from ..agents.gitops.gitops_deployment_agent import GitOpsDeploymentAgent
 
 # Analytics & Monitoring Agents
 from ..agents.analytics.business_intelligence_agent import BusinessIntelligenceAgent
@@ -56,6 +57,7 @@ from ..agents.advanced_devops.kubernetes_agent import KubernetesAgent
 # Specialized DevOps Agents
 from ..agents.specialized_devops.artifact_management_agent import ArtifactManagementAgent
 from ..agents.specialized_devops.performance_testing_agent import PerformanceTestingAgent
+from ..agents.cloud.cloud_ops_agent import CloudOpsAgent
 from ..config.settings import AgentType, settings
 from ..utils.logging import get_logger
 from ..utils.metrics import system_metrics
@@ -385,7 +387,8 @@ class AgentOrchestrator:
         git_deploy_agents = [
             GitIntegrationAgent(),
             PipelineGenerationAgent(),
-            DeploymentOrchestrationAgent()
+            DeploymentOrchestrationAgent(),
+            GitOpsDeploymentAgent()
         ]
         
         # Analytics & Monitoring Agents
@@ -411,7 +414,8 @@ class AgentOrchestrator:
         # Specialized DevOps Agents
         specialized_devops_agents = [
             ArtifactManagementAgent(),
-            PerformanceTestingAgent()
+            PerformanceTestingAgent(),
+            CloudOpsAgent()
         ]
         
         # Combine all advanced agents
