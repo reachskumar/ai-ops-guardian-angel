@@ -1,0 +1,52 @@
+name: ChatOps - Preview Environments
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull Request number"
+        required: true
+      action:
+        description: "create or teardown"
+        required: true
+        type: choice
+        options: [create, teardown]
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: latest
+
+      - name: Configure kubeconfig (staging cluster)
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          echo "KUBECONFIG=$PWD/kubeconfig" >> $GITHUB_ENV
+
+      - name: Derive namespace
+        id: ns
+        run: |
+          echo "ns=preview-pr-${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
+
+      - name: Create or teardown preview
+        env:
+          ACTION: ${{ github.event.inputs.action }}
+          NAMESPACE: ${{ steps.ns.outputs.ns }}
+        run: |
+          set -euo pipefail
+          if [ "$ACTION" = "create" ]; then
+            kubectl create namespace "$NAMESPACE" || true
+            # Basic deploy using existing manifests with overridden namespace
+            for f in infrastructure/k8s/production/*.yaml; do
+              sed "s/ai-ops-production/$NAMESPACE/g" "$f" | kubectl apply -n "$NAMESPACE" -f -
+            done
+            kubectl -n "$NAMESPACE" get all
+          else
+            kubectl delete namespace "$NAMESPACE" --ignore-not-found=true
+          fi
+

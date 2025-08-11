@@ -65,4 +65,51 @@ class ChatOpsOrchestrator:
         }
         return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
 
+    def node(self, node_name: str, subaction: str, environment: str = "staging", ref: str = "main") -> Dict[str, Any]:
+        inputs = {
+            "action": "node",
+            "environment": environment,
+            "service": "ai-services",
+            "node_name": node_name,
+            "subaction": subaction,  # cordon|drain|uncordon|status
+        }
+        return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
+
+    def hpa_update(self, environment: str, service: str, min_replicas: int, max_replicas: int, target_cpu: int, ref: str = "main") -> Dict[str, Any]:
+        inputs = {
+            "action": "hpa_update",
+            "environment": environment,
+            "service": service,
+            "min_replicas": str(min_replicas),
+            "max_replicas": str(max_replicas),
+            "target_cpu": str(target_cpu),
+        }
+        return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
+
+    def quota_update(self, environment: str, quota_yaml_b64: str, ref: str = "main") -> Dict[str, Any]:
+        inputs = {
+            "action": "quota_update",
+            "environment": environment,
+            "service": "ai-services",
+            "quota_yaml": quota_yaml_b64,
+        }
+        return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
+
+    def apply_manifest(self, environment: str, manifest_yaml_b64: str, is_secret: bool = False, service: str = "ai-services", ref: str = "main") -> Dict[str, Any]:
+        inputs = {
+            "action": "secret_apply" if is_secret else "config_apply",
+            "environment": environment,
+            "service": service,
+            "manifest_yaml": manifest_yaml_b64,
+        }
+        return self.gh.dispatch_workflow("ops-dispatch.yml", ref=ref, inputs=inputs)
+
+    def preview_env(self, pr_number: int, action: str = "create", ref: str = "main") -> Dict[str, Any]:
+        inputs = {"pr_number": str(pr_number), "action": action}
+        return self.gh.dispatch_workflow("preview-env.yml", ref=ref, inputs=inputs)
+
+    def hotfix_or_release(self, type_: str, version: str, ref: str = "main") -> Dict[str, Any]:
+        inputs = {"type": type_, "version": version}
+        return self.gh.dispatch_workflow("hotfix-release.yml", ref=ref, inputs=inputs)
+
 

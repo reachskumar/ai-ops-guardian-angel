@@ -374,6 +374,10 @@ class DevOpsChatAgent(BaseAgent):
         entities = parsed_intent.entities
         env = entities.get('environment', 'staging')
         service = entities.get('service', 'ai-services')
+        action = entities.get('action')
+        subaction = entities.get('subaction')
+        replicas = entities.get('replicas')
+        node_name = entities.get('node_name')
         try:
             if parsed_intent.intent_type == IntentType.DEPLOYMENT:
                 result = self.chatops.deploy(environment=env, service=service, strategy='rolling')
@@ -382,8 +386,20 @@ class DevOpsChatAgent(BaseAgent):
                     'actions': [{'type': 'workflow_dispatch', 'result': result}],
                 }
             elif parsed_intent.intent_type == IntentType.KUBERNETES_MANAGEMENT:
-                # Default to restart if not specified
-                result = self.chatops.restart(environment=env, service=service)
+                # Route common sub-ops
+                if action == 'scale' and replicas is not None:
+                    result = self.chatops.scale(environment=env, service=service, replicas=int(replicas))
+                elif action == 'restart':
+                    result = self.chatops.restart(environment=env, service=service)
+                elif action == 'rollout' and subaction:
+                    result = self.chatops.rollout(environment=env, service=service, subaction=subaction)
+                elif action == 'logs':
+                    result = self.chatops.logs(environment=env, service=service)
+                elif action == 'node' and node_name and subaction:
+                    result = self.chatops.node(node_name=node_name, subaction=subaction, environment=env)
+                else:
+                    # Default to restart if not specified
+                    result = self.chatops.restart(environment=env, service=service)
                 return {
                     'message': f"Triggered restart for {service} in {env}. Workflow dispatched.",
                     'actions': [{'type': 'workflow_dispatch', 'result': result}],
