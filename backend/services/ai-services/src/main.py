@@ -24,6 +24,7 @@ from api.rag_endpoints import router as rag_router
 from api.langgraph_endpoints import router as langgraph_router
 from api.hitl_endpoints import router as hitl_router
 from api.plugin_endpoints import router as plugin_router
+from api.integration_endpoints import router as integration_router
 
 # Import core systems for status checks
 from agents.langgraph.langgraph_orchestrator import langgraph_orchestrator
@@ -66,6 +67,7 @@ app.include_router(rag_router, prefix="/api/v1")
 app.include_router(langgraph_router, prefix="/api/v1")
 app.include_router(hitl_router, prefix="/api/v1")
 app.include_router(plugin_router, prefix="/api/v1")
+app.include_router(integration_router, prefix="/api/v1")
 
 
 async def get_system_status() -> Dict[str, Any]:

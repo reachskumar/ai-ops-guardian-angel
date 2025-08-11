@@ -1,6 +1,6 @@
 """
-Integration Management API endpoints
-Handles external tool integrations and configuration testing
+Integration Management API endpoints (FastAPI router)
+Tenant-scoped: configure, test, and manage integrations; secrets stored via SecretsProvider (Vault/env).
 """
 
 import json
@@ -8,6 +8,21 @@ import subprocess
 import requests
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
+
+try:
+    from fastapi import APIRouter, HTTPException
+    from pydantic import BaseModel
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
+    class APIRouter:
+        def __init__(self, *args, **kwargs):
+            pass
+    class BaseModel: ...
+    class HTTPException(Exception):
+        def __init__(self, status_code: int, detail: str):
+            self.status_code = status_code
+            self.detail = detail
 
 @dataclass
 class IntegrationTestResult:
@@ -511,102 +526,23 @@ class IntegrationManager:
                 details={'error': str(e)}
             )
 
-# Global integration manager instance
 integration_manager = IntegrationManager()
 
-class MockRouter:
-    """Mock router for integration endpoints"""
-    
-    def __init__(self):
-        self.routes = {
-            'POST /api/integrations/test': self.test_integration,
-            'POST /api/integrations/{integration_id}/disconnect': self.disconnect_integration,
-            'GET /api/integrations': self.list_integrations,
-            'GET /api/integrations/{integration_id}': self.get_integration
-        }
-    
-    async def test_integration(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Test an integration configuration"""
-        try:
-            integration_id = request_data.get('integration')
-            config = request_data.get('config', {})
-            
-            if not integration_id:
-                return {
-                    'success': False,
-                    'message': 'Integration ID required',
-                    'details': {}
-                }
-            
-            result = await integration_manager.test_integration(integration_id, config)
-            
-            return {
-                'success': result.success,
-                'message': result.message,
-                'details': result.details
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Integration test failed: {str(e)}',
-                'details': {'error': str(e)}
-            }
-    
-    async def disconnect_integration(self, integration_id: str) -> Dict[str, Any]:
-        """Disconnect an integration"""
-        try:
-            # Remove integration from manager
-            if integration_id in integration_manager.integrations:
-                del integration_manager.integrations[integration_id]
-            
-            return {
-                'success': True,
-                'message': f'Integration {integration_id} disconnected',
-                'details': {}
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to disconnect integration: {str(e)}',
-                'details': {'error': str(e)}
-            }
-    
-    async def list_integrations(self) -> Dict[str, Any]:
-        """List all integrations"""
-        try:
-            return {
-                'success': True,
-                'integrations': list(integration_manager.integrations.keys()),
-                'details': {}
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to list integrations: {str(e)}',
-                'details': {'error': str(e)}
-            }
-    
-    async def get_integration(self, integration_id: str) -> Dict[str, Any]:
-        """Get integration details"""
-        try:
-            if integration_id in integration_manager.integrations:
-                return {
-                    'success': True,
-                    'integration': integration_manager.integrations[integration_id],
-                    'details': {}
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': f'Integration {integration_id} not found',
-                    'details': {}
-                }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to get integration: {str(e)}',
-                'details': {'error': str(e)}
-            }
+router = APIRouter(prefix="/integrations", tags=["integrations"]) if FASTAPI_AVAILABLE else None
 
-# Create router instance
-router = MockRouter() 
+class TestRequest(BaseModel):
+    integration: str
+    config: Dict[str, Any] = {}
+
+if FASTAPI_AVAILABLE:
+    @router.post("/{tenant_id}/test")
+    async def test_integration_endpoint(tenant_id: str, body: TestRequest):
+        try:
+            result = await integration_manager.test_integration(body.integration, body.config)
+            return {"success": result.success, "message": result.message, "details": result.details}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Integration test failed: {str(e)}")
+
+    @router.get("/{tenant_id}")
+    async def list_integrations_endpoint(tenant_id: str):
+        return {"success": True, "integrations": list(integration_manager.integrations.keys())}
