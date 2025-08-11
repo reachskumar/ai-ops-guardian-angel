@@ -18,6 +18,18 @@ on:
         description: "JSON-encoded parameters for the action"
         required: false
         default: "{}"
+      dry_run:
+        description: "Plan only (no changes)"
+        required: false
+        default: "false"
+      require_approval:
+        description: "Require approval for risky changes"
+        required: false
+        default: "true"
+      confirm:
+        description: "Type 'yes' to approve execution when required"
+        required: false
+        default: ""
 
 jobs:
   run:
@@ -40,8 +52,39 @@ jobs:
           echo "params=${{ github.event.inputs.params }}" > params.json
           cat params.json
 
+      - name: Assess risk and generate plan
+        id: assess
+        run: |
+          set -euo pipefail
+          ACTION=${{ github.event.inputs.action }}
+          PARAMS=$(cat params.json)
+          get_param() { echo "$PARAMS" | jq -r .$1; }
+          RISK="low"
+          PLAN="{}"
+          if [ "$ACTION" = "sg_authorize" ]; then
+            CIDR=$(get_param cidr)
+            TP=$(get_param to_port)
+            if [ "$CIDR" = "0.0.0.0/0" ] && [ ${TP:-0} -lt 1024 ]; then RISK="high"; fi
+            PLAN=$(jq -n --arg action "$ACTION" --arg cidr "$CIDR" --argjson tp ${TP:-0} '{action:$action, change:"open_ingress", cidr:$cidr, to_port:$tp}')
+          elif [ "$ACTION" = "instance_stop" ] || [ "$ACTION" = "instance_start" ]; then
+            COUNT=$(get_param instance_ids | jq 'length')
+            if [ ${COUNT:-0} -gt 3 ]; then RISK="medium"; fi
+            PLAN=$(jq -n --arg action "$ACTION" --argjson count ${COUNT:-0} '{action:$action, instances:$count}')
+          else
+            PLAN=$(jq -n --arg action "$ACTION" '{action:$action, details:"standard"}')
+          fi
+          echo "$PLAN" > plan.json
+          echo "risk=$RISK" >> $GITHUB_OUTPUT
+          echo "$RISK" > risk.txt
+
+      - name: Approval gate
+        if: ${{ github.event.inputs.require_approval == 'true' && github.event.inputs.dry_run != 'true' && github.event.inputs.confirm != 'yes' }}
+        run: |
+          echo "Approval required. Risk: ${{ steps.assess.outputs.risk }}. Re-run with confirm: 'yes' to proceed." | tee gate.txt
+          exit 2
+
       - name: Execute AWS action
-        if: ${{ github.event.inputs.provider == 'aws' }}
+        if: ${{ github.event.inputs.provider == 'aws' && github.event.inputs.dry_run != 'true' }}
         env:
           ACTION: ${{ github.event.inputs.action }}
           REGION: ${{ github.event.inputs.region }}
@@ -105,7 +148,7 @@ JSON
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Execute Azure action
-        if: ${{ github.event.inputs.provider == 'azure' }}
+        if: ${{ github.event.inputs.provider == 'azure' && github.event.inputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           PARAMS=$(cat params.json)
@@ -130,7 +173,7 @@ JSON
           credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       - name: Execute GCP action
-        if: ${{ github.event.inputs.provider == 'gcp' }}
+        if: ${{ github.event.inputs.provider == 'gcp' && github.event.inputs.dry_run != 'true' }}
         run: |
           set -euo pipefail
           PARAMS=$(cat params.json)
@@ -157,5 +200,7 @@ JSON
             *.txt
             inventory.txt
             op.txt
+            risk.txt
+            plan.json
 
 
