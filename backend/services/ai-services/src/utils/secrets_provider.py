@@ -52,4 +52,33 @@ class SecretsProvider:
         except Exception:
             return v.encode()
 
+    def set(self, tenant_id: str, key: str, value: str) -> bool:
+        if self.backend == "env":
+            env_key = f"TENANT_{tenant_id.upper()}_{key.upper()}"
+            os.environ[env_key] = value
+            return True
+        if self.backend == "vault" and self._vault_client:
+            path = f"secret/data/tenants/{tenant_id}/{key}"
+            try:
+                self._vault_client.secrets.kv.v2.create_or_update_secret(path=path, secret={"value": value})
+                return True
+            except Exception:
+                return False
+        return False
+
+    def delete(self, tenant_id: str, key: str) -> bool:
+        if self.backend == "env":
+            env_key = f"TENANT_{tenant_id.upper()}_{key.upper()}"
+            if env_key in os.environ:
+                del os.environ[env_key]
+            return True
+        if self.backend == "vault" and self._vault_client:
+            path = f"secret/metadata/tenants/{tenant_id}/{key}"
+            try:
+                self._vault_client.secrets.kv.v2.delete_metadata_and_all_versions(path=path)
+                return True
+            except Exception:
+                return False
+        return False
+
 

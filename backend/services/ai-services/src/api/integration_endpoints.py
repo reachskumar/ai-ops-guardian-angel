@@ -8,6 +8,7 @@ import subprocess
 import requests
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from ..utils.secrets_provider import SecretsProvider
 
 try:
     from fastapi import APIRouter, HTTPException
@@ -535,6 +536,10 @@ class TestRequest(BaseModel):
     config: Dict[str, Any] = {}
 
 if FASTAPI_AVAILABLE:
+    class SaveRequest(BaseModel):
+        provider: str
+        secrets: Dict[str, str]
+
     @router.post("/{tenant_id}/test")
     async def test_integration_endpoint(tenant_id: str, body: TestRequest):
         try:
@@ -546,3 +551,21 @@ if FASTAPI_AVAILABLE:
     @router.get("/{tenant_id}")
     async def list_integrations_endpoint(tenant_id: str):
         return {"success": True, "integrations": list(integration_manager.integrations.keys())}
+
+    @router.post("/{tenant_id}/save")
+    async def save_integration_secrets(tenant_id: str, body: SaveRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        for k, v in body.secrets.items():
+            if not sp.set(tenant_id, f"{body.provider}_{k}", v):
+                raise HTTPException(status_code=500, detail=f"Failed to save secret: {k}")
+        return {"success": True}
+
+    @router.delete("/{tenant_id}/{provider}")
+    async def delete_integration_secrets(tenant_id: str, provider: str):
+        # For simplicity assume fixed keys per provider are known client-side; here we delete common patterns
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        deleted_any = False
+        for suffix in ["token", "api_key", "url", "installation_id", "repo", "kubeconfig", "role_arn"]:
+            if sp.delete(tenant_id, f"{provider}_{suffix}"):
+                deleted_any = True
+        return {"success": True, "deleted": deleted_any}
