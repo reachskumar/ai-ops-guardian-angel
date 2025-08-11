@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       provider:
-        description: "Cloud provider (aws)"
+        description: "Cloud provider (aws|azure|gcp)"
         required: true
         type: choice
-        options: [aws]
+        options: [aws, azure, gcp]
       action:
         description: "Action (inventory|instance_start|instance_stop|instance_reboot|instance_resize|sg_authorize|sg_revoke|ebs_snapshot|dns_upsert|cdn_invalidate)"
         required: true
@@ -96,6 +96,57 @@ JSON
             *)
               echo "Unsupported action: $ACTION"; exit 1;
               ;;
+          esac
+
+      - name: Azure login
+        if: ${{ github.event.inputs.provider == 'azure' }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Execute Azure action
+        if: ${{ github.event.inputs.provider == 'azure' }}
+        run: |
+          set -euo pipefail
+          PARAMS=$(cat params.json)
+          get_param() { echo "$PARAMS" | jq -r .$1; }
+          ACTION=${{ github.event.inputs.action }}
+          case "$ACTION" in
+            inventory)
+              az vm list -o table | tee inventory.txt ;;
+            instance_start)
+              RG=$(get_param resource_group); NAME=$(get_param vm_name)
+              az vm start -g "$RG" -n "$NAME" | tee op.txt ;;
+            instance_stop)
+              RG=$(get_param resource_group); NAME=$(get_param vm_name)
+              az vm deallocate -g "$RG" -n "$NAME" | tee op.txt ;;
+            *) echo "Unsupported azure action: $ACTION"; exit 1;;
+          esac
+
+      - name: Setup gcloud
+        if: ${{ github.event.inputs.provider == 'gcp' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Execute GCP action
+        if: ${{ github.event.inputs.provider == 'gcp' }}
+        run: |
+          set -euo pipefail
+          PARAMS=$(cat params.json)
+          get_param() { echo "$PARAMS" | jq -r .$1; }
+          ACTION=${{ github.event.inputs.action }}
+          PROJECT=${{ github.event.inputs.region }} # reuse field for project if needed
+          case "$ACTION" in
+            inventory)
+              gcloud compute instances list --project "$PROJECT" | tee inventory.txt ;;
+            instance_start)
+              ZONE=$(get_param zone); NAME=$(get_param instance)
+              gcloud compute instances start "$NAME" --zone "$ZONE" --project "$PROJECT" | tee op.txt ;;
+            instance_stop)
+              ZONE=$(get_param zone); NAME=$(get_param instance)
+              gcloud compute instances stop "$NAME" --zone "$ZONE" --project "$PROJECT" | tee op.txt ;;
+            *) echo "Unsupported gcp action: $ACTION"; exit 1;;
           esac
 
       - name: Upload output
