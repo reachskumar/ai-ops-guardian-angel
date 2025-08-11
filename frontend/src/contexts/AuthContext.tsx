@@ -1,10 +1,13 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import aiServicesAPI from '../lib/api';
 
 interface User {
   id: string;
   email: string;
   name: string;
   role: string;
+  tenantId?: string;
+  orgId?: string;
 }
 
 interface AuthContextType {
@@ -32,17 +35,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Initialize from localStorage
+  useEffect(() => {
+    const token = localStorage.getItem('im_token');
+    const userJson = localStorage.getItem('im_user');
+    if (token) {
+      aiServicesAPI.setToken(token);
+    }
+    if (userJson) {
+      try {
+        const u = JSON.parse(userJson) as User;
+        setUser(u);
+      } catch {}
+    }
+  }, []);
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Mock login for now - replace with real auth
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: 'Admin User',
-        role: 'admin'
+      const resp = await aiServicesAPI.login(email, password);
+      if (!resp.success || !resp.data) {
+        throw new Error(resp.error || 'Login failed');
+      }
+      const { token, user: backendUser } = resp.data;
+      if (!token) throw new Error('No token received');
+      aiServicesAPI.setToken(token);
+      localStorage.setItem('im_token', token);
+      const mappedUser: User = {
+        id: backendUser?.id || backendUser?.email || 'user',
+        email: backendUser?.email || email,
+        name: backendUser?.name || email,
+        role: backendUser?.role || 'user',
+        tenantId: (backendUser as any)?.tenant_id,
+        orgId: (backendUser as any)?.org_id,
       };
-      setUser(mockUser);
+      setUser(mappedUser);
+      localStorage.setItem('im_user', JSON.stringify(mappedUser));
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -53,6 +81,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('im_token');
+    localStorage.removeItem('im_user');
+    aiServicesAPI.setToken('');
   };
 
   const value = {

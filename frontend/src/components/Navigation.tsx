@@ -118,6 +118,16 @@ const Navigation = () => {
             >
               AI Chat
             </Link>
+            <Link 
+              to="/integrations" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/integrations' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Integrations
+            </Link>
           </div>
 
           {/* Right Side Actions */}

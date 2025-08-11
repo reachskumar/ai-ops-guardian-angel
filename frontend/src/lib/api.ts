@@ -95,6 +95,29 @@ class APIClient {
     this.baseURL = baseURL;
   }
 
+  // Integrations API
+  async listIntegrationConfigs(): Promise<APIResponse<any[]>> {
+    return this.request('/integrations/configs');
+  }
+
+  async listIntegrationWebhooks(): Promise<APIResponse<any[]>> {
+    return this.request('/integrations/webhooks');
+  }
+
+  async testIntegration(integration: string, config: Record<string, string>): Promise<APIResponse<any>> {
+    return this.request('/integrations/test', {
+      method: 'POST',
+      body: JSON.stringify({ integration, config }),
+    });
+  }
+
+  async saveIntegrationConfig(integration: string, config: Record<string, string>): Promise<APIResponse<any>> {
+    return this.request('/integrations/configs', {
+      method: 'POST',
+      body: JSON.stringify({ integration, config }),
+    });
+  }
+
   setToken(token: string) {
     this.token = token;
   }
@@ -317,6 +340,22 @@ class APIClient {
   // Health Checks
   async healthCheck(): Promise<APIResponse<{ status: string; timestamp: string }>> {
     return this.request('/health');
+  }
+
+  // Dashboard API
+  async getDashboardSummary(): Promise<APIResponse<any>> {
+    return this.request('/dashboard/summary');
+  }
+
+  async getDashboardResources(params?: { provider?: string; region?: string; type?: string; page?: number; page_size?: number }): Promise<APIResponse<any>> {
+    const qs = new URLSearchParams();
+    if (params?.provider) qs.set('provider', params.provider);
+    if (params?.region) qs.set('region', params.region);
+    if (params?.type) qs.set('type', params.type);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.page_size) qs.set('page_size', String(params.page_size));
+    const query = qs.toString();
+    return this.request(`/dashboard/resources${query ? `?${query}` : ''}`);
   }
 }
 
