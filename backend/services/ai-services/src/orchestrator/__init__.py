@@ -1,8 +1,3 @@
 """
-Agent Orchestrator Package
-Contains agent coordination and management logic
+Multi-Agent Workflow Orchestration Package
 """
-
-from .agent_orchestrator import AgentOrchestrator
-
-__all__ = ["AgentOrchestrator"]

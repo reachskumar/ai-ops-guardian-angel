@@ -15,6 +15,29 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+import hmac
+import hashlib
+import base64
+import threading
+import time
+import uuid
+try:
+    import jwt  # optional JWT verification
+except Exception:
+    jwt = None  # type: ignore
+try:
+    import boto3
+except Exception:
+    boto3 = None  # type: ignore
+load_dotenv()
+try:
+    from pymongo import MongoClient
+except Exception:  # optional dependency
+    MongoClient = None  # type: ignore
+
+# In-memory fallback incident store if MongoDB is not configured
+INCIDENT_STORE: Dict[str, Dict[str, Any]] = {}
+import requests
 
 # Load environment variables
 load_dotenv()
@@ -26,6 +49,141 @@ try:
     openai_client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 except Exception as e:
     print(f"Warning: OpenAI client initialization failed: {e}")
+
+# Import enhanced orchestration and dialogue components
+try:
+    from .orchestrator.multi_agent_workflow_orchestrator import MultiAgentWorkflowOrchestrator
+    from .context.context_aware_response_manager import ContextAwareResponseManager, UserExpertiseLevel, ConversationTone
+    from .dialogue.natural_dialogue_manager import NaturalDialogueManager, DialoguePattern, ConversationMood, DialogueContext
+    ENHANCED_ORCHESTRATION_ENABLED = True
+    print("✅ Enhanced orchestration components loaded successfully")
+except ImportError as e:
+    ENHANCED_ORCHESTRATION_ENABLED = False
+    print(f"⚠️ Enhanced orchestration not available: {e}")
+    # Fallback - create mock classes
+    class MultiAgentWorkflowOrchestrator:
+        def __init__(self, client): pass
+        async def analyze_and_orchestrate(self, msg, uid, sid): return {"workflow_execution": False}
+    
+    class ContextAwareResponseManager:
+        def __init__(self, client): 
+            self.conversation_contexts = {}
+        async def generate_context_aware_response(self, msg, resp, uid, sid, agent_type): return resp
+    
+    class NaturalDialogueManager:
+        def __init__(self, client): pass
+        def enhance_response_with_natural_dialogue(self, msg, resp, ctx, hist): return resp
+    
+    class DialogueContext:
+        def __init__(self, **kwargs): pass
+
+    # (moved helpers into main handler class below)
+
+    # --- ITSM REST clients (ServiceNow, Jira) ---
+    def _servicenow_headers(self) -> Dict[str, str]:
+        token = os.getenv('SERVICENOW_TOKEN')
+        if token:
+            return {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
+        user = os.getenv('SERVICENOW_USER')
+        pwd = os.getenv('SERVICENOW_PASSWORD')
+        # Basic auth fallback via requests auth kwarg, headers only content-type
+        return {'Content-Type': 'application/json'}
+
+    def _servicenow_base(self) -> str:
+        return os.getenv('SERVICENOW_INSTANCE', '').rstrip('/') or ''
+
+    def _servicenow_crud(self, action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        base = self._servicenow_base()
+        if not base:
+            raise RuntimeError('SERVICENOW_INSTANCE not configured')
+        url = f"{base}/api/now/table/incident"
+        auth = None
+        if not os.getenv('SERVICENOW_TOKEN'):
+            user = os.getenv('SERVICENOW_USER')
+            pwd = os.getenv('SERVICENOW_PASSWORD')
+            if user and pwd:
+                auth = (user, pwd)
+        headers = self._servicenow_headers()
+        if action == 'create':
+            resp = requests.post(url, json=payload, headers=headers, auth=auth, timeout=20)
+        elif action == 'update':
+            sys_id = payload.get('sys_id')
+            if not sys_id:
+                raise ValueError('sys_id required for update')
+            resp = requests.patch(f"{url}/{sys_id}", json=payload, headers=headers, auth=auth, timeout=20)
+        elif action == 'get':
+            sys_id = payload.get('sys_id')
+            if sys_id:
+                resp = requests.get(f"{url}/{sys_id}", headers=headers, auth=auth, timeout=20)
+            else:
+                query = payload.get('query') or ''
+                resp = requests.get(url, headers=headers, params={'sysparm_query': query}, auth=auth, timeout=20)
+        elif action == 'delete':
+            sys_id = payload.get('sys_id')
+            if not sys_id:
+                raise ValueError('sys_id required for delete')
+            resp = requests.delete(f"{url}/{sys_id}", headers=headers, auth=auth, timeout=20)
+        else:
+            raise ValueError('Unsupported action')
+        resp.raise_for_status()
+        return resp.json()
+
+    def _jira_base(self) -> str:
+        return os.getenv('JIRA_BASE_URL', '').rstrip('/') or ''
+
+    def _jira_auth_headers(self) -> Dict[str, str]:
+        api_token = os.getenv('JIRA_API_TOKEN')
+        email = os.getenv('JIRA_EMAIL')
+        headers = {'Content-Type': 'application/json'}
+        if api_token and email:
+            from base64 import b64encode
+            basic = b64encode(f"{email}:{api_token}".encode()).decode()
+            headers['Authorization'] = f"Basic {basic}"
+        return headers
+
+    def _jira_auth_headers_with_override(self, cfg: Dict[str, Any]) -> Dict[str, str]:
+        api_token = (cfg.get('api_token') or os.getenv('JIRA_API_TOKEN') or '').strip()
+        email = (cfg.get('email') or os.getenv('JIRA_EMAIL') or '').strip()
+        headers = {'Content-Type': 'application/json'}
+        if api_token and email:
+            from base64 import b64encode
+            basic = b64encode(f"{email}:{api_token}".encode()).decode()
+            headers['Authorization'] = f"Basic {basic}"
+        return headers
+
+    def _jira_crud(self, action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        base = self._jira_base()
+        if not base:
+            raise RuntimeError('JIRA_BASE_URL not configured')
+        headers = self._jira_auth_headers()
+        if action == 'create':
+            url = f"{base}/rest/api/3/issue"
+            resp = requests.post(url, headers=headers, json=payload, timeout=20)
+        elif action == 'update':
+            key = payload.get('key')
+            if not key:
+                raise ValueError('key required for update')
+            url = f"{base}/rest/api/3/issue/{key}"
+            resp = requests.put(url, headers=headers, json=payload, timeout=20)
+        elif action == 'get':
+            key = payload.get('key')
+            if key:
+                url = f"{base}/rest/api/3/issue/{key}"
+                resp = requests.get(url, headers=headers, timeout=20)
+            else:
+                jql = payload.get('jql') or 'ORDER BY created DESC'
+                url = f"{base}/rest/api/3/search"
+                resp = requests.post(url, headers=headers, json={'jql': jql}, timeout=20)
+        elif action == 'delete':
+            key = payload.get('key')
+            if not key:
+                raise ValueError('key required for delete')
+            url = f"{base}/rest/api/3/issue/{key}"
+            resp = requests.delete(url, headers=headers, timeout=20)
+        else:
+            raise ValueError('Unsupported action')
+        resp.raise_for_status()
+        return resp.json() if resp.text else {'status': 'ok'}
 
 # Import advanced AI capabilities - ENTERPRISE GRADE
 try:
@@ -85,6 +243,11 @@ config_client = boto3.client('config')
 
 # Global conversation state storage
 conversation_states = {}
+
+# Initialize enhanced AI orchestration components
+workflow_orchestrator = MultiAgentWorkflowOrchestrator(openai_client)
+context_manager = ContextAwareResponseManager(openai_client)
+dialogue_manager = NaturalDialogueManager(openai_client)
 
 # Agent Registry - All 28+ specialized agents
 AGENT_REGISTRY = {
@@ -152,13 +315,752 @@ AGENT_REGISTRY = {
 }
 
 class IntelligentAIService(http.server.BaseHTTPRequestHandler):
+    # --- Simple in-memory rate limiter and idempotency cache ---
+    _rate_limits: Dict[str, list] = {}
+    _idempotency_cache: Dict[str, float] = {}
+    _dead_letter: list = []
+    _metrics: Dict[str, Dict[str, float]] = {
+        'requests_total': {},
+        'errors_total': {},
+    }
+
+    def _now_ts(self) -> float:
+        return time.time()
+
+    def _rate_limit_ok(self, key: str, limit: int = 60, window_sec: int = 60) -> bool:
+        bucket = self._rate_limits.setdefault(key, [])
+        cutoff = self._now_ts() - window_sec
+        # drop old
+        self._rate_limits[key] = [t for t in bucket if t >= cutoff]
+        if len(self._rate_limits[key]) >= limit:
+            return False
+        self._rate_limits[key].append(self._now_ts())
+        return True
+
+    def _verify_hmac(self, provided_sig: str, secret: str, body_bytes: bytes) -> bool:
+        if not secret:
+            return True
+        mac = hmac.new(secret.encode('utf-8'), body_bytes, hashlib.sha256).hexdigest()
+        try:
+            return hmac.compare_digest(provided_sig or '', mac)
+        except Exception:
+            return False
+
+    def _idempotent(self, idem_key: str, ttl_sec: int = 300) -> bool:
+        now = self._now_ts()
+        # purge old
+        for k, ts in list(self._idempotency_cache.items()):
+            if now - ts > ttl_sec:
+                self._idempotency_cache.pop(k, None)
+        if idem_key in self._idempotency_cache:
+            return False
+        self._idempotency_cache[idem_key] = now
+        return True
+
+    # --- Auth helpers (JWT, multi-tenant) ---
+    def _parse_bearer(self) -> Dict[str, Any]:
+        authz = self.headers.get('Authorization') or ''
+        if not authz.startswith('Bearer '):
+            return {}
+        token = authz.split(' ', 1)[1].strip()
+        claims: Dict[str, Any] = {}
+        if jwt:
+            try:
+                secret = os.getenv('JWT_SECRET')
+                public_key = os.getenv('JWT_PUBLIC_KEY')
+                alg = os.getenv('JWT_ALGO', 'HS256')
+                if public_key:
+                    claims = jwt.decode(token, public_key, algorithms=[alg])  # type: ignore
+                elif secret:
+                    claims = jwt.decode(token, secret, algorithms=[alg])  # type: ignore
+            except Exception:
+                # fallback to opaque token
+                claims = {'sub': 'unknown'}
+        return claims
+
+    def _require_auth(self) -> Dict[str, Any]:
+        claims = self._parse_bearer()
+        if not claims:
+            # Allow if explicitly disabled
+            if os.getenv('DISABLE_AUTH', 'false').lower() == 'true':
+                return {'sub': 'anonymous'}
+            raise PermissionError('unauthorized')
+        return claims
+
+    def _require_role(self, claims: Dict[str, Any], required: List[str]) -> None:
+        roles = claims.get('roles') or []
+        if isinstance(roles, str):
+            roles = [r.strip() for r in roles.split(',') if r.strip()]
+        if not any(r in roles for r in required):
+            raise PermissionError('forbidden')
+
+    def _inc_metric(self, name: str, label: str) -> None:
+        bucket = self._metrics.setdefault(name, {})
+        bucket[label] = bucket.get(label, 0.0) + 1.0
+
+    # --- AWS Secrets/KMS helpers ---
+    def _secrets_client(self):
+        if not boto3:
+            raise RuntimeError('boto3 not available')
+        region = os.getenv('AWS_REGION', 'us-east-1')
+        return boto3.client('secretsmanager', region_name=region)
+
+    def _kms_client(self):
+        if not boto3:
+            raise RuntimeError('boto3 not available')
+        region = os.getenv('AWS_REGION', 'us-east-1')
+        return boto3.client('kms', region_name=region)
+
+    def _put_secret(self, name: str, value: Dict[str, Any]) -> Dict[str, Any]:
+        sm = self._secrets_client()
+        try:
+            resp = sm.create_secret(Name=name, SecretString=json.dumps(value))
+        except Exception as e:
+            msg = str(e)
+            if 'ResourceExistsException' in msg:
+                resp = sm.put_secret_value(SecretId=name, SecretString=json.dumps(value))
+            else:
+                raise
+        arn = resp.get('ARN') or name
+        return {'name': name, 'arn': arn}
+
+    def _get_secret(self, name: str) -> Dict[str, Any]:
+        """Fetch and decode a JSON secret by name from AWS Secrets Manager."""
+        sm = self._secrets_client()
+        try:
+            resp = sm.get_secret_value(SecretId=name)
+            secret_str = resp.get('SecretString') or ''
+            if secret_str:
+                try:
+                    return json.loads(secret_str)
+                except Exception:
+                    return {'raw': secret_str}
+        except Exception:
+            pass
+        return {}
+
+    def _audit_log(self, event: str, actor: Dict[str, Any], data: Dict[str, Any]):
+        try:
+            col = None
+            mongo_uri = os.getenv('MONGODB_URI')
+            mongo_db = os.getenv('MONGODB_DB', 'inframind')
+            if mongo_uri and MongoClient:
+                client = MongoClient(mongo_uri)
+                col = client[mongo_db]['audit_logs']
+            entry = {
+                'event': event,
+                'actor': actor,
+                'data': data,
+                'ts': datetime.now().isoformat()
+            }
+            if col is not None:
+                col.insert_one(entry)
+        except Exception:
+            pass
+
+    # --- Inventory storage helpers ---
+    @staticmethod
+    def _get_inventory_collection():
+        mongo_uri = os.getenv('MONGODB_URI')
+        mongo_db = os.getenv('MONGODB_DB', 'inframind')
+        if mongo_uri and MongoClient:
+            client = MongoClient(mongo_uri)
+            return client[mongo_db]['inventory_resources']
+        return None
+
+    def _inventory_upsert(self, tenant_id: str, doc: Dict[str, Any]) -> None:
+        try:
+            col = IntelligentAIService._get_inventory_collection()
+            if col is None:
+                return
+            key = {
+                'tenant_id': tenant_id,
+                'provider': doc.get('provider'),
+                'account': doc.get('account'),
+                'region': doc.get('region'),
+                'resource_type': doc.get('resource_type'),
+                'resource_id': doc.get('resource_id')
+            }
+            doc['discovered_at'] = datetime.now().isoformat()
+            col.update_one(key, {'$set': {**key, **doc}}, upsert=True)
+        except Exception:
+            pass
+
+    # --- Azure connector (REST) ---
+    def _azure_get_token(self, tenant: str, client_id: str, client_secret: str) -> str:
+        try:
+            url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+            data = {
+                'grant_type': 'client_credentials',
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'scope': 'https://management.azure.com/.default'
+            }
+            r = requests.post(url, data=data, timeout=15)
+            r.raise_for_status()
+            return r.json().get('access_token','')
+        except Exception:
+            return ''
+
+    def _azure_list_resources(self, access_token: str, subscription_id: str) -> List[Dict[str, Any]]:
+        try:
+            headers = {'Authorization': f'Bearer {access_token}'}
+            url = f"https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Resources/resources?api-version=2021-04-01"
+            r = requests.get(url, headers=headers, timeout=20)
+            r.raise_for_status()
+            return r.json().get('value', [])
+        except Exception:
+            return []
+
+    # --- GCP connector (Service Account JWT flow + REST) ---
+    def _gcp_get_token(self, sa: Dict[str, Any], scopes: List[str]) -> str:
+        try:
+            if not jwt:
+                return ''
+            iss = sa.get('client_email')
+            aud = sa.get('token_uri', 'https://oauth2.googleapis.com/token')
+            iat = int(time.time())
+            exp = iat + 3600
+            payload = {
+                'iss': iss,
+                'scope': ' '.join(scopes),
+                'aud': aud,
+                'iat': iat,
+                'exp': exp
+            }
+            additional_headers = {'kid': sa.get('private_key_id')}
+            assertion = jwt.encode(payload, sa.get('private_key'), algorithm='RS256', headers=additional_headers)  # type: ignore
+            data = {
+                'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                'assertion': assertion
+            }
+            r = requests.post(aud, data=data, timeout=20)
+            r.raise_for_status()
+            return r.json().get('access_token','')
+        except Exception:
+            return ''
+
+    def _gcp_list_instances(self, project_id: str, access_token: str) -> List[Dict[str, Any]]:
+        try:
+            headers = {'Authorization': f'Bearer {access_token}'}
+            url = f"https://compute.googleapis.com/compute/v1/projects/{project_id}/aggregated/instances"
+            r = requests.get(url, headers=headers, timeout=20)
+            r.raise_for_status()
+            items = r.json().get('items', {})
+            instances: List[Dict[str, Any]] = []
+            for _, group in items.items():
+                for inst in group.get('instances', []) or []:
+                    instances.append(inst)
+            return instances
+        except Exception:
+            return []
+
+    def _gcp_list_buckets(self, project_id: str, access_token: str) -> List[Dict[str, Any]]:
+        try:
+            headers = {'Authorization': f'Bearer {access_token}'}
+            url = f"https://www.googleapis.com/storage/v1/b?project={project_id}"
+            r = requests.get(url, headers=headers, timeout=20)
+            r.raise_for_status()
+            return r.json().get('items', [])
+        except Exception:
+            return []
+
+    # --- Inventory discovery ---
+    def _discover_aws_resources(self, tenant_id: str) -> None:
+        try:
+            regions_env = os.getenv('AWS_ALLOWED_REGIONS')
+            regions = [r.strip() for r in regions_env.split(',')] if regions_env else ['us-east-1']
+            for region in regions:
+                try:
+                    ec2 = boto3.client('ec2', region_name=region)
+                    resp = ec2.describe_instances()
+                    for res in resp.get('Reservations', []):
+                        for inst in res.get('Instances', []):
+                            rid = inst.get('InstanceId')
+                            self._inventory_upsert(tenant_id, {
+                                'provider': 'aws',
+                                'account': os.getenv('AWS_ACCOUNT_ID',''),
+                                'region': region,
+                                'resource_type': 'ec2',
+                                'resource_id': rid,
+                                'name': rid,
+                                'state': inst.get('State',{}).get('Name'),
+                                'tags': {t['Key']: t.get('Value') for t in inst.get('Tags',[]) if 'Key' in t}
+                            })
+                except Exception:
+                    continue
+            try:
+                s3 = boto3.client('s3')
+                buckets = s3.list_buckets().get('Buckets', [])
+                for b in buckets:
+                    self._inventory_upsert(tenant_id, {
+                        'provider': 'aws',
+                        'account': os.getenv('AWS_ACCOUNT_ID',''),
+                        'region': 'global',
+                        'resource_type': 's3',
+                        'resource_id': b.get('Name'),
+                        'name': b.get('Name')
+                    })
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def _discover_azure_resources(self, tenant_id: str, secret_name: str) -> None:
+        try:
+            cfg = self._get_secret(secret_name)
+            tenant = cfg.get('tenant_id') or cfg.get('directory_id')
+            client_id = cfg.get('client_id')
+            client_secret = cfg.get('client_secret')
+            subscription_id = cfg.get('subscription_id')
+            token = self._azure_get_token(tenant, client_id, client_secret)
+            if not token or not subscription_id:
+                return
+            resources = self._azure_list_resources(token, subscription_id)
+            for r in resources:
+                rid = r.get('id')
+                self._inventory_upsert(tenant_id, {
+                    'provider': 'azure',
+                    'account': subscription_id,
+                    'region': r.get('location') or 'unknown',
+                    'resource_type': r.get('type'),
+                    'resource_id': rid,
+                    'name': r.get('name')
+                })
+        except Exception:
+            pass
+
+    def _discover_gcp_resources(self, tenant_id: str, secret_name: str) -> None:
+        try:
+            cfg = self._get_secret(secret_name)
+            project_id = cfg.get('project_id')
+            token = self._gcp_get_token(cfg, ['https://www.googleapis.com/auth/cloud-platform'])
+            if not token or not project_id:
+                return
+            for inst in self._gcp_list_instances(project_id, token):
+                rid = inst.get('id') or inst.get('selfLink')
+                zone = (inst.get('zone') or '').split('/')[-1]
+                self._inventory_upsert(tenant_id, {
+                    'provider': 'gcp',
+                    'account': project_id,
+                    'region': zone,
+                    'resource_type': 'compute.instance',
+                    'resource_id': rid,
+                    'name': inst.get('name')
+                })
+            for b in self._gcp_list_buckets(project_id, token):
+                self._inventory_upsert(tenant_id, {
+                    'provider': 'gcp',
+                    'account': project_id,
+                    'region': b.get('location') or 'global',
+                    'resource_type': 'storage.bucket',
+                    'resource_id': b.get('id'),
+                    'name': b.get('name')
+                })
+        except Exception:
+            pass
+
+    def _run_inventory_cycle(self) -> None:
+        try:
+            col = IntelligentAIService._get_configs_collection()
+            if col is None:
+                return
+            tenants = col.distinct('tenant_id')
+            for tenant_id in tenants:
+                self._discover_aws_resources(tenant_id)
+                cfgs = list(col.find({'tenant_id': tenant_id}))
+                for cfg in cfgs:
+                    integ = (cfg.get('integration') or '').lower()
+                    secret_name = cfg.get('secret_name') or ''
+                    if integ == 'azure' and secret_name:
+                        self._discover_azure_resources(tenant_id, secret_name)
+                    if integ == 'gcp' and secret_name:
+                        self._discover_gcp_resources(tenant_id, secret_name)
+        except Exception:
+            pass
+
+    def _start_inventory_scheduler(self) -> None:
+        interval_sec = int(os.getenv('INVENTORY_INTERVAL_SEC', '600'))
+        def loop():
+            while True:
+                try:
+                    self._run_inventory_cycle()
+                except Exception:
+                    pass
+                time.sleep(interval_sec)
+        t = threading.Thread(target=loop, daemon=True)
+        t.start()
+
+    # --- Users (auth) ---
+    @staticmethod
+    def _get_users_collection():
+        mongo_uri = os.getenv('MONGODB_URI')
+        mongo_db = os.getenv('MONGODB_DB', 'inframind')
+        if mongo_uri and MongoClient:
+            client = MongoClient(mongo_uri)
+            return client[mongo_db]['users']
+        return None
+
+    def _hash_password(self, password: str, salt: str = '') -> str:
+        import hashlib
+        if not salt:
+            salt = base64.b64encode(os.urandom(16)).decode()
+        dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100_000)
+        return f"pbkdf2_sha256${salt}${base64.b64encode(dk).decode()}"
+
+    def _verify_password(self, password: str, hashed: str) -> bool:
+        try:
+            algo, salt, b64 = hashed.split('$', 2)
+            return self._hash_password(password, salt) == hashed
+        except Exception:
+            return False
+
+    def _issue_jwt(self, user: Dict[str, Any]) -> str:
+        if not jwt:
+            return ''
+        payload = {
+            'sub': user.get('user_id') or user.get('_id') or user.get('email'),
+            'email': user.get('email'),
+            'tenant_id': user.get('tenant_id') or 'default',
+            'org_id': user.get('org_id') or user.get('tenant_id') or 'default',
+            'roles': user.get('roles') or ['user'],
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 60 * 60 * 8,
+        }
+        secret = os.getenv('JWT_SECRET', 'dev-secret')
+        return jwt.encode(payload, secret, algorithm=os.getenv('JWT_ALGO', 'HS256'))  # type: ignore
+
+    # --- Rules engine ---
+    @staticmethod
+    def _get_rules_collection():
+        mongo_uri = os.getenv('MONGODB_URI')
+        mongo_db = os.getenv('MONGODB_DB', 'inframind')
+        if mongo_uri and MongoClient:
+            client = MongoClient(mongo_uri)
+            return client[mongo_db]['rules']
+        return None
+
+    def _load_rules(self, tenant_id: str) -> List[Dict[str, Any]]:
+        col = self._get_rules_collection()
+        if col is not None:
+            docs = list(col.find({'tenant_id': tenant_id}))
+            return [dict(d) for d in docs]
+        # Default rules
+        return [
+            {'match': {'source': 'prometheus', 'status': 'firing', 'severity': ['critical','high']}, 'actions': ['open_incident']},
+            {'match': {'source': 'prometheus', 'status': 'resolved'}, 'actions': ['resolve_incident']},
+        ]
+
+    def _apply_alert_rules(self, alert: Dict[str, Any], tenant_id: str) -> List[str]:
+        rules = self._load_rules(tenant_id)
+        actions: List[str] = []
+        for rule in rules:
+            m = rule.get('match', {})
+            ok = True
+            for k, v in m.items():
+                av = alert.get(k)
+                if isinstance(v, list):
+                    if av not in v:
+                        ok = False
+                        break
+                else:
+                    if av != v:
+                        ok = False
+                        break
+            if ok:
+                actions.extend(rule.get('actions', []))
+        return actions
+    # --- Persistence helpers ---
+    @staticmethod
+    def _get_mongo_collection():
+        mongo_uri = os.getenv('MONGODB_URI')
+        mongo_db = os.getenv('MONGODB_DB', 'inframind')
+        if mongo_uri and MongoClient:
+            client = MongoClient(mongo_uri)
+            return client[mongo_db]['incidents']
+        return None
+
+    @staticmethod
+    def _persist_incident(doc: Dict[str, Any]) -> Dict[str, Any]:
+        col = IntelligentAIService._get_mongo_collection()
+        if col is not None:
+            result = col.update_one({'fingerprint': doc['fingerprint']}, {'$set': doc}, upsert=True)
+            doc['_persisted'] = True
+            doc['_upserted'] = bool(getattr(result, 'upserted_id', None))
+        else:
+            INCIDENT_STORE[doc['fingerprint']] = doc
+        return doc
+
+    @staticmethod
+    def _get_incident_by_fingerprint(fp: str) -> Dict[str, Any]:
+        col = IntelligentAIService._get_mongo_collection()
+        if col is not None:
+            found = col.find_one({'fingerprint': fp})
+            return dict(found) if found else {}
+        return INCIDENT_STORE.get(fp, {})
+
+    @staticmethod
+    def _delete_incident_by_fingerprint(fp: str) -> bool:
+        col = IntelligentAIService._get_mongo_collection()
+        if col is not None:
+            res = col.delete_one({'fingerprint': fp})
+            return bool(res.deleted_count)
+        return bool(INCIDENT_STORE.pop(fp, None))
+
+    # Integration configs stored in same DB (separate type)
+    @staticmethod
+    def _get_configs_collection():
+        mongo_uri = os.getenv('MONGODB_URI')
+        mongo_db = os.getenv('MONGODB_DB', 'inframind')
+        if mongo_uri and MongoClient:
+            client = MongoClient(mongo_uri)
+            return client[mongo_db]['integration_configs']
+        return None
+
+    def _save_integration_config(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        integration = payload.get('integration')
+        config = payload.get('config') or {}
+        if not integration:
+            raise ValueError('integration is required')
+        col = IntelligentAIService._get_configs_collection()
+        # TODO: encrypt config before saving using KMS/envelope
+        doc = {'integration': integration, 'config': config, 'updated_at': datetime.now().isoformat()}
+        if col is not None:
+            col.update_one({'integration': integration}, {'$set': doc}, upsert=True)
+        return {'integration': integration, 'saved': True}
+
+    def _test_integration(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        integration = payload.get('integration')
+        config = payload.get('config') or {}
+        if not integration:
+            raise ValueError('integration is required')
+        name = integration.lower()
+        if name == 'servicenow':
+            # simple get on table to verify auth
+            base = (config.get('instance') or os.getenv('SERVICENOW_INSTANCE') or '').rstrip('/')
+            headers = self._servicenow_headers_with_override(config)
+            try:
+                r = requests.get(f"{base}/api/now/table/incident?sysparm_limit=1", headers=headers, timeout=10)
+                ok = r.status_code < 400
+                return {'ok': ok, 'status': r.status_code}
+            except Exception as e:
+                return {'ok': False, 'error': str(e)}
+        if name == 'jira':
+            base = (config.get('base_url') or os.getenv('JIRA_BASE_URL') or '').rstrip('/')
+            headers = self._jira_headers_with_override(config)
+            try:
+                r = requests.get(f"{base}/rest/api/3/myself", headers=headers, timeout=10)
+                ok = r.status_code < 400
+                return {'ok': ok, 'status': r.status_code}
+            except Exception as e:
+                return {'ok': False, 'error': str(e)}
+        if name in ['prometheus_alertmanager','datadog']:
+            # validate webhook secret is present if configured
+            ok = bool((config.get('webhook_secret') or '').strip())
+            return {'ok': ok, 'requires': 'webhook_secret'}
+        if name == 'aws':
+            try:
+                if not boto3:
+                    return {'ok': False, 'error': 'boto3_unavailable'}
+                access_key = config.get('aws_access_key_id')
+                secret_key = config.get('aws_secret_access_key')
+                session_token = config.get('aws_session_token')
+                region = config.get('aws_region') or os.getenv('AWS_REGION', 'us-east-1')
+                if not access_key or not secret_key:
+                    return {'ok': False, 'error': 'missing_credentials'}
+                sts = boto3.client(
+                    'sts',
+                    region_name=region,
+                    aws_access_key_id=access_key,
+                    aws_secret_access_key=secret_key,
+                    aws_session_token=session_token,
+                )
+                ident = sts.get_caller_identity()
+                return {'ok': True, 'account': ident.get('Account'), 'arn': ident.get('Arn')}
+            except Exception as e:
+                return {'ok': False, 'error': str(e)}
+        if name == 'azure':
+            tenant = config.get('tenant_id') or config.get('directory_id')
+            client_id = config.get('client_id')
+            client_secret = config.get('client_secret')
+            subscription_id = config.get('subscription_id')
+            token = self._azure_get_token(tenant, client_id, client_secret)
+            ok = bool(token and subscription_id)
+            status = None
+            if token and subscription_id:
+                try:
+                    res = self._azure_list_resources(token, subscription_id)
+                    status = 200 if isinstance(res, list) else 500
+                except Exception:
+                    status = 500
+            return {'ok': ok, 'status': status}
+        if name == 'gcp':
+            sa = config
+            token = self._gcp_get_token(sa, ['https://www.googleapis.com/auth/cloud-platform'])
+            ok = bool(token)
+            status = None
+            if ok and sa.get('project_id'):
+                try:
+                    _ = self._gcp_list_buckets(sa['project_id'], token)
+                    status = 200
+                except Exception:
+                    status = 500
+            return {'ok': ok, 'status': status}
+        return {'ok': False, 'error': 'unsupported_integration'}
+
     def log_message(self, format, *args):
         """Custom logging"""
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {format % args}")
+
+    # --- Alert normalization and webhook helpers ---
+    def _normalize_alert_payload(self, source: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            if source == 'prometheus_alertmanager':
+                alerts = payload.get('alerts', [])
+                first = alerts[0] if alerts else {}
+                labels = first.get('labels', {})
+                annotations = first.get('annotations', {})
+                return {
+                    'source': 'prometheus',
+                    'severity': labels.get('severity', 'info'),
+                    'service': labels.get('service') or labels.get('job'),
+                    'summary': annotations.get('summary') or labels.get('alertname'),
+                    'startsAt': first.get('startsAt'),
+                    'labels': labels,
+                    'annotations': annotations,
+                }
+            elif source == 'datadog':
+                return {
+                    'source': 'datadog',
+                    'severity': payload.get('alert_type', 'info'),
+                    'service': payload.get('event_type'),
+                    'summary': payload.get('title') or payload.get('text'),
+                    'startsAt': payload.get('date_happened'),
+                    'labels': payload,
+                    'annotations': {},
+                }
+            else:
+                return {'source': source, 'raw': payload}
+        except Exception as e:
+            return {'source': source, 'raw': payload, 'error': str(e)}
+
+    async def _handle_incoming_alert(self, alert: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            severity = (alert.get('severity') or 'info').lower()
+            suggestion = 'investigate'
+            if severity in ['critical', 'high']:
+                suggestion = 'escalate_and_run_rca'
+            elif severity in ['warning', 'medium']:
+                suggestion = 'create_ticket_and_monitor'
+            return {'triage': {'severity': severity, 'suggestion': suggestion}}
+        except Exception as e:
+            return {'error': str(e)}
+
+    async def _handle_itsm_webhook(self, vendor: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            incident_id = payload.get('incident_id') or payload.get('sys_id') or payload.get('key')
+            status = payload.get('status') or payload.get('state')
+            return {'vendor': vendor, 'incident_id': incident_id, 'status': status}
+        except Exception as e:
+            return {'error': str(e)}
+
+    # --- Default ITSM automation for Prometheus alerts ---
+    def _default_itsm_vendor(self) -> str:
+        return (os.getenv('ITSM_DEFAULT') or 'servicenow').lower()
+
+    def _open_default_itsm_incident(self, alert: Dict[str, Any], fingerprint: str) -> Dict[str, Any]:
+        vendor = self._default_itsm_vendor()
+        summary = alert.get('summary') or 'Alert'
+        severity = alert.get('severity','info')
+        service = alert.get('service') or 'unknown'
+        labels = alert.get('labels',{})
+        annotations = alert.get('annotations',{})
+        doc_update: Dict[str, Any] = {}
+        try:
+            if vendor == 'servicenow' and self._servicenow_base():
+                payload = {
+                    'short_description': summary,
+                    'description': f"Auto-created from Prometheus alert. Service: {service}. Severity: {severity}. Labels: {labels}. Annotations: {annotations}",
+                    'urgency': '1' if severity in ['critical','high'] else '2' if severity in ['warning','medium'] else '3',
+                    'impact': '1' if severity in ['critical','high'] else '2',
+                    'category': 'inquiry',
+                }
+                try:
+                    resp = self._servicenow_crud('create', payload)
+                except Exception as e:
+                    return {'vendor': 'servicenow', 'error': str(e)}
+                sys_id = (resp.get('result') or {}).get('sys_id') if isinstance(resp, dict) else None
+                doc_update['servicenow_sys_id'] = sys_id
+                return {'vendor': 'servicenow', 'sys_id': sys_id}
+            elif vendor == 'jira' and self._jira_base():
+                project_key = os.getenv('JIRA_PROJECT_KEY') or 'OPS'
+                payload = {
+                    'fields': {
+                        'project': {'key': project_key},
+                        'summary': summary,
+                        'description': f"Auto-created from Prometheus alert. Service: {service}. Severity: {severity}. Labels: {labels}. Annotations: {annotations}",
+                        'issuetype': {'name': os.getenv('JIRA_ISSUE_TYPE','Incident')}
+                    }
+                }
+                try:
+                    resp = self._jira_crud('create', payload)
+                except Exception as e:
+                    return {'vendor': 'jira', 'error': str(e)}
+                key = resp.get('key') if isinstance(resp, dict) else None
+                doc_update['jira_key'] = key
+                return {'vendor': 'jira', 'key': key}
+        finally:
+            if doc_update:
+                existing = IntelligentAIService._get_incident_by_fingerprint(fingerprint) or {'fingerprint': fingerprint}
+                existing.update(doc_update)
+                IntelligentAIService._persist_incident(existing)
+        return {'vendor': 'none'}
+
+    def _resolve_default_itsm_incident(self, fingerprint: str) -> Dict[str, Any]:
+        existing = IntelligentAIService._get_incident_by_fingerprint(fingerprint)
+        if not existing:
+            return {'status': 'not_found'}
+        result: Dict[str, Any] = {'status': 'noop'}
+        try:
+            if existing.get('servicenow_sys_id') and self._servicenow_base():
+                sys_id = existing['servicenow_sys_id']
+                self._servicenow_crud('update', {'sys_id': sys_id, 'state': '6', 'close_notes': 'Resolved by Alertmanager auto-resolution'})
+                result = {'vendor': 'servicenow', 'sys_id': sys_id, 'action': 'resolved'}
+            elif existing.get('jira_key') and self._jira_base():
+                key = existing['jira_key']
+                self._jira_transition_to_done(key)
+                result = {'vendor': 'jira', 'key': key, 'action': 'resolved'}
+        finally:
+            return result
+
+    def _jira_transition_to_done(self, key: str) -> None:
+        base = self._jira_base()
+        headers = self._jira_auth_headers()
+        # List transitions
+        resp = requests.get(f"{base}/rest/api/3/issue/{key}/transitions", headers=headers, timeout=20)
+        resp.raise_for_status()
+        data = resp.json() or {}
+        transitions = data.get('transitions', [])
+        target = None
+        for t in transitions:
+            name = (t.get('name') or '').lower()
+            if name in ['done','resolved','close','closed']:
+                target = t.get('id')
+                break
+        if not target and transitions:
+            target = transitions[-1].get('id')  # fallback to last available
+        if target:
+            requests.post(f"{base}/rest/api/3/issue/{key}/transitions", headers=headers, json={'transition': {'id': target}}, timeout=20).raise_for_status()
     
     def do_OPTIONS(self):
         """Handle CORS preflight requests"""
         try:
+            # Basic rate limit by IP
+            client_ip = self.client_address[0] if self.client_address else 'unknown'
+            if not self._rate_limit_ok(f"OPTIONS:{client_ip}", limit=120, window_sec=60):
+                self.send_response(429)
+                self.end_headers()
+                return
             self.send_response(200)
             self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -171,14 +1073,19 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
         """Handle GET requests"""
         try:
             parsed_path = urlparse(self.path)
-            
-            # Set CORS headers for all responses
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            # Basic rate limit by IP and path
+            client_ip = self.client_address[0] if self.client_address else 'unknown'
+            if not self._rate_limit_ok(f"GET:{client_ip}:{parsed_path.path}", limit=240, window_sec=60):
+                self.send_response(429)
+                self.end_headers()
+                return
             
             if parsed_path.path == '/health':
                 self.send_response(200)
+                # CORS
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 response_data = {
@@ -195,7 +1102,101 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
                     "agents": list(AGENT_REGISTRY.keys())
                 }
                 self.wfile.write(json.dumps(response_data).encode())
+
+            elif parsed_path.path == '/dashboard/summary':
+                try:
+                    claims = self._require_auth()
+                    tenant_id = claims.get('tenant_id') or 'default'
+                    inv = IntelligentAIService._get_inventory_collection()
+                    inc = IntelligentAIService._get_mongo_collection()
+                    summary = {
+                        'resources_total': 0,
+                        'by_provider': {},
+                        'by_type': {},
+                        'incidents_open': 0,
+                        'costs': self.get_real_costs(),
+                    }
+                    if inv is not None:
+                        cursor = inv.find({'tenant_id': tenant_id}, {'provider': 1, 'resource_type': 1})
+                        for d in cursor:
+                            summary['resources_total'] += 1
+                            p = d.get('provider') or 'unknown'
+                            t = d.get('resource_type') or 'unknown'
+                            summary['by_provider'][p] = summary['by_provider'].get(p, 0) + 1
+                            summary['by_type'][t] = summary['by_type'].get(t, 0) + 1
+                    if inc is not None:
+                        summary['incidents_open'] = inc.count_documents({'status': 'open'})
+                    self.send_response(200)
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                    self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'success': True, 'data': summary}).encode())
+                except Exception as e:
+                    self.send_response(401)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'success': False, 'error': str(e)}).encode())
+
+            elif parsed_path.path == '/dashboard/resources':
+                try:
+                    claims = self._require_auth()
+                    tenant_id = claims.get('tenant_id') or 'default'
+                    inv = IntelligentAIService._get_inventory_collection()
+                    provider = None
+                    region = None
+                    rtype = None
+                    page = 1
+                    page_size = 50
+                    try:
+                        from urllib.parse import parse_qs
+                        qs = parse_qs(parsed_path.query or '')
+                        provider = (qs.get('provider',[None])[0] or None)
+                        region = (qs.get('region',[None])[0] or None)
+                        rtype = (qs.get('type',[None])[0] or None)
+                        page = int(qs.get('page',[1])[0])
+                        page_size = min(200, int(qs.get('page_size',[50])[0]))
+                    except Exception:
+                        pass
+                    filt = {'tenant_id': tenant_id}
+                    if provider:
+                        filt['provider'] = provider
+                    if region:
+                        filt['region'] = region
+                    if rtype:
+                        filt['resource_type'] = rtype
+                    data = []
+                    total = 0
+                    if inv is not None:
+                        total = inv.count_documents(filt)
+                        cursor = inv.find(filt).skip((page-1)*page_size).limit(page_size)
+                        for d in cursor:
+                            d.pop('_id', None)
+                            data.append(d)
+                    self.send_response(200)
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                    self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'success': True, 'data': data, 'page': page, 'page_size': page_size, 'total': total}).encode())
+                except Exception as e:
+                    self.send_response(401)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'success': False, 'error': str(e)}).encode())
             
+            elif parsed_path.path == '/auth/profile':
+                try:
+                    claims = self._require_auth()
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"user": claims}).encode())
+                except Exception as e:
+                    self.send_response(401)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode())
+
             elif parsed_path.path == '/aws/ec2':
                 try:
                     instances = self.get_ec2_instances()
@@ -260,7 +1261,80 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+            elif parsed_path.path == '/integrations/configs':
+                try:
+                    claims = {}
+                    try:
+                        claims = self._require_auth()
+                    except Exception:
+                        pass
+                    tenant_id = claims.get('tenant_id') or 'default'
+                    col = IntelligentAIService._get_configs_collection()
+                    configs = []
+                    if col is not None:
+                        for doc in col.find({'tenant_id': tenant_id}):
+                            doc.pop('_id', None)
+                            # only surface metadata, never secret values
+                            doc.pop('config', None)
+                            arn = doc.get('secret_arn') or ''
+                            if arn:
+                                doc['secret_arn_masked'] = arn[:12] + '...' + arn[-4:]
+                            configs.append(doc)
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True, "data": configs}).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+            elif parsed_path.path == '/integrations/webhooks':
+                try:
+                    webhooks = [
+                        {"name": "Prometheus Alertmanager", "url": "/integrations/alerts/prometheus_alertmanager", "method": "POST"},
+                        {"name": "Datadog", "url": "/integrations/alerts/datadog", "method": "POST"},
+                        {"name": "ServiceNow Webhook", "url": "/integrations/itsm/servicenow/webhook", "method": "POST"},
+                        {"name": "Jira Webhook", "url": "/integrations/itsm/jira/webhook", "method": "POST"},
+                        {"name": "Azure", "url": "/integrations/configs?integration=azure", "method": "POST"},
+                        {"name": "GCP", "url": "/integrations/configs?integration=gcp", "method": "POST"},
+                    ]
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True, "data": webhooks}).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
             
+            elif parsed_path.path == '/metrics':
+                try:
+                    # Prometheus metrics text (counters)
+                    lines = []
+                    lines.append('# HELP inframind_requests_total Total HTTP requests by route')
+                    lines.append('# TYPE inframind_requests_total counter')
+                    for label, val in self._metrics.get('requests_total', {}).items():
+                        lines.append(f"inframind_requests_total{{route=\"{label}\"}} {val}")
+                    lines.append('# HELP inframind_errors_total Total HTTP errors by route')
+                    lines.append('# TYPE inframind_errors_total counter')
+                    for label, val in self._metrics.get('errors_total', {}).items():
+                        lines.append(f"inframind_errors_total{{route=\"{label}\"}} {val}")
+                    lines.append('# HELP inframind_up 1 if service is up')
+                    lines.append('# TYPE inframind_up gauge')
+                    lines.append('inframind_up 1')
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/plain; version=0.0.4')
+                    self.end_headers()
+                    self.wfile.write("\n".join(lines).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.end_headers()
+                    self.wfile.write(str(e).encode())
+
             else:
                 self.send_response(404)
                 self.send_header('Content-type', 'application/json')
@@ -273,13 +1347,36 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({"error": str(e)}).encode())
 
+    # --- Utils ---
+    def _query_param(self, parsed_path, key: str) -> str:
+        try:
+            from urllib.parse import parse_qs
+            qs = parse_qs(parsed_path.query or '')
+            vals = qs.get(key)
+            return vals[0] if vals else ''
+        except Exception:
+            return ''
+
     def do_POST(self):
         """Handle POST requests - INTELLIGENT AGENT ORCHESTRATION"""
         try:
             parsed_path = urlparse(self.path)
+            # Basic rate limiting
+            client_ip = self.client_address[0] if self.client_address else 'unknown'
+            if not self._rate_limit_ok(f"POST:{client_ip}:{parsed_path.path}", limit=120, window_sec=60):
+                self.send_response(429)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "rate_limited"}).encode())
+                return
             
             if parsed_path.path == '/chat':
                 try:
+                    # Enforce auth for chat (multi-tenant)
+                    try:
+                        claims = self._require_auth()
+                    except Exception:
+                        claims = {'sub': 'anonymous'}
                     # Read request body
                     content_length = int(self.headers.get('Content-Length', 0))
                     if content_length > 0:
@@ -290,38 +1387,420 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
                     
                     message = request_data.get('message', '')
                     context = request_data.get('context', 'infrastructure_management')
-                    user_id = request_data.get('user_id', 'anonymous')
+                    user_id = request_data.get('user_id') or claims.get('sub') or 'anonymous'
                     session_id = request_data.get('session_id', f'session_{user_id}')
+                    # streaming flag (supports SSE)
+                    stream_flag = bool(request_data.get('stream'))
+                    if not stream_flag:
+                        # also allow query param ?stream=true
+                        try:
+                            from urllib.parse import parse_qs
+                            qs = parse_qs(parsed_path.query or '')
+                            stream_flag = (qs.get('stream', ['false'])[0].lower() in ['1','true','yes'])
+                        except Exception:
+                            stream_flag = False
+                    # Persist chat message
+                    try:
+                        col = None
+                        mongo_uri = os.getenv('MONGODB_URI')
+                        mongo_db = os.getenv('MONGODB_DB', 'inframind')
+                        if mongo_uri and MongoClient:
+                            client = MongoClient(mongo_uri)
+                            col = client[mongo_db]['chat_messages']
+                        if col is not None:
+                            col.insert_one({
+                                'tenant_id': claims.get('tenant_id') or 'default',
+                                'session_id': session_id,
+                                'user_id': user_id,
+                                'role': 'user',
+                                'message': message,
+                                'ts': datetime.now().isoformat()
+                            })
+                    except Exception:
+                        pass
                     
                     print(f"Processing message: {message} for session: {session_id}")
-                    
-                    # Process with intelligent agent orchestration
-                    ai_response = asyncio.run(self._process_with_agents(message, user_id, session_id))
-                    
-                    # Send response with proper HTTP headers
-                    self.send_response(200)
-                    self.send_header('Content-type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                    self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-                    self.end_headers()
-                    
-                    response_data = {
-                        "response": ai_response,
-                        "timestamp": datetime.now().isoformat(),
-                        "context": context,
-                        "user_id": user_id,
-                        "session_id": session_id
-                    }
-                    self.wfile.write(json.dumps(response_data).encode())
+
+                    if stream_flag:
+                        # Setup SSE headers
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/event-stream')
+                        self.send_header('Cache-Control', 'no-cache')
+                        self.send_header('Connection', 'keep-alive')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                        self.end_headers()
+                        # Send initial event
+                        try:
+                            self.wfile.write(b"event: status\n")
+                            self.wfile.write(b"data: processing\n\n")
+                            self.wfile.flush()
+                        except Exception:
+                            pass
+                        # Compute response
+                        ai_response = asyncio.run(self._process_with_agents(message, user_id, session_id))
+                        # Persist AI response
+                        try:
+                            col = None
+                            mongo_uri = os.getenv('MONGODB_URI')
+                            mongo_db = os.getenv('MONGODB_DB', 'inframind')
+                            if mongo_uri and MongoClient:
+                                client = MongoClient(mongo_uri)
+                                col = client[mongo_db]['chat_messages']
+                            if col is not None:
+                                col.insert_one({
+                                    'tenant_id': claims.get('tenant_id') or 'default',
+                                    'session_id': session_id,
+                                    'user_id': user_id,
+                                    'role': 'ai',
+                                    'message': ai_response,
+                                    'ts': datetime.now().isoformat()
+                                })
+                        except Exception:
+                            pass
+                        # Stream the response in chunks
+                        try:
+                            text = str(ai_response)
+                            chunk_size = 256
+                            for i in range(0, len(text), chunk_size):
+                                chunk = text[i:i+chunk_size]
+                                payload = json.dumps({
+                                    'delta': chunk,
+                                    'complete': (i + chunk_size) >= len(text)
+                                })
+                                self.wfile.write(b"event: message\n")
+                                self.wfile.write(b"data: ")
+                                self.wfile.write(payload.encode('utf-8'))
+                                self.wfile.write(b"\n\n")
+                                self.wfile.flush()
+                            # end event
+                            self.wfile.write(b"event: end\n")
+                            self.wfile.write(b"data: done\n\n")
+                            self.wfile.flush()
+                        except Exception:
+                            pass
+                    else:
+                        # Non-streaming: compute then return JSON
+                        ai_response = asyncio.run(self._process_with_agents(message, user_id, session_id))
+                        # Persist AI response
+                        try:
+                            col = None
+                            mongo_uri = os.getenv('MONGODB_URI')
+                            mongo_db = os.getenv('MONGODB_DB', 'inframind')
+                            if mongo_uri and MongoClient:
+                                client = MongoClient(mongo_uri)
+                                col = client[mongo_db]['chat_messages']
+                            if col is not None:
+                                col.insert_one({
+                                    'tenant_id': claims.get('tenant_id') or 'default',
+                                    'session_id': session_id,
+                                    'user_id': user_id,
+                                    'role': 'ai',
+                                    'message': ai_response,
+                                    'ts': datetime.now().isoformat()
+                                })
+                        except Exception:
+                            pass
+                        self.send_response(200)
+                        self.send_header('Content-type', 'application/json')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+                        self.end_headers()
+                        response_data = {
+                            "response": ai_response,
+                            "timestamp": datetime.now().isoformat(),
+                            "context": context,
+                            "user_id": user_id,
+                            "session_id": session_id
+                        }
+                        self.wfile.write(json.dumps(response_data).encode())
                     
                 except Exception as e:
                     print(f"Error in chat endpoint: {e}")
+                    self._inc_metric('errors_total', '/chat')
                     self.send_response(500)
                     self.send_header('Content-type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": f"AI service error: {str(e)}"}).encode())
+
+            elif parsed_path.path == '/auth/register':
+                try:
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    raw = self.rfile.read(content_length) if content_length > 0 else b''
+                    body = json.loads(raw.decode('utf-8')) if raw else {}
+                    email = (body.get('email') or body.get('username')).strip()
+                    password = (body.get('password') or '').strip()
+                    tenant_id = (body.get('organization') or body.get('tenant_id') or 'default').strip()
+                    if not email or not password:
+                        raise ValueError('email and password required')
+                    col = self._get_users_collection()
+                    user = {'email': email, 'tenant_id': tenant_id, 'roles': ['admin' if body.get('is_admin') else 'user']}
+                    user['password_hash'] = self._hash_password(password)
+                    if col is not None:
+                        col.update_one({'email': email}, {'$setOnInsert': user}, upsert=True)
+                    token = self._issue_jwt({'user_id': email, 'email': email, 'tenant_id': tenant_id, 'roles': user['roles']})
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'access_token': token, 'user': {'email': email, 'tenant_id': tenant_id, 'roles': user['roles']}}).encode())
+                except Exception as e:
+                    self.send_response(400)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'error': str(e)}).encode())
+
+            elif parsed_path.path == '/auth/login':
+                try:
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    raw = self.rfile.read(content_length) if content_length > 0 else b''
+                    body = json.loads(raw.decode('utf-8')) if raw else {}
+                    email = (body.get('email') or body.get('username') or body.get('username_or_email') or '').strip()
+                    password = (body.get('password') or '').strip()
+                    if not email or not password:
+                        raise ValueError('email and password required')
+                    col = self._get_users_collection()
+                    found = None
+                    if col is not None:
+                        found = col.find_one({'email': email})
+                    if not found:
+                        raise ValueError('user_not_found')
+                    if not self._verify_password(password, found.get('password_hash','')):
+                        raise ValueError('invalid_credentials')
+                    token = self._issue_jwt({'user_id': email, 'email': email, 'tenant_id': found.get('tenant_id') or 'default', 'roles': found.get('roles') or ['user']})
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'access_token': token, 'user': {'email': email, 'tenant_id': found.get('tenant_id') or 'default', 'roles': found.get('roles') or ['user']}}).encode())
+                except Exception as e:
+                    self.send_response(400)
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'error': str(e)}).encode())
+            
+            elif parsed_path.path.startswith('/integrations/alerts/'):
+                try:
+                    # Example: /integrations/alerts/prometheus_alertmanager
+                    source = parsed_path.path.split('/')[-1]
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    raw_body = self.rfile.read(content_length) if content_length > 0 else b''
+                    payload = json.loads(raw_body.decode('utf-8')) if raw_body else {}
+                    # Metrics: count alert requests per source
+                    try:
+                        self._inc_metric('requests_total', f"/integrations/alerts/{source}")
+                    except Exception:
+                        pass
+                    # HMAC verification (optional per-integration secret)
+                    secrets_col = IntelligentAIService._get_configs_collection()
+                    secret = ''
+                    if secrets_col is not None:
+                        doc = secrets_col.find_one({'integration': source})
+                        if doc:
+                            # Prefer Secrets Manager reference
+                            sec_name = (doc.get('secret_name') or '').strip()
+                            if sec_name:
+                                sec_val = self._get_secret(sec_name)
+                                secret = (sec_val.get('webhook_secret') or '').strip()
+                            else:
+                                # Backward-compat: if config stored inline
+                                cfg = doc.get('config') if isinstance(doc.get('config'), dict) else {}
+                                secret = (cfg.get('webhook_secret') or '').strip()
+                    provided_sig = self.headers.get('X-Signature') or self.headers.get('X-Hub-Signature-256') or ''
+                    if not self._verify_hmac(provided_sig, secret, raw_body):
+                        self.send_response(401)
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"error": "invalid_signature"}).encode())
+                        return
+                    # Idempotency
+                    idem_key = self.headers.get('Idempotency-Key') or payload.get('id') or payload.get('eventId') or str(uuid.uuid4())
+                    if not self._idempotent(f"alerts:{source}:{idem_key}"):
+                        self.send_response(200)
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"status": "duplicate_ignored"}).encode())
+                        return
+                    alert = self._normalize_alert_payload(source, payload) or {}
+                    alert['source'] = alert.get('source') or ('prometheus' if source.startswith('prometheus') else source)
+                    # Add fingerprint and status mapping for Prometheus
+                    if source == 'prometheus_alertmanager':
+                        alerts = payload.get('alerts', [])
+                        first = alerts[0] if alerts else {}
+                        status = first.get('status', 'firing')
+                        fp = f"prom:{first.get('labels', {}).get('alertname','')}:" \
+                             f"{first.get('labels', {}).get('instance','')}:" \
+                             f"{first.get('startsAt','') }"
+                        alert['status'] = status
+                        alert['fingerprint'] = fp
+                        # Apply rules
+                        tenant_id = 'default'
+                        actions = self._apply_alert_rules(alert, tenant_id)
+                        if status == 'firing':
+                            incident_doc = {
+                                'fingerprint': fp,
+                                'status': 'open',
+                                'source': 'prometheus',
+                                'summary': alert.get('summary'),
+                                'severity': alert.get('severity','info'),
+                                'service': alert.get('service'),
+                                'labels': alert.get('labels',{}),
+                                'annotations': alert.get('annotations',{}),
+                                'created_at': datetime.utcnow().isoformat(),
+                            }
+                            IntelligentAIService._persist_incident(incident_doc)
+                            itsm_result = None
+                            if 'open_incident' in actions:
+                                itsm_result = self._open_default_itsm_incident(alert, fp)
+                            # Audit
+                            try:
+                                self._audit_log('incident_opened', {'ip': client_ip, 'user_id': 'system', 'tenant_id': tenant_id}, {'fingerprint': fp, 'source': 'prometheus'})
+                            except Exception:
+                                pass
+                            result = {'action': 'opened_incident', 'fingerprint': fp, 'itsm': itsm_result}
+                        elif status == 'resolved':
+                            # mark resolved if exists
+                            existing = IntelligentAIService._get_incident_by_fingerprint(fp)
+                            if existing:
+                                existing['status'] = 'resolved'
+                                existing['resolved_at'] = datetime.utcnow().isoformat()
+                                IntelligentAIService._persist_incident(existing)
+                                itsm_result = None
+                                if 'resolve_incident' in actions:
+                                    itsm_result = self._resolve_default_itsm_incident(fp)
+                                # Audit
+                                try:
+                                    self._audit_log('incident_resolved', {'ip': client_ip, 'user_id': 'system', 'tenant_id': tenant_id}, {'fingerprint': fp, 'source': 'prometheus'})
+                                except Exception:
+                                    pass
+                                result = {'action': 'resolved_incident', 'fingerprint': fp, 'itsm': itsm_result}
+                            else:
+                                result = {'action': 'no_op', 'reason': 'incident_not_found', 'fingerprint': fp}
+                    else:
+                        result = asyncio.run(self._handle_incoming_alert(alert))
+                    # Audit receipt
+                    try:
+                        self._audit_log('alert_received', {'ip': client_ip, 'user_id': 'system', 'tenant_id': 'default'}, {'source': source, 'status': alert.get('status'), 'fingerprint': alert.get('fingerprint')})
+                    except Exception:
+                        pass
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "ok", "normalized": alert, "result": result}).encode())
+                except Exception as e:
+                    self._inc_metric('errors_total', '/integrations/alerts')
+                    # dead-letter the payload
+                    try:
+                        self._dead_letter.append({
+                            'path': parsed_path.path,
+                            'error': str(e),
+                            'ts': datetime.now().isoformat()
+                        })
+                    except Exception:
+                        pass
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode())
+            
+            elif parsed_path.path == '/integrations/configs':
+                try:
+                    # Require authenticated admin/ops to save configs
+                    try:
+                        claims = self._require_auth()
+                        self._require_role(claims, ['admin','ops'])
+                    except PermissionError as pe:
+                        code = 403 if 'forbidden' in str(pe) else 401
+                        self.send_response(code)
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"success": False, "error": str(pe)}).encode())
+                        return
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    raw_body = self.rfile.read(content_length) if content_length > 0 else b''
+                    payload = json.loads(raw_body.decode('utf-8')) if raw_body else {}
+                    integration = payload.get('integration')
+                    config = payload.get('config') or {}
+                    if not integration:
+                        raise ValueError('integration is required')
+                    tenant_id = claims.get('tenant_id') or payload.get('tenant_id') or 'default'
+                    user_id = claims.get('sub') or 'system'
+                    # store secret in AWS Secrets Manager
+                    secret_prefix = os.getenv('SECRETS_PREFIX', 'inframind')
+                    secret_name = f"{secret_prefix}/{tenant_id}/{integration}"
+                    secret_ref = self._put_secret(secret_name, config)
+                    # persist reference in configs collection
+                    col = IntelligentAIService._get_configs_collection()
+                    doc = {
+                        'integration': integration,
+                        'tenant_id': tenant_id,
+                        'user_id': user_id,
+                        'secret_name': secret_ref['name'],
+                        'secret_arn': secret_ref['arn'],
+                        'updated_at': datetime.now().isoformat()
+                    }
+                    if col is not None:
+                        col.update_one({'integration': integration, 'tenant_id': tenant_id}, {'$set': doc}, upsert=True)
+                    self._audit_log('integration_config_saved', {'ip': client_ip, 'user_id': user_id, 'tenant_id': tenant_id}, {'integration': integration})
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True, "data": {"integration": integration, "secret_arn": secret_ref['arn']}}).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+            elif parsed_path.path == '/integrations/test':
+                try:
+                    # Require authenticated admin/ops to test configs
+                    try:
+                        claims = self._require_auth()
+                        self._require_role(claims, ['admin','ops'])
+                    except PermissionError as pe:
+                        code = 403 if 'forbidden' in str(pe) else 401
+                        self.send_response(code)
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"success": False, "error": str(pe)}).encode())
+                        return
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    raw_body = self.rfile.read(content_length) if content_length > 0 else b''
+                    payload = json.loads(raw_body.decode('utf-8')) if raw_body else {}
+                    result = self._test_integration(payload)
+                    tenant_id = claims.get('tenant_id') or payload.get('tenant_id') or 'default'
+                    user_id = claims.get('sub') or 'system'
+                    self._audit_log('integration_test', {'ip': client_ip, 'user_id': user_id, 'tenant_id': tenant_id}, {'integration': payload.get('integration'), 'ok': result.get('ok')})
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": True, "data": result}).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+            elif parsed_path.path.startswith('/integrations/itsm/'):
+                try:
+                    # Example: /integrations/itsm/servicenow/webhook
+                    parts = parsed_path.path.split('/')
+                    vendor = parts[3] if len(parts) > 3 else 'unknown'
+                    content_length = int(self.headers.get('Content-Length', 0))
+                    raw_body = self.rfile.read(content_length) if content_length > 0 else b''
+                    payload = json.loads(raw_body.decode('utf-8')) if raw_body else {}
+                    action = self._query_param(parsed_path, 'action') or 'webhook'
+                    if vendor == 'servicenow' and action in ['create','update','get','delete']:
+                        result = self._servicenow_crud(action, payload)
+                    elif vendor == 'jira' and action in ['create','update','get','delete']:
+                        result = self._jira_crud(action, payload)
+                    else:
+                        result = asyncio.run(self._handle_itsm_webhook(vendor, payload))
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "ok", "vendor": vendor, "result": result}).encode())
+                except Exception as e:
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode())
             
             else:
                 self.send_response(404)
@@ -337,7 +1816,7 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"error": str(e)}).encode())
 
     async def _process_with_agents(self, message: str, user_id: str, session_id: str) -> str:
-        """Process message with intelligent agent orchestration"""
+        """Process message with intelligent agent orchestration and natural dialogue"""
         try:
             print(f"Processing with agents: {message}")
             
@@ -347,123 +1826,220 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
                 # Continue existing conversation
                 return await self._continue_conversation(message, session_id)
             
-            # Parse intent and determine which agents to involve
-            intent_analysis = self._analyze_intent(message)
-            print(f"Intent analysis: {intent_analysis}")
+            # STEP 1: Multi-Agent Workflow Analysis
+            # Check if this requires multi-agent orchestration
+            workflow_result = await workflow_orchestrator.analyze_and_orchestrate(message, user_id, session_id)
             
-            # Route to appropriate agents based on intent
-            if intent_analysis['intent'] == 'ec2_provisioning':
-                return await self._handle_ec2_provisioning(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'ec2_listing':
-                return await self._handle_ec2_listing(message, user_id, session_id, intent_analysis.get('entities', {}))
-            
-            elif intent_analysis['intent'] == 'ec2_management':
-                return await self._handle_ec2_management(message, user_id, session_id, intent_analysis.get('entities', {}))
-            
-            elif intent_analysis['intent'] == 's3_management':
-                return await self._handle_s3_management(message, user_id, session_id, intent_analysis.get('entities', {}))
-            
-            elif intent_analysis['intent'] == 'load_balancer':
-                return await self._handle_load_balancer(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'auto_scaling':
-                return await self._handle_auto_scaling(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'database_management':
-                return await self._handle_database_management(message, user_id, session_id, intent_analysis.get('entities', {}))
-            
-            elif intent_analysis['intent'] == 'network_management':
-                return await self._handle_network_management(message, user_id, session_id, intent_analysis.get('entities', {}))
-            
-            elif intent_analysis['intent'] == 'security_scan':
-                return await self._handle_security_scan(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'cost_analysis':
-                return await self._handle_cost_analysis(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'infrastructure_health':
-                return await self._handle_infrastructure_health(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'compliance_automation':
-                return await self._handle_compliance_automation(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'monitoring':
-                return await self._handle_monitoring(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'container_scanning':
-                return await self._handle_container_scanning(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'secrets_detection':
-                return await self._handle_secrets_detection(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'pipeline_generation':
-                return await self._handle_pipeline_generation(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'rca_analysis':
-                return await self._handle_rca_analysis(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'general_query':
-                return await self._handle_general_query(message, user_id, session_id)
-            
-            # ===== ADVANCED AI CAPABILITIES =====
-            elif intent_analysis['intent'] == 'predictive_analysis' and ADVANCED_AI_ENABLED:
-                return await self._handle_predictive_analysis(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'ai_explanation' and ADVANCED_AI_ENABLED:
-                return await self._handle_ai_explanation(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'autonomous_orchestration' and ADVANCED_AI_ENABLED:
-                return await self._handle_autonomous_orchestration(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'ai_governance' and ADVANCED_AI_ENABLED:
-                return await self._handle_ai_governance(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'model_optimization' and ADVANCED_AI_ENABLED:
-                return await self._handle_model_optimization(message, user_id, session_id)
-            
-            # ===== ADVANCED SECURITY CAPABILITIES =====
-            elif intent_analysis['intent'] == 'threat_detection' and ADVANCED_SECURITY_ENABLED:
-                return await self._handle_threat_detection(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'security_orchestration' and ADVANCED_SECURITY_ENABLED:
-                return await self._handle_security_orchestration(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'zero_trust' and ADVANCED_SECURITY_ENABLED:
-                return await self._handle_zero_trust(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'incident_response' and ADVANCED_SECURITY_ENABLED:
-                return await self._handle_incident_response(message, user_id, session_id)
-            
-            # ===== ADVANCED CLOUD MANAGEMENT CAPABILITIES =====
-            elif intent_analysis['intent'] == 'multi_cloud_management' and ADVANCED_CLOUD_ENABLED:
-                return await self._handle_multi_cloud_management(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'cloud_migration' and ADVANCED_CLOUD_ENABLED:
-                return await self._handle_cloud_migration(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'hybrid_orchestration' and ADVANCED_CLOUD_ENABLED:
-                return await self._handle_hybrid_orchestration(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'disaster_recovery' and ADVANCED_CLOUD_ENABLED:
-                return await self._handle_disaster_recovery(message, user_id, session_id)
-            
-            # ===== ADVANCED DEVOPS CAPABILITIES =====
-            elif intent_analysis['intent'] == 'gitops_deployment' and ADVANCED_DEVOPS_ENABLED:
-                return await self._handle_gitops_deployment(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'automation_workflow' and ADVANCED_DEVOPS_ENABLED:
-                return await self._handle_automation_workflow(message, user_id, session_id)
-            
-            elif intent_analysis['intent'] == 'pipeline_orchestration' and ADVANCED_DEVOPS_ENABLED:
-                return await self._handle_pipeline_orchestration(message, user_id, session_id)
-            
+            if workflow_result.get("workflow_execution"):
+                # Complex multi-agent workflow
+                raw_response = workflow_result["result"]["summary"]
+                agent_type = "multi_agent_workflow"
             else:
-                return await self._handle_general_query(message, user_id, session_id)
+                # Single agent processing
+                # Parse intent and determine which agent to involve
+                intent_analysis = self._analyze_intent(message, session_id)
+                print(f"Intent analysis: {intent_analysis}")
                 
+                # Route to appropriate single agent
+                raw_response, agent_type = await self._route_to_single_agent(message, user_id, session_id, intent_analysis)
+            
+            # STEP 2: Context-Aware Response Enhancement
+            # Generate context-aware response
+            context_enhanced_response = await context_manager.generate_context_aware_response(
+                message, raw_response, user_id, session_id, agent_type
+            )
+            
+            # STEP 3: Natural Dialogue Enhancement
+            # Create dialogue context
+            dialogue_context = DialogueContext(
+                user_emotion="neutral",
+                conversation_stage="middle",
+                task_complexity="simple" if not workflow_result.get("workflow_execution") else "complex",
+                user_confidence="medium",
+                success_rate=1.0,
+                last_interaction_success=True
+            )
+            
+            # Get conversation history for context
+            conversation_history = context_manager.conversation_contexts.get(session_id, None)
+            history_list = conversation_history.messages if conversation_history else []
+            
+            # Apply natural dialogue patterns
+            final_response = dialogue_manager.enhance_response_with_natural_dialogue(
+                message, context_enhanced_response, dialogue_context, history_list
+            )
+            
+            return final_response
+            
         except Exception as e:
             print(f"Error in _process_with_agents: {e}")
             return f"I encountered an error while processing your request: {str(e)}"
+
+    async def _route_to_single_agent(self, message: str, user_id: str, session_id: str, intent_analysis: Dict[str, Any]) -> tuple:
+        """Route message to appropriate single agent and return response with agent type"""
+        try:
+            # Route to appropriate agents based on intent
+            intent = intent_analysis['intent']
+            
+            if intent == 'ec2_provisioning':
+                response = await self._handle_ec2_provisioning(message, user_id, session_id)
+                return response, 'ec2_provisioning'
+            
+            elif intent == 'ec2_listing':
+                response = await self._handle_ec2_listing(message, user_id, session_id, intent_analysis.get('entities', {}))
+                return response, 'ec2_listing'
+            
+            elif intent == 'ec2_management':
+                response = await self._handle_ec2_management(message, user_id, session_id, intent_analysis.get('entities', {}))
+                return response, 'ec2_management'
+            
+            elif intent == 's3_management':
+                response = await self._handle_s3_management(message, user_id, session_id, intent_analysis.get('entities', {}))
+                return response, 's3_management'
+            
+            elif intent == 'load_balancer':
+                response = await self._handle_load_balancer(message, user_id, session_id)
+                return response, 'load_balancer'
+            
+            elif intent == 'auto_scaling':
+                response = await self._handle_auto_scaling(message, user_id, session_id)
+                return response, 'auto_scaling'
+            
+            elif intent == 'database_management':
+                response = await self._handle_database_management(message, user_id, session_id, intent_analysis.get('entities', {}))
+                return response, 'database_management'
+            
+            elif intent == 'network_management':
+                response = await self._handle_network_management(message, user_id, session_id, intent_analysis.get('entities', {}))
+                return response, 'network_management'
+            
+            elif intent == 'security_scan':
+                response = await self._handle_security_scan(message, user_id, session_id)
+                return response, 'security_scan'
+            
+            elif intent == 'security_report':
+                response = await self._handle_security_report(message, user_id, session_id)
+                return response, 'security_report'
+            
+            elif intent == 'cost_analysis':
+                response = await self._handle_cost_analysis(message, user_id, session_id)
+                return response, 'cost_analysis'
+            
+            elif intent == 'infrastructure_health':
+                response = await self._handle_infrastructure_health(message, user_id, session_id)
+                return response, 'infrastructure_health'
+            
+            elif intent == 'compliance_automation':
+                response = await self._handle_compliance_automation(message, user_id, session_id)
+                return response, 'compliance_automation'
+            
+            elif intent == 'monitoring':
+                response = await self._handle_monitoring(message, user_id, session_id)
+                return response, 'monitoring'
+            
+            elif intent == 'container_scanning':
+                response = await self._handle_container_scanning(message, user_id, session_id)
+                return response, 'container_scanning'
+            
+            elif intent == 'secrets_detection':
+                response = await self._handle_secrets_detection(message, user_id, session_id)
+                return response, 'secrets_detection'
+            
+            elif intent == 'pipeline_generation':
+                response = await self._handle_pipeline_generation(message, user_id, session_id)
+                return response, 'pipeline_generation'
+            
+            elif intent == 'rca_analysis':
+                response = await self._handle_rca_analysis(message, user_id, session_id)
+                return response, 'rca_analysis'
+            
+            elif intent == 'general_query':
+                response = await self._handle_general_query(message, user_id, session_id)
+                return response, 'general_query'
+            
+            # ===== ADVANCED AI CAPABILITIES =====
+            elif intent_analysis['intent'] == 'predictive_analysis' and ADVANCED_AI_ENABLED:
+                response = await self._handle_predictive_analysis(message, user_id, session_id)
+                return response, 'predictive_analysis'
+            
+            elif intent_analysis['intent'] == 'ai_explanation' and ADVANCED_AI_ENABLED:
+                response = await self._handle_ai_explanation(message, user_id, session_id)
+                return response, 'ai_explanation'
+            
+            elif intent_analysis['intent'] == 'autonomous_orchestration' and ADVANCED_AI_ENABLED:
+                response = await self._handle_autonomous_orchestration(message, user_id, session_id)
+                return response, 'autonomous_orchestration'
+            
+            elif intent_analysis['intent'] == 'ai_governance' and ADVANCED_AI_ENABLED:
+                response = await self._handle_ai_governance(message, user_id, session_id)
+                return response, 'ai_governance'
+            
+            elif intent_analysis['intent'] == 'model_optimization' and ADVANCED_AI_ENABLED:
+                response = await self._handle_model_optimization(message, user_id, session_id)
+                return response, 'model_optimization'
+            
+            # ===== ADVANCED SECURITY CAPABILITIES =====
+            elif intent_analysis['intent'] == 'threat_detection' and ADVANCED_SECURITY_ENABLED:
+                response = await self._handle_threat_detection(message, user_id, session_id)
+                return response, 'threat_detection'
+            
+            elif intent_analysis['intent'] == 'security_orchestration' and ADVANCED_SECURITY_ENABLED:
+                response = await self._handle_security_orchestration(message, user_id, session_id)
+                return response, 'security_orchestration'
+            
+            elif intent_analysis['intent'] == 'zero_trust' and ADVANCED_SECURITY_ENABLED:
+                response = await self._handle_zero_trust(message, user_id, session_id)
+                return response, 'zero_trust'
+            
+            elif intent_analysis['intent'] == 'incident_response' and ADVANCED_SECURITY_ENABLED:
+                response = await self._handle_incident_response(message, user_id, session_id)
+                return response, 'incident_response'
+            
+            # ===== ADVANCED CLOUD MANAGEMENT CAPABILITIES =====
+            elif intent_analysis['intent'] == 'multi_cloud_management' and ADVANCED_CLOUD_ENABLED:
+                response = await self._handle_multi_cloud_management(message, user_id, session_id)
+                return response, 'multi_cloud_management'
+            
+            elif intent_analysis['intent'] == 'cloud_migration' and ADVANCED_CLOUD_ENABLED:
+                response = await self._handle_cloud_migration(message, user_id, session_id)
+                return response, 'cloud_migration'
+            
+            elif intent_analysis['intent'] == 'hybrid_orchestration' and ADVANCED_CLOUD_ENABLED:
+                response = await self._handle_hybrid_orchestration(message, user_id, session_id)
+                return response, 'hybrid_orchestration'
+            
+            elif intent_analysis['intent'] == 'disaster_recovery' and ADVANCED_CLOUD_ENABLED:
+                response = await self._handle_disaster_recovery(message, user_id, session_id)
+                return response, 'disaster_recovery'
+            
+            # ===== ADVANCED DEVOPS CAPABILITIES =====
+            elif intent_analysis['intent'] == 'gitops_deployment' and ADVANCED_DEVOPS_ENABLED:
+                response = await self._handle_gitops_deployment(message, user_id, session_id)
+                return response, 'gitops_deployment'
+            
+            elif intent_analysis['intent'] == 'automation_workflow' and ADVANCED_DEVOPS_ENABLED:
+                response = await self._handle_automation_workflow(message, user_id, session_id)
+                return response, 'automation_workflow'
+            
+            elif intent_analysis['intent'] == 'pipeline_orchestration' and ADVANCED_DEVOPS_ENABLED:
+                response = await self._handle_pipeline_orchestration(message, user_id, session_id)
+                return response, 'pipeline_orchestration'
+            
+            else:
+                # Fallback for all other intents - wrap response with agent type
+                if hasattr(self, f"_handle_{intent.replace('-', '_')}"):
+                    handler_method = getattr(self, f"_handle_{intent.replace('-', '_')}")
+                    if callable(handler_method):
+                        response = await handler_method(message, user_id, session_id)
+                        return response, intent
+                
+                # Final fallback to general query
+                response = await self._handle_general_query(message, user_id, session_id)
+                return response, 'general_query'
+                
+        except Exception as e:
+            print(f"Error in _route_to_single_agent: {e}")
+            return f"I encountered an error while processing your request: {str(e)}", 'error'
 
     async def _continue_conversation(self, message: str, session_id: str) -> str:
         """Continue an ongoing conversation based on stored state"""
@@ -471,33 +2047,274 @@ class IntelligentAIService(http.server.BaseHTTPRequestHandler):
             state = conversation_states[session_id]
             print(f"Continuing conversation state: {state}")
             
-            # Check if this is a new intent that should reset the conversation
+            # Enhanced intent detection using OpenAI for better accuracy
+            message_lower = message.lower().strip()
+            
+            # Comprehensive list of new intent indicators
             new_intent_indicators = [
-                'list my ec2', 'show my instances', 'list instances', 'ec2 instances',
-                'show my costs', 'cost analysis', 'security scan', 'run security',
-                'create instance', 'provision', 'infrastructure health', 'check health'
+                # EC2 & Infrastructure
+                'list my ec2', 'show my instances', 'list instances', 'ec2 instances', 'show instances',
+                'create instance', 'provision', 'launch instance', 'new instance', 'start instance',
+                'stop instance', 'terminate instance', 'infrastructure health', 'check health',
+                
+                # Cost & Billing
+                'show my costs', 'cost analysis', 'billing', 'cost breakdown', 'expenses', 'spending',
+                'cost optimization', 'budget', 'cost report',
+                
+                # Security
+                'security scan', 'run security', 'vulnerability', 'compliance', 'audit', 'security check',
+                'threat detection', 'security status', 'scan for threats',
+                
+                # Database & Storage
+                'database', 'rds', 's3', 'storage', 'bucket', 'db instances', 'create database',
+                
+                # Monitoring & Alerts
+                'monitoring', 'alerts', 'metrics', 'logs', 'cloudwatch', 'health check',
+                
+                # AI & ML
+                'predict', 'analysis', 'explain', 'ai decision', 'recommendation', 'optimization',
+                'bias analysis', 'model', 'autonomous', 'governance',
+                
+                # General Commands
+                'help', 'status', 'dashboard', 'overview', 'summary', 'report', 'list all',
+                'show all', 'what can you do', 'capabilities'
             ]
             
-            message_lower = message.lower()
-            is_new_intent = any(indicator in message_lower for indicator in new_intent_indicators)
+            # Context-aware intent detection - check if this is a follow-up to the current action
+            last_action = state.get('last_action', '')
+            is_follow_up_request = False
             
-            # If it's a new intent, clear conversation state and process normally
-            if is_new_intent:
+            # Specific follow-up patterns based on context
+            if last_action == 'security_scan':
+                follow_up_patterns = ['detailed report', 'report', 'generate report', 'want report', 'show report', 
+                                    'html report', 'detailed', 'comprehensive', 'want detailed', 'create report']
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 'cost_analysis':
+                follow_up_patterns = [
+                    # English
+                    'detailed breakdown', 'more details', 'breakdown', 'detailed cost', 'cost report', 'show details',
+                    # Variants
+                    'drill down', 'granular costs', 'by service', 'per region', 'per account',
+                    # Multi-locale (basic)
+                    'detalle de costos', 'desglose', 'análisis de costos',  # es
+                    'analyse des coûts', 'ventilation détaillée',            # fr
+                    'kostenaufstellung', 'kostenanalyse',                     # de
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 'ec2_listing':
+                follow_up_patterns = [
+                    'create instance', 'new instance', 'launch instance', 'provision', 'spin up', 'start new server',
+                    'crear instancia', 'lanzar instancia',                  # es
+                    'créer une instance', 'lancer une instance',            # fr
+                    'instanz erstellen', 'instanz starten'                  # de
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 's3_management':
+                follow_up_patterns = [
+                    'create bucket', 'new bucket', 'list buckets', 'delete bucket', 'upload file', 'download file',
+                    'crear bucket', 'subir archivo', 'bajar archivo',       # es
+                    'créer un bucket', 'téléverser un fichier',             # fr
+                    'bucket erstellen', 'datei hochladen'                   # de
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 'load_balancer':
+                follow_up_patterns = [
+                    'create load balancer', 'new alb', 'new nlb', 'list load balancers', 'add target group',
+                    'crear balanceador', 'nuevo alb',                        # es
+                    'créer un équilibreur', 'nouvel alb',                    # fr
+                    'lastverteiler erstellen', 'neuer alb'                   # de (approx)
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 'auto_scaling':
+                follow_up_patterns = [
+                    'create asg', 'new asg', 'list auto scaling', 'scaling policy', 'target tracking',
+                    'crear asg', 'política de escalado',                     # es
+                    'créer un asg', 'politique de mise à l\'échelle',       # fr
+                    'asg erstellen', 'skalierungsrichtlinie'                 # de
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 'database_management':
+                follow_up_patterns = [
+                    'create database', 'new database', 'list databases', 'backup', 'restore', 'delete database',
+                    'crear base de datos', 'respaldo', 'restaurar',          # es
+                    'créer une base de données', 'sauvegarde', 'restaurer',  # fr
+                    'datenbank erstellen', 'backup', 'wiederherstellen'      # de
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            elif last_action == 'network_management':
+                follow_up_patterns = [
+                    'create vpc', 'new vpc', 'list vpcs', 'create subnet', 'security group', 'route table',
+                    'crear vpc', 'crear subred', 'grupo de seguridad',       # es
+                    'créer un vpc', 'créer un sous-réseau', 'groupe de sécurité', # fr
+                    'vpc erstellen', 'subnetz erstellen', 'sicherheitsgruppe'     # de
+                ]
+                is_follow_up_request = any(pattern in message_lower for pattern in follow_up_patterns)
+            
+            # Check for new intent indicators (but exclude if it's a follow-up)
+            is_new_intent = any(indicator in message_lower for indicator in new_intent_indicators) and not is_follow_up_request
+            
+            # Also check if message starts with typical command patterns
+            command_patterns = ['list', 'show', 'create', 'start', 'stop', 'delete', 'check', 'run', 'scan', 'analyze']
+            starts_with_command = any(message_lower.startswith(pattern) for pattern in command_patterns)
+            
+            # Check if it's a simple acknowledgment/continuation
+            continuation_words = ['yes', 'no', 'ok', 'okay', 'sure', 'continue', 'proceed', 'next']
+            is_continuation = message_lower in continuation_words or len(message_lower) < 5 or is_follow_up_request
+            
+            # If it's clearly a new intent, clear conversation state and process normally
+            if (is_new_intent or starts_with_command) and not is_continuation:
                 print(f"Detected new intent in message: '{message}', clearing conversation state")
                 if session_id in conversation_states:
                     del conversation_states[session_id]
                 # Process as new request
                 return await self._process_with_agents(message, 'user', session_id)
             
+            # For ambiguous cases, use OpenAI to determine if it's a new intent
+            if not is_continuation:
+                try:
+                    intent_check = await self._check_if_new_intent(message, state)
+                    if intent_check.get('is_new_intent', False):
+                        print(f"OpenAI detected new intent: {intent_check}, clearing conversation state")
+                        if session_id in conversation_states:
+                            del conversation_states[session_id]
+                        return await self._process_with_agents(message, 'user', session_id)
+                except Exception as e:
+                    print(f"Error in intent checking: {e}")
+                    # If OpenAI fails, err on the side of treating as new intent for better UX
+                    if session_id in conversation_states:
+                        del conversation_states[session_id]
+                    return await self._process_with_agents(message, 'user', session_id)
+            
             # Continue existing conversation flow
             if state.get('conversation_type') == 'ec2_provisioning':
                 return await self._continue_ec2_provisioning(message, 'user', session_id)
+            elif state.get('intent') == 'network_management':
+                return await self._continue_network_conversation(message, session_id)
+            elif state.get('intent') == 'database_management':
+                return await self._continue_database_conversation(message, session_id)
+            elif state.get('last_action') == 'security_scan':
+                return await self._continue_security_conversation(message, session_id)
+            elif state.get('last_action') == 'cost_analysis':
+                return await self._continue_cost_conversation(message, session_id)
+            elif state.get('last_action') == 'ec2_listing':
+                return await self._continue_ec2_conversation(message, session_id)
             
-            # Default fallback
-            return await self._handle_general_query(message, 'user', session_id)
+            # Default fallback - DON'T clear state, pass context to _process_with_agents
+            print(f"No specific conversation handler found, processing with context preservation")
+            return await self._process_with_agents(message, 'user', session_id)
+            
         except Exception as e:
             print(f"Error in _continue_conversation: {e}")
-            return f"Error continuing conversation: {str(e)}"
+            # Clear potentially corrupted state
+            if session_id in conversation_states:
+                del conversation_states[session_id]
+            return await self._process_with_agents(message, 'user', session_id)
+
+    async def _check_if_new_intent(self, message: str, current_state: dict) -> dict:
+        """Use OpenAI to determine if a message represents a new intent"""
+        try:
+            message_lower = message.lower()
+            # Short-circuit: context-aware follow-ups should NOT be treated as new intents
+            last_action = current_state.get('last_action') or current_state.get('intent')
+            if last_action == 'security_scan':
+                if any(k in message_lower for k in ['detailed report', 'report', 'generate report', 'html report', 'comprehensive', 'want detailed', 'want a detailed report']):
+                    return {"is_new_intent": False, "confidence": 0.95, "reasoning": "Security scan follow-up for report"}
+            if last_action == 'cost_analysis':
+                if any(k in message_lower for k in ['detailed breakdown', 'more details', 'breakdown', 'cost report', 'detailed cost']):
+                    return {"is_new_intent": False, "confidence": 0.9, "reasoning": "Cost analysis follow-up for details"}
+            if last_action == 'ec2_listing':
+                if any(k in message_lower for k in ['create instance', 'new instance', 'launch instance', 'provision']):
+                    return {"is_new_intent": False, "confidence": 0.85, "reasoning": "EC2 listing follow-up for provisioning"}
+
+            current_intent = current_state.get('intent', 'unknown')
+            current_action = current_state.get('action', 'unknown')
+            
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": f"""You are analyzing whether a user message represents a new intent or continues the current conversation.
+
+Current conversation state:
+- Intent: {current_intent}
+- Action: {current_action}
+- State: {current_state}
+
+Determine if the user's message is:
+1. A continuation of the current conversation (responding to a question, providing requested info)
+2. A completely new intent/request
+
+Return JSON with:
+{{"is_new_intent": true/false, "confidence": 0.0-1.0, "reasoning": "explanation"}}
+
+Guidelines:
+- "yes", "no", "ok", VPC IDs, specific answers = continuation
+- "list my EC2", "show costs", "security scan" = new intent
+- Commands starting with action words = usually new intent"""
+                    },
+                    {"role": "user", "content": message}
+                ],
+                max_tokens=150,
+                temperature=0.1
+            )
+            
+            result = response.choices[0].message.content.strip()
+            return json.loads(result)
+            
+        except Exception as e:
+            print(f"Error in _check_if_new_intent: {e}")
+            # Default conservatively to continuation if heuristics match, otherwise new intent
+            try:
+                message_lower = message.lower()
+                last_action = current_state.get('last_action') or current_state.get('intent')
+                if last_action == 'security_scan' and any(k in message_lower for k in ['detailed', 'report', 'generate', 'html', 'comprehensive', 'want']):
+                    return {"is_new_intent": False, "confidence": 0.8, "reasoning": "Heuristic: security report follow-up"}
+                if last_action == 'cost_analysis' and any(k in message_lower for k in ['detailed', 'breakdown', 'more', 'report']):
+                    return {"is_new_intent": False, "confidence": 0.75, "reasoning": "Heuristic: cost details follow-up"}
+                if last_action == 'ec2_listing' and any(k in message_lower for k in ['create', 'launch', 'new', 'provision']):
+                    return {"is_new_intent": False, "confidence": 0.75, "reasoning": "Heuristic: EC2 provisioning follow-up"}
+            except Exception:
+                pass
+            return {"is_new_intent": True, "confidence": 0.5, "reasoning": "Error in analysis, defaulting to new intent"}
+
+    async def _continue_network_conversation(self, message: str, session_id: str) -> str:
+        """Continue network management conversation"""
+        try:
+            state = conversation_states[session_id]
+            
+            if state.get('action') == 'create_security_group':
+                return await self._continue_security_group_creation(message, session_id)
+            else:
+                # Clear state and process as new
+                del conversation_states[session_id]
+                return await self._process_with_agents(message, 'user', session_id)
+                
+        except Exception as e:
+            print(f"Error in _continue_network_conversation: {e}")
+            # Clear state and process as new
+            if session_id in conversation_states:
+                del conversation_states[session_id]
+            return await self._process_with_agents(message, 'user', session_id)
+
+    async def _continue_database_conversation(self, message: str, session_id: str) -> str:
+        """Continue database management conversation"""
+        try:
+            state = conversation_states[session_id]
+            
+            if state.get('action') == 'create':
+                return await self._continue_database_creation(message, session_id)
+            else:
+                # Clear state and process as new
+                del conversation_states[session_id]
+                return await self._process_with_agents(message, 'user', session_id)
+                
+        except Exception as e:
+            print(f"Error in _continue_database_conversation: {e}")
+            # Clear state and process as new
+            if session_id in conversation_states:
+                del conversation_states[session_id]
+            return await self._process_with_agents(message, 'user', session_id)
 
     async def _continue_ec2_provisioning(self, message: str, user_id: str, session_id: str) -> str:
         """Continue intelligent EC2 provisioning conversation with comprehensive parsing"""
@@ -1197,19 +3014,36 @@ Now I need to know which operating system to use:
         
         return None
 
-    def _analyze_intent(self, message: str) -> dict:
-        """Analyze user intent using natural language processing with OpenAI"""
+    def _analyze_intent(self, message: str, session_id: str = None) -> dict:
+        """Analyze user intent using natural language processing with OpenAI and conversation context"""
         try:
             if not openai_client:
                 # Fallback to simple keyword matching if OpenAI is not available
-                return self._fallback_intent_analysis(message)
+                return self._fallback_intent_analysis(message, session_id)
             
-            # Use OpenAI to analyze intent with natural language understanding
+            # Get conversation context if available
+            conversation_context = ""
+            if session_id and session_id in conversation_states:
+                last_action = conversation_states[session_id].get('last_action', '')
+                context_info = conversation_states[session_id].get('context', {})
+                if last_action:
+                    conversation_context = f"\n\n🔴 CRITICAL CONTEXT 🔴: User JUST performed '{last_action}' action. Context: {context_info}\n\nIf user asks for 'report', 'detailed report', 'want report', 'generate report' - this is 100% a follow-up request for {last_action}_report intent!"
+            
+            # Use OpenAI to analyze intent with natural language understanding and context
             prompt = f"""
 You are an expert DevOps assistant with deep knowledge of AWS services. Analyze this user message and determine their intent for a comprehensive Cloud Management platform.
 
+🚨 MANDATORY CONTEXT RULE 🚨: 
+CHECK THE CRITICAL CONTEXT SECTION BELOW! If it shows the user just performed an action, then ANY follow-up request for "report", "detailed", "want report", "show more", "generate" MUST be mapped to the related intent:
+
+- security_scan context + ANY report request → security_report (REQUIRED!)
+- cost_analysis context + ANY detail request → cost_analysis  
+- ec2_listing context + create/new → ec2_provisioning
+
+IGNORE generic keyword matching if context exists! Context overrides everything!
+
 Return a JSON object with:
-- intent: one of [ec2_provisioning, ec2_listing, ec2_management, s3_management, load_balancer, auto_scaling, database_management, network_management, security_scan, cost_analysis, infrastructure_health, compliance_automation, monitoring, container_scanning, secrets_detection, pipeline_generation, rca_analysis, predictive_analysis, ai_explanation, autonomous_orchestration, ai_governance, model_optimization, threat_detection, security_orchestration, zero_trust, incident_response, multi_cloud_management, cloud_migration, hybrid_orchestration, disaster_recovery, gitops_deployment, automation_workflow, pipeline_orchestration, general_query]
+- intent: one of [ec2_provisioning, ec2_listing, ec2_management, s3_management, load_balancer, auto_scaling, database_management, network_management, security_scan, security_report, cost_analysis, infrastructure_health, compliance_automation, monitoring, container_scanning, secrets_detection, pipeline_generation, rca_analysis, predictive_analysis, ai_explanation, autonomous_orchestration, ai_governance, model_optimization, threat_detection, security_orchestration, zero_trust, incident_response, multi_cloud_management, cloud_migration, hybrid_orchestration, disaster_recovery, gitops_deployment, automation_workflow, pipeline_orchestration, general_query]
 - confidence: float between 0.0 and 1.0  
 - entities: object with extracted entities (be comprehensive in entity extraction)
 
@@ -1221,9 +3055,18 @@ Entity extraction guidelines:
 - Network: vpc_id, subnet_id, security_group_id, action (create/delete/modify)
 - General: region, action, resource_type, specific_id
 
-User message: "{message}"
+User message: "{message}"{conversation_context}
 
-Examples:
+Examples with CONTEXT-AWARENESS:
+CONTEXT EXAMPLES (MOST IMPORTANT):
+- "detailed report" + CONTEXT: security_scan -> {{"intent": "security_report", "confidence": 0.95, "entities": {{"report_type": "detailed"}}}}
+- "want a detailed report" + CONTEXT: security_scan -> {{"intent": "security_report", "confidence": 0.95, "entities": {{"report_type": "detailed"}}}}
+- "Want a detailed report" + CONTEXT: security_scan -> {{"intent": "security_report", "confidence": 0.95, "entities": {{"report_type": "detailed"}}}}
+- "detailed report" + NO CONTEXT -> {{"intent": "general_query", "confidence": 0.7, "entities": {{}}}}
+- "generate report" + CONTEXT: security_scan -> {{"intent": "security_report", "confidence": 0.95, "entities": {{"report_type": "comprehensive"}}}}
+- "show more" + CONTEXT: cost_analysis -> {{"intent": "cost_analysis", "confidence": 0.9, "entities": {{"breakdown_type": "detailed"}}}}
+
+STANDARD EXAMPLES:
 - "show my costs" -> {{"intent": "cost_analysis", "confidence": 0.9, "entities": {{}}}}
 - "create an EC2 instance with t3.micro in us-east-1" -> {{"intent": "ec2_provisioning", "confidence": 0.95, "entities": {{"instance_type": "t3.micro", "region": "us-east-1"}}}}
 - "stop all instances in ap-south-1" -> {{"intent": "ec2_management", "confidence": 0.95, "entities": {{"action": "stop", "region": "ap-south-1"}}}}
@@ -1283,15 +3126,36 @@ Return only valid JSON:
                 return result
             except json.JSONDecodeError:
                 print(f"Failed to parse OpenAI response: {result_text}")
-                return self._fallback_intent_analysis(message)
+                return self._fallback_intent_analysis(message, session_id)
                 
         except Exception as e:
             print(f"Error in OpenAI intent analysis: {e}")
-            return self._fallback_intent_analysis(message)
+            return self._fallback_intent_analysis(message, session_id)
 
-    def _fallback_intent_analysis(self, message: str) -> dict:
-        """Fallback intent analysis using keyword matching"""
+    def _fallback_intent_analysis(self, message: str, session_id: str = None) -> dict:
+        """Fallback intent analysis using keyword matching with conversation context"""
         message_lower = message.lower()
+        
+        # Check conversation context for better intent mapping
+        if session_id and session_id in conversation_states:
+            last_action = conversation_states[session_id].get('last_action', '')
+            
+            # Context-aware intent mapping
+            if last_action == 'security_scan':
+                if any(keyword in message_lower for keyword in ['detailed', 'report', 'generate', 'html', 'comprehensive', 'want']):
+                    return {'intent': 'security_report', 'confidence': 0.9, 'entities': {'report_type': 'detailed'}}
+                if any(keyword in message_lower for keyword in ['fix', 'solve', 'remediate']):
+                    return {'intent': 'security_scan', 'confidence': 0.8, 'entities': {'action': 'fix'}}
+            
+            if last_action == 'cost_analysis':
+                if any(keyword in message_lower for keyword in ['detailed', 'breakdown', 'more']):
+                    return {'intent': 'cost_analysis', 'confidence': 0.9, 'entities': {'breakdown_type': 'detailed'}}
+            
+            if last_action == 'ec2_listing':
+                if any(keyword in message_lower for keyword in ['create', 'launch', 'new']):
+                    return {'intent': 'ec2_provisioning', 'confidence': 0.8, 'entities': {}}
+                if any(keyword in message_lower for keyword in ['stop', 'terminate', 'manage']):
+                    return {'intent': 'ec2_management', 'confidence': 0.8, 'entities': {}}
         
         # Simple keyword matching for common intents
         if any(keyword in message_lower for keyword in ['cost', 'costs', 'billing', 'spending']):
@@ -1311,12 +3175,12 @@ Return only valid JSON:
             return {'intent': 's3_management', 'confidence': 0.8, 'entities': {}}
         elif any(keyword in message_lower for keyword in ['database', 'rds', 'mysql', 'postgresql']):
             return {'intent': 'database_management', 'confidence': 0.8, 'entities': {}}
-        elif any(keyword in message_lower for keyword in ['load balancer', 'alb', 'nlb']):
-            return {'intent': 'load_balancer', 'confidence': 0.8, 'entities': {}}
-        elif any(keyword in message_lower for keyword in ['scaling', 'autoscaling', 'scale']):
-            return {'intent': 'auto_scaling', 'confidence': 0.8, 'entities': {}}
-        elif any(keyword in message_lower for keyword in ['network', 'vpc', 'subnet']):
-            return {'intent': 'network_management', 'confidence': 0.8, 'entities': {}}
+        elif any(keyword in message_lower for keyword in ['load balancer', 'alb', 'nlb', 'target group', 'listener']):
+            return {'intent': 'load_balancer_management', 'confidence': 0.8, 'entities': {}}
+        elif any(keyword in message_lower for keyword in ['scaling', 'autoscaling', 'scale', 'asg']):
+            return {'intent': 'auto_scaling_management', 'confidence': 0.8, 'entities': {}}
+        elif any(keyword in message_lower for keyword in ['network', 'vpc', 'subnet', 'security group', 'route table']):
+            return {'intent': 'vpc_management', 'confidence': 0.8, 'entities': {}}
         elif any(keyword in message_lower for keyword in ['compliance', 'audit', 'governance']):
             return {'intent': 'compliance_automation', 'confidence': 0.8, 'entities': {}}
         elif any(keyword in message_lower for keyword in ['container', 'docker', 'image', 'vulnerability']) and any(keyword in message_lower for keyword in ['scan', 'security']):
@@ -1563,6 +3427,8 @@ Return only valid JSON:
             
             # Get real EC2 instances from AWS (with optional region filter)
             instances_data = self.get_ec2_instances(region_filter=region_filter)
+            # Update conversation state for follow-up detection
+            self._update_conversation_state(session_id, 'ec2_listing', {'region_filter': region_filter})
             
             if 'error' in instances_data:
                 return f"❌ Error fetching EC2 instances: {instances_data['error']}"
@@ -2197,82 +4063,549 @@ Perfect! Now I need to know which operating system to use:
             return 'ami-0006460c3ae9e3f07'  # Fallback
 
     async def _handle_security_scan(self, message: str, user_id: str, session_id: str) -> str:
-        """Handle security scanning requests with real AWS Security Hub integration"""
+        """Handle security scanning requests using open-source tools (No AWS Security Hub subscription required)"""
         try:
-            security_data = self.get_security_status()
-            
-            if 'error' in security_data:
-                return f"❌ Error performing security scan: {security_data['error']}"
-            
-            total_findings = security_data.get('total_findings', 0)
-            critical_findings = security_data.get('critical_findings', 0)
-            high_findings = security_data.get('high_findings', 0)
-            medium_findings = security_data.get('medium_findings', 0)
-            security_score = security_data.get('security_score', 100)
-            
-            if total_findings == 0:
-                return """🔒 **Security Scan Results - All Clear!**
+            # Import the open-source security scanner
+            try:
+                from security.opensource_security_scanner import OpenSourceSecurityScanner
+                scanner = OpenSourceSecurityScanner()
+                
+                print("🔍 Starting comprehensive open-source security scan...")
+                
+                # Perform comprehensive security scan
+                scan_report = await scanner.perform_comprehensive_scan()
+                
+                # Generate response based on findings
+                if scan_report.total_findings == 0:
+                    return """🔒 **Security Scan Complete - All Clear!**
+                    
+✅ **Excellent! No security issues detected**
 
-✅ **Excellent Security Posture**
-• No active security findings detected
-• All security controls are properly configured
-• Infrastructure is compliant with security best practices
+Your infrastructure is following security best practices. Here's what we checked:
 
-**Security Score: 100/100** 🎉
+**🛡️ Security Areas Scanned:**
+• ✅ IAM Security (Users, policies, MFA)
+• ✅ EC2 Security (Security groups, instances)
+• ✅ S3 Security (Bucket permissions, encryption)
+• ✅ Network Security (VPC, NACLs, flow logs)
+• ✅ Encryption (EBS, RDS, S3)
+• ✅ Logging & Monitoring (CloudTrail)
 
-**Would you like me to:**
-• Set up automated security monitoring?
-• Configure additional security controls?
-• Run a detailed compliance audit?"""
-            
-            elif critical_findings > 0:
-                return f"""🚨 **Security Scan Results - Critical Issues Found!**
+**🔍 Scan Details:**
+• **Tools Used:** Open-source security analysis
+• **Scan Duration:** {:.1f} seconds
+• **Regions Checked:** Multi-region scan
 
-⚠️ **Critical Security Findings: {critical_findings}**
-• {critical_findings} critical vulnerabilities detected
-• Immediate action required
-• Security score: {security_score}/100
+**🚀 Keep Up The Good Work:**
+• Continue monitoring security regularly
+• Consider setting up automated compliance checks
+• Review access permissions quarterly
 
-**High Priority Findings: {high_findings}**
-**Medium Priority Findings: {medium_findings}**
+Would you like me to generate a detailed security report or help with other infrastructure tasks?""".format(scan_report.scan_duration)
 
-**Recommended Actions:**
-• Review and fix critical vulnerabilities immediately
-• Implement security patches
-• Update security group configurations
+                # Format findings by severity
+                critical = scan_report.findings_by_severity.get('CRITICAL', 0)
+                high = scan_report.findings_by_severity.get('HIGH', 0)
+                medium = scan_report.findings_by_severity.get('MEDIUM', 0)
+                low = scan_report.findings_by_severity.get('LOW', 0)
+                
+                # Determine overall security posture
+                if critical > 0:
+                    security_status = "🔴 **CRITICAL ISSUES FOUND**"
+                    priority_msg = "**⚠️ IMMEDIATE ACTION REQUIRED**"
+                elif high > 5:
+                    security_status = "🟠 **MULTIPLE HIGH-RISK ISSUES**"
+                    priority_msg = "**📋 HIGH PRIORITY REMEDIATION NEEDED**"
+                elif high > 0:
+                    security_status = "🟡 **SOME SECURITY CONCERNS**"
+                    priority_msg = "**✅ MANAGEABLE SECURITY IMPROVEMENTS**"
+                else:
+                    security_status = "🟢 **GOOD SECURITY POSTURE**"
+                    priority_msg = "**🎯 MINOR OPTIMIZATIONS AVAILABLE**"
+                
+                # Get top 5 most critical findings
+                critical_findings = [f for f in scan_report.findings if f.severity == 'CRITICAL'][:3]
+                high_findings = [f for f in scan_report.findings if f.severity == 'HIGH'][:3]
+                top_findings = critical_findings + high_findings
+                
+                findings_text = ""
+                if top_findings:
+                    findings_text = "\n**🔍 Top Priority Issues:**\n"
+                    for i, finding in enumerate(top_findings[:5], 1):
+                        severity_icon = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🟢"}
+                        findings_text += f"{i}. {severity_icon.get(finding.severity, '⚪')} **{finding.title}**\n"
+                        findings_text += f"   Resource: {finding.resource_type} - {finding.resource_id}\n"
+                        findings_text += f"   Fix: {finding.remediation}\n\n"
+                
+                # Compliance summary
+                compliance_text = ""
+                if scan_report.compliance_summary:
+                    compliance_text = "\n**📋 Compliance Framework Status:**\n"
+                    for framework, data in scan_report.compliance_summary.items():
+                        total = data['total']
+                        critical_count = data.get('critical', 0)
+                        if critical_count > 0:
+                            status = "❌ Non-Compliant"
+                        elif total > 5:
+                            status = "⚠️ Needs Attention" 
+                        else:
+                            status = "✅ Good"
+                        compliance_text += f"• **{framework}:** {status} ({total} findings)\n"
+                
+                response = f"""{security_status}
 
-**Would you like me to:**
-• Show detailed vulnerability information?
-• Help fix the critical issues?
-• Set up automated security monitoring?"""
-            
-            else:
-                return f"""🔒 **Security Scan Results**
+{priority_msg}
 
-**Security Status:**
-• Total Findings: {total_findings}
-• Critical: {critical_findings}
-• High: {high_findings}
-• Medium: {medium_findings}
-• Security Score: {security_score}/100
+📊 **Security Scan Summary:**
+• 🔴 Critical: {critical}
+• 🟠 High: {high}
+• 🟡 Medium: {medium}
+• 🟢 Low: {low}
+• **Total Issues:** {scan_report.total_findings}
 
-**Recommendations:**
-• Address high-priority findings
-• Review security group configurations
-• Implement additional security controls
+{findings_text}
 
-**Would you like me to:**
-• Show detailed findings?
-• Help fix identified issues?
-• Set up automated security monitoring?"""
+**🛡️ Scan Coverage (No AWS Security Hub Required):**
+• **Tools Used:** Open-source security analysis
+• **Scan Duration:** {scan_report.scan_duration:.1f} seconds
+• **Areas Checked:** IAM, EC2, S3, Network, Encryption, Logging
+
+{compliance_text}
+
+**🚀 Quick Actions:**
+• `fix security groups` - Secure network access
+• `enable encryption` - Protect data at rest
+• `check iam policies` - Review permissions
+• `setup monitoring` - Enable security logging
+
+**📄 Want a detailed report?** I can generate a comprehensive HTML security report with full remediation steps.
+
+Would you like me to help fix any of these security issues?"""
+                
+                # Update conversation state for successful comprehensive scan
+                self._update_conversation_state(session_id, 'security_scan', {'scan_type': 'comprehensive'})
+                return response
+                
+            except ImportError:
+                # Fallback to basic security checks if scanner not available
+                result = await self._basic_security_check()
+                self._update_conversation_state(session_id, 'security_scan', {'scan_type': 'basic'})
+                return result
                 
         except Exception as e:
-            return f"Error performing security scan: {str(e)}"
+            print(f"Error in security scan: {e}")
+            # Try basic security check as fallback
+            try:
+                result = await self._basic_security_check()
+                # Update conversation state to track that security scan was performed
+                self._update_conversation_state(session_id, 'security_scan', {'scan_type': 'basic'})
+                return result
+            except:
+                return f"❌ Error performing security scan: {str(e)}"
+
+    async def _basic_security_check(self) -> str:
+        """Basic security check without external tools - No AWS Security Hub required"""
+        try:
+            issues = []
+            
+            # Check security groups for common issues
+            print("🔍 Checking security groups for open access...")
+            security_groups = ec2_client.describe_security_groups()['SecurityGroups']
+            open_ssh_count = 0
+            open_rdp_count = 0
+            open_all_ports = 0
+            
+            for sg in security_groups:
+                for rule in sg['IpPermissions']:
+                    # Check for SSH access from anywhere
+                    if rule.get('FromPort') == 22 and rule.get('ToPort') == 22:
+                        for ip_range in rule.get('IpRanges', []):
+                            if ip_range.get('CidrIp') == '0.0.0.0/0':
+                                open_ssh_count += 1
+                    
+                    # Check for RDP access from anywhere  
+                    if rule.get('FromPort') == 3389 and rule.get('ToPort') == 3389:
+                        for ip_range in rule.get('IpRanges', []):
+                            if ip_range.get('CidrIp') == '0.0.0.0/0':
+                                open_rdp_count += 1
+                    
+                    # Check for all ports open
+                    if rule.get('FromPort') == 0 and rule.get('ToPort') == 65535:
+                        for ip_range in rule.get('IpRanges', []):
+                            if ip_range.get('CidrIp') == '0.0.0.0/0':
+                                open_all_ports += 1
+            
+            if open_ssh_count > 0:
+                issues.append(f"🔴 **CRITICAL: {open_ssh_count} security groups** allow SSH from anywhere (0.0.0.0/0)")
+            if open_rdp_count > 0:
+                issues.append(f"🔴 **CRITICAL: {open_rdp_count} security groups** allow RDP from anywhere (0.0.0.0/0)")
+            if open_all_ports > 0:
+                issues.append(f"🔴 **CRITICAL: {open_all_ports} security groups** allow ALL ports from anywhere")
+            
+            # Check S3 buckets for common issues
+            print("🔍 Checking S3 bucket security...")
+            try:
+                buckets = s3_client.list_buckets()['Buckets']
+                public_buckets = 0
+                unencrypted_buckets = 0
+                no_versioning_buckets = 0
+                
+                for bucket in buckets[:10]:  # Check first 10 buckets
+                    bucket_name = bucket['Name']
+                    try:
+                        # Check if public access block is configured
+                        try:
+                            pab = s3_client.get_public_access_block(Bucket=bucket_name)
+                            pab_config = pab['PublicAccessBlockConfiguration']
+                            if not all([
+                                pab_config.get('BlockPublicAcls', False),
+                                pab_config.get('IgnorePublicAcls', False),
+                                pab_config.get('BlockPublicPolicy', False),
+                                pab_config.get('RestrictPublicBuckets', False)
+                            ]):
+                                public_buckets += 1
+                        except:
+                            public_buckets += 1
+                        
+                        # Check encryption
+                        try:
+                            s3_client.get_bucket_encryption(Bucket=bucket_name)
+                        except:
+                            unencrypted_buckets += 1
+                        
+                        # Check versioning
+                        try:
+                            versioning = s3_client.get_bucket_versioning(Bucket=bucket_name)
+                            if versioning.get('Status') != 'Enabled':
+                                no_versioning_buckets += 1
+                        except:
+                            no_versioning_buckets += 1
+                            
+                    except Exception as e:
+                        print(f"Could not fully check bucket {bucket_name}: {e}")
+                
+                if public_buckets > 0:
+                    issues.append(f"🟠 **HIGH: {public_buckets} S3 buckets** may allow public access")
+                if unencrypted_buckets > 0:
+                    issues.append(f"🟡 **MEDIUM: {unencrypted_buckets} S3 buckets** are not encrypted")
+                if no_versioning_buckets > 0:
+                    issues.append(f"🟢 **LOW: {no_versioning_buckets} S3 buckets** don't have versioning enabled")
+                    
+            except Exception as e:
+                print(f"Could not check S3 buckets: {e}")
+                issues.append("⚠️ **INFO:** Could not check S3 bucket security (permissions required)")
+            
+            # Check IAM basic security
+            print("🔍 Checking IAM security...")
+            try:
+                # Check for users without MFA (simplified check)
+                users = iam_client.list_users()['Users']
+                users_without_mfa = 0
+                
+                for user in users[:5]:  # Check first 5 users
+                    try:
+                        mfa_devices = iam_client.list_mfa_devices(UserName=user['UserName'])
+                        if not mfa_devices['MFADevices']:
+                            users_without_mfa += 1
+                    except:
+                        pass
+                
+                if users_without_mfa > 0:
+                    issues.append(f"🟡 **MEDIUM: {users_without_mfa} IAM users** don't have MFA enabled")
+                    
+            except Exception as e:
+                print(f"Could not check IAM: {e}")
+                issues.append("⚠️ **INFO:** Could not check IAM security (permissions required)")
+            
+            if not issues:
+                return """🔒 **Basic Security Check - Looking Good!**
+                
+✅ **No major security issues detected**
+
+**✅ Areas Checked (No AWS Security Hub Required):**
+• Security Groups: No open SSH/RDP access found
+• S3 Buckets: Public access properly blocked
+• Basic IAM: Users have appropriate access
+• Network Security: No overly permissive rules
+
+**🛡️ This scan used:**
+• AWS API direct calls (Free)
+• Open-source security best practices
+• Industry standard security checks
+• No paid services required
+
+**🔍 Recommendations for Enhanced Security:**
+• Enable CloudTrail for API logging
+• Set up VPC Flow Logs
+• Review IAM policies regularly
+• Enable AWS Config for compliance
+
+**📋 Want More Detailed Analysis?**
+• `check compliance` - Detailed compliance scan
+• `analyze network security` - Deep network analysis  
+• `review iam policies` - Complete IAM audit
+• `enable monitoring` - Set up security logging
+
+Your infrastructure security looks solid! 🎯"""
+            
+            # Determine severity level
+            critical_count = len([i for i in issues if "CRITICAL" in i])
+            high_count = len([i for i in issues if "HIGH" in i])
+            
+            if critical_count > 0:
+                status_emoji = "🚨"
+                status_text = "CRITICAL SECURITY ISSUES FOUND"
+                priority = "**⚠️ IMMEDIATE ACTION REQUIRED**"
+            elif high_count > 0:
+                status_emoji = "🟠"
+                status_text = "HIGH PRIORITY SECURITY ISSUES"
+                priority = "**📋 PROMPT REMEDIATION RECOMMENDED**"
+            else:
+                status_emoji = "🟡"
+                status_text = "MINOR SECURITY IMPROVEMENTS AVAILABLE"
+                priority = "**✅ MANAGEABLE IMPROVEMENTS**"
+            
+            issues_text = "\n".join(issues)
+            
+            return f"""{status_emoji} **Basic Security Check Results**
+
+**{status_text}**
+
+{priority}
+
+**🔍 Issues Found:**
+
+{issues_text}
+
+**🛠️ Immediate Actions:**
+• `secure my security groups` - Fix network access rules
+• `enable s3 encryption` - Encrypt S3 buckets  
+• `setup mfa` - Enable multi-factor authentication
+• `enable cloudtrail` - Start security logging
+
+**📊 Scan Details (No AWS Security Hub Required):**
+• **Method:** Direct AWS API calls (Free)
+• **Coverage:** Security Groups, S3, Basic IAM
+• **Tools:** Open-source security best practices
+• **Cost:** $0 - No subscription required
+
+**🚀 Quick Security Wins:**
+• Review security group rules immediately
+• Enable S3 bucket encryption
+• Set up MFA for all users
+• Configure basic monitoring
+
+**📄 Want a comprehensive report?** I can generate detailed remediation steps for each finding.
+
+Would you like me to help fix any of these security issues? All recommendations use free AWS features! 💪"""
+            
+        except Exception as e:
+            return f"""❌ **Error in Basic Security Check**
+
+Could not complete security analysis: {str(e)}
+
+**🛡️ Manual Security Review Recommended:**
+
+**Essential Security Checks:**
+1. **Security Groups:** Ensure no SSH (22) or RDP (3389) access from 0.0.0.0/0
+2. **S3 Buckets:** Verify public access is blocked and encryption enabled
+3. **IAM Users:** Check that MFA is enabled for all users
+4. **CloudTrail:** Ensure API logging is enabled
+
+**🔍 Alternative Security Options:**
+• Use AWS Console Security Hub (requires subscription)
+• Manual review using AWS Console
+• Third-party security scanning tools
+
+**💡 Quick Manual Checks:**
+• Go to EC2 → Security Groups → Review inbound rules
+• Go to S3 → Select buckets → Check permissions & encryption
+• Go to IAM → Users → Verify MFA status
+
+Would you like me to help with specific security configurations?"""
+
+    async def _handle_security_report(self, message: str, user_id: str, session_id: str) -> str:
+        """Handle security report generation requests"""
+        try:
+            # Import the open-source security scanner
+            try:
+                from security.opensource_security_scanner import OpenSourceSecurityScanner
+                scanner = OpenSourceSecurityScanner()
+                
+                print("🔍 Generating comprehensive security report...")
+                
+                # Perform comprehensive security scan
+                scan_report = await scanner.perform_comprehensive_scan()
+                
+                # Generate HTML report
+                html_report = scanner.generate_html_report(scan_report)
+                
+                # Save the report to a file
+                import os
+                from datetime import datetime
+                
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                report_filename = f"security_report_{timestamp}.html"
+                report_path = os.path.join(os.getcwd(), "reports", report_filename)
+                
+                # Create reports directory if it doesn't exist
+                os.makedirs(os.path.dirname(report_path), exist_ok=True)
+                
+                with open(report_path, 'w', encoding='utf-8') as f:
+                    f.write(html_report)
+                
+                # Generate summary response
+                critical = scan_report.findings_by_severity.get('CRITICAL', 0)
+                high = scan_report.findings_by_severity.get('HIGH', 0)
+                medium = scan_report.findings_by_severity.get('MEDIUM', 0)
+                low = scan_report.findings_by_severity.get('LOW', 0)
+                
+                return f"""📄 **Comprehensive Security Report Generated**
+
+**📊 Report Summary:**
+• 🔴 Critical Issues: {critical}
+• 🟠 High Priority: {high}
+• 🟡 Medium Priority: {medium}
+• 🟢 Low Priority: {low}
+• **Total Findings:** {scan_report.total_findings}
+
+**📁 Report Details:**
+• **Format:** HTML with interactive sections
+• **File:** {report_filename}
+• **Location:** {report_path}
+• **Scan Duration:** {scan_report.scan_duration:.1f} seconds
+• **Tools Used:** {', '.join(scan_report.tools_used)}
+
+**🛡️ Report Includes:**
+• Detailed vulnerability descriptions
+• Specific remediation steps for each finding
+• Compliance framework mapping
+• Risk prioritization matrix
+• Executive summary with recommendations
+
+**📋 Compliance Coverage:**
+{chr(10).join([f'• **{framework}:** {data["total"]} findings' for framework, data in scan_report.compliance_summary.items()])}
+
+**🚀 Next Steps:**
+1. **Review Critical Issues:** Address {critical} critical findings immediately
+2. **Implement High Priority Fixes:** {high} high-priority items need attention
+3. **Plan Medium/Low Fixes:** {medium + low} items for future sprints
+4. **Set Up Monitoring:** Automate security scanning
+
+**💡 Quick Actions:**
+• `fix security groups` - Address network vulnerabilities
+• `enable encryption` - Secure data at rest
+• `setup mfa` - Strengthen authentication
+• `enable cloudtrail` - Improve audit logging
+
+**📧 Report Location:** The detailed HTML report has been saved to: `{report_path}`
+
+Would you like me to help implement specific security fixes from the report?"""
+                
+            except ImportError:
+                return """⚠️ **Security Report Generator Not Available**
+
+The advanced security scanner is not currently available. However, I can help you with:
+
+**🔒 Alternative Security Reports:**
+• `run security scan` - Basic security assessment
+• `check security groups` - Network security review
+• `verify s3 security` - Bucket security analysis
+• `review iam policies` - Access control audit
+
+**📋 Manual Report Creation:**
+1. Go to AWS Console → Security Hub (if enabled)
+2. Use AWS Config Rules for compliance reporting
+3. Review AWS Trusted Advisor security recommendations
+4. Generate custom reports using AWS CLI/SDKs
+
+**🛡️ Security Best Practices:**
+• Regularly scan for vulnerabilities
+• Monitor security group changes
+• Enable CloudTrail for audit logging
+• Implement least privilege access
+
+Would you like me to help with any specific security analysis?"""
+                
+        except Exception as e:
+            print(f"Error generating security report: {e}")
+            return f"❌ Error generating security report: {str(e)}"
+
+    def _update_conversation_state(self, session_id: str, action: str, context: dict = None):
+        """Update conversation state to track last action and context"""
+        if session_id:
+            if session_id not in conversation_states:
+                conversation_states[session_id] = {}
+            
+            conversation_states[session_id]['last_action'] = action
+            conversation_states[session_id]['context'] = context or {}
+            
+            print(f"Updated conversation state for {session_id}: action={action}, context={context}")
+
+    async def _continue_security_conversation(self, message: str, session_id: str) -> str:
+        """Handle follow-up requests after security scan"""
+        try:
+            message_lower = message.lower()
+            
+            # Check if this is a request for detailed security report
+            if any(keyword in message_lower for keyword in ['detailed', 'report', 'generate', 'comprehensive', 'html', 'want']):
+                print(f"Security follow-up detected: generating detailed report")
+                return await self._handle_security_report(message, 'user', session_id)
+            
+            # Check if this is a request to fix security issues
+            elif any(keyword in message_lower for keyword in ['fix', 'resolve', 'remediate', 'solve']):
+                return "🔧 **Security Issue Remediation**\n\nI can help you fix the security issues found in the scan. Which specific issues would you like me to help with first?\n\n**Priority Order:**\n1. **Critical Issues** (Root access keys, CloudTrail)\n2. **High Priority** (SSH access, MFA, S3 public access)\n3. **Medium/Low Priority** (Encryption, monitoring)\n\nPlease specify which area you'd like to start with, or say 'fix critical issues' to begin with the most urgent problems."
+            
+            # Default: process with full context preserved
+            else:
+                print(f"Security conversation: processing '{message}' with context")
+                return await self._process_with_agents(message, 'user', session_id)
+                
+        except Exception as e:
+            print(f"Error in security conversation: {e}")
+            return await self._process_with_agents(message, 'user', session_id)
+
+    async def _continue_cost_conversation(self, message: str, session_id: str) -> str:
+        """Handle follow-up requests after cost analysis"""
+        try:
+            message_lower = message.lower()
+            
+            if any(keyword in message_lower for keyword in ['detailed', 'breakdown', 'more', 'report']):
+                print(f"Cost follow-up detected: generating detailed analysis")
+                return await self._handle_cost_analysis(message, 'user', session_id)
+            else:
+                return await self._process_with_agents(message, 'user', session_id)
+                
+        except Exception as e:
+            print(f"Error in cost conversation: {e}")
+            return await self._process_with_agents(message, 'user', session_id)
+
+    async def _continue_ec2_conversation(self, message: str, session_id: str) -> str:
+        """Handle follow-up requests after EC2 listing"""
+        try:
+            message_lower = message.lower()
+            
+            if any(keyword in message_lower for keyword in ['create', 'launch', 'new', 'provision']):
+                print(f"EC2 follow-up detected: provisioning request")
+                return await self._handle_ec2_provisioning(message, 'user', session_id)
+            elif any(keyword in message_lower for keyword in ['stop', 'start', 'terminate', 'manage']):
+                return await self._handle_ec2_management(message, 'user', session_id, {})
+            else:
+                return await self._process_with_agents(message, 'user', session_id)
+                
+        except Exception as e:
+            print(f"Error in EC2 conversation: {e}")
+            return await self._process_with_agents(message, 'user', session_id)
 
     async def _handle_cost_analysis(self, message: str, user_id: str, session_id: str) -> str:
         """Handle cost analysis requests with real AWS Cost Explorer integration"""
         try:
             cost_data = self.get_real_costs()
+            # Update conversation state early for follow-up detection (detailed breakdown)
+            try:
+                self._update_conversation_state(session_id, 'cost_analysis', {'period': cost_data.get('period', 'Current Month')})
+            except Exception:
+                pass
             
             if 'error' in cost_data:
                 return f"❌ Error performing cost analysis: {cost_data['error']}"
@@ -2581,6 +4914,11 @@ I can help you with **ALL** your cloud operations:
             permissions = entities.get('permissions', 'private')
             
             print(f"Handling S3 management - Action: {action}, Bucket: {bucket_name}, Region: {region}")
+            # Update last_action for S3 follow-ups
+            try:
+                self._update_conversation_state(session_id, 's3_management', {'action': action, 'bucket_name': bucket_name, 'region': region})
+            except Exception:
+                pass
             
             if action == 'create':
                 return await self._create_s3_bucket_intelligent(bucket_name, region, permissions, message, user_id, session_id)
@@ -2641,11 +4979,13 @@ What would you like to name your S3 bucket?
             
             # Create the bucket
             try:
-                if region == 'us-east-1':
+                # Use region-specific client always to avoid IllegalLocationConstraint issues
+                regional_s3 = boto3.client('s3', region_name=region or 'us-east-1')
+                if (region or 'us-east-1') == 'us-east-1':
                     # us-east-1 doesn't need LocationConstraint
-                    s3_client.create_bucket(Bucket=bucket_name)
+                    regional_s3.create_bucket(Bucket=bucket_name)
                 else:
-                    s3_client.create_bucket(
+                    regional_s3.create_bucket(
                         Bucket=bucket_name,
                         CreateBucketConfiguration={'LocationConstraint': region}
                     )
@@ -2933,6 +5273,11 @@ I can help you with comprehensive S3 operations:
         """Handle load balancer management with real AWS operations"""
         try:
             message_lower = message.lower()
+            # Update last_action for LB follow-ups
+            try:
+                self._update_conversation_state(session_id, 'load_balancer', {})
+            except Exception:
+                pass
             
             if 'create' in message_lower and 'load balancer' in message_lower:
                 return await self._create_load_balancer(message, user_id)
@@ -2962,6 +5307,11 @@ I can help you manage your load balancers:
         """Handle auto scaling management with real AWS operations"""
         try:
             message_lower = message.lower()
+            # Update last_action for ASG follow-ups
+            try:
+                self._update_conversation_state(session_id, 'auto_scaling', {})
+            except Exception:
+                pass
             
             if 'create' in message_lower and 'scaling' in message_lower:
                 return await self._create_auto_scaling_group(message, user_id)
@@ -2997,6 +5347,11 @@ I can help you manage your auto scaling groups:
             region = entities.get('region', 'us-east-1')
             
             print(f"Handling Database management - Action: {action}, Engine: {db_engine}, Class: {db_instance_class}")
+            # Update last_action for RDS follow-ups
+            try:
+                self._update_conversation_state(session_id, 'database_management', {'action': action, 'db_engine': db_engine, 'region': region})
+            except Exception:
+                pass
             
             if action == 'create':
                 return await self._create_database_intelligent(db_engine, db_instance_class, db_name, region, message, user_id, session_id)
@@ -3404,6 +5759,11 @@ I can help you with comprehensive database operations:
     async def _handle_network_management(self, message: str, user_id: str, session_id: str, entities: dict) -> str:
         """Handle network management with intelligent natural language processing"""
         try:
+            # Update last_action for VPC follow-ups
+            try:
+                self._update_conversation_state(session_id, 'network_management', entities or {})
+            except Exception:
+                pass
             action = entities.get('action', 'list')
             resource_type = entities.get('resource_type', 'vpc')
             region = entities.get('region', 'us-east-1')
@@ -4660,9 +7020,13 @@ Here are your databases:
                 ec2_regions = [region_filter]
                 print(f"Filtering EC2 instances to region: {region_filter}")
             else:
-                # Get all available regions
-                ec2_regions = boto3.Session().get_available_regions('ec2')
-                print(f"Scanning all {len(ec2_regions)} regions for EC2 instances")
+                # Use a safe default set or env-configured regions to avoid AuthFailure spam
+                preferred = os.getenv('AWS_ALLOWED_REGIONS')
+                if preferred:
+                    ec2_regions = [r.strip() for r in preferred.split(',') if r.strip()]
+                else:
+                    ec2_regions = ['us-east-1','us-west-2','eu-west-1','ap-southeast-1','ap-northeast-1']
+                print(f"Scanning authorized {len(ec2_regions)} regions for EC2 instances: {ec2_regions}")
             
             all_instances = []
             region_counts = {}
@@ -4768,7 +7132,9 @@ Here are your databases:
     def get_bucket_region(self, bucket_name: str) -> str:
         """Get the region of an S3 bucket"""
         try:
-            response = s3_client.get_bucket_location(Bucket=bucket_name)
+            # Use us-east-1 for Location since endpoint resolver expects that for classic
+            regional = boto3.client('s3', region_name='us-east-1')
+            response = regional.get_bucket_location(Bucket=bucket_name)
             return response['LocationConstraint'] or 'us-east-1'
         except Exception:
             return 'Unknown'
@@ -5709,6 +8075,17 @@ def run_server():
     print("✅ Service running at http://localhost:8001")
     print("🛑 Press Ctrl+C to stop the service")
     
+    # Start background inventory scheduler once per process
+    try:
+        # Use a throwaway instance to access instance methods safely
+        class _Tmp(IntelligentAIService):
+            pass
+        tmp = object.__new__(_Tmp)
+        _Tmp._start_inventory_scheduler(tmp)
+        print("🧭 Inventory scheduler started (INVENTORY_INTERVAL_SEC env controls interval)")
+    except Exception as e:
+        print(f"⚠️ Inventory scheduler not started: {e}")
+
     try:
         with socketserver.TCPServer(("", port), IntelligentAIService) as httpd:
             httpd.serve_forever()

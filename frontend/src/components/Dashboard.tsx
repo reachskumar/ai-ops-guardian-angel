@@ -37,6 +37,7 @@ import {
   Search,
   Filter
 } from 'lucide-react';
+import aiServicesAPI from '../lib/api';
 
 interface SystemMetric {
   name: string;
@@ -70,6 +71,10 @@ const Dashboard = () => {
   const [showMetrics, setShowMetrics] = useState(true);
   const [selectedTimeframe, setSelectedTimeframe] = useState('24h');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [summary, setSummary] = useState<any | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const [systemMetrics, setSystemMetrics] = useState<SystemMetric[]>([
     {
@@ -203,10 +208,43 @@ const Dashboard = () => {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
+    loadSummary();
     setTimeout(() => {
       setIsRefreshing(false);
     }, 1000);
   };
+
+  const loadSummary = async () => {
+    try {
+      setLoadingSummary(true);
+      setSummaryError(null);
+      const res = await aiServicesAPI.getDashboardSummary();
+      if (res.success && res.data) {
+        const data = res.data as any;
+        setSummary(data);
+        // Optionally update one or two metric cards from summary
+        setSystemMetrics((prev) => prev.map((m) => {
+          if (m.name === 'Cost Savings' && data?.costs?.total_cost !== undefined) {
+            return { ...m, value: Number(data.costs.total_cost) };
+          }
+          if (m.name === 'Active AI Agents') {
+            return m; // keep static unless backend exposes agents count
+          }
+          return m;
+        }));
+      } else {
+        setSummaryError(res.error || 'Failed to load summary');
+      }
+    } catch (e: any) {
+      setSummaryError(e?.message || 'Failed to load summary');
+    } finally {
+      setLoadingSummary(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -318,6 +356,35 @@ const Dashboard = () => {
           })}
         </div>
       )}
+
+      {/* Backend Summary Snapshot */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Environment Summary</h2>
+          {loadingSummary && <span className="text-xs text-muted-foreground">Loading…</span>}
+        </div>
+        {summaryError && (
+          <div className="text-sm text-red-500 mb-3">{summaryError}</div>
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-secondary/50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Total Resources</div>
+            <div className="text-2xl font-bold">{summary?.resources_total ?? '—'}</div>
+          </div>
+          <div className="p-4 bg-secondary/50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Open Incidents</div>
+            <div className="text-2xl font-bold">{summary?.incidents_open ?? '—'}</div>
+          </div>
+          <div className="p-4 bg-secondary/50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Providers</div>
+            <div className="text-2xl font-bold">{summary?.by_provider ? Object.keys(summary.by_provider).length : '—'}</div>
+          </div>
+          <div className="p-4 bg-secondary/50 rounded-lg">
+            <div className="text-sm text-muted-foreground">Monthly Cost</div>
+            <div className="text-2xl font-bold">{summary?.costs?.total_cost !== undefined ? `$${Number(summary.costs.total_cost).toFixed(2)}` : '—'}</div>
+          </div>
+        </div>
+      </div>
 
       {/* Quick Actions */}
       <div className="bg-card border border-border rounded-lg p-6">
