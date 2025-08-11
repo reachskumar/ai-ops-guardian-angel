@@ -10,19 +10,20 @@ const CloudOpsPanel: React.FC = () => {
   const [action, setAction] = useState('inventory');
   const [region, setRegion] = useState('us-east-1');
   const [params, setParams] = useState('{}');
+  const [dryRun, setDryRun] = useState(true);
+  const [requireApproval, setRequireApproval] = useState(true);
+  const [confirm, setConfirm] = useState('');
+  const [costThreshold, setCostThreshold] = useState('0');
+  const [override, setOverride] = useState('');
 
   const run = async () => {
-    const resp = await fetch(`/api/v1/chat`, {
+    const resp = await fetch(`/api/v1/integrations/${tenantId}/cloud/ops`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: `cloud ${provider} ${action} ${region}`,
-        tenant_id: tenantId,
-        params: JSON.parse(params)
-      })
+      body: JSON.stringify({ provider, action, region, params: JSON.parse(params), dry_run: dryRun, require_approval: requireApproval, confirm, cost_threshold: costThreshold, override })
     });
     const data = await resp.json();
-    alert(data.response || 'Executed');
+    alert('Dispatched cloud-ops workflow.');
   };
 
   return (
@@ -54,6 +55,28 @@ const CloudOpsPanel: React.FC = () => {
           </div>
         </div>
         <Button onClick={run}>Run</Button>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div>
+            <Label>Dry Run</Label>
+            <Input value={dryRun ? 'true' : 'false'} onChange={(e) => setDryRun(e.target.value === 'true')} />
+          </div>
+          <div>
+            <Label>Require Approval</Label>
+            <Input value={requireApproval ? 'true' : 'false'} onChange={(e) => setRequireApproval(e.target.value === 'true')} />
+          </div>
+          <div>
+            <Label>Confirm (yes)</Label>
+            <Input value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+          </div>
+          <div>
+            <Label>Cost Threshold (USD)</Label>
+            <Input value={costThreshold} onChange={(e) => setCostThreshold(e.target.value)} />
+          </div>
+          <div>
+            <Label>Override (yes)</Label>
+            <Input value={override} onChange={(e) => setOverride(e.target.value)} />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

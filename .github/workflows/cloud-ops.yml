@@ -9,7 +9,7 @@ on:
         type: choice
         options: [aws, azure, gcp]
       action:
-        description: "Action (inventory|instance_start|instance_stop|instance_reboot|instance_resize|sg_authorize|sg_revoke|ebs_snapshot|dns_upsert|cdn_invalidate)"
+        description: "Action (inventory|instance_start|instance_stop|instance_reboot|instance_resize|sg_authorize|sg_revoke|ebs_snapshot|dns_upsert|cdn_invalidate|asg_scale|rds_snapshot|rds_failover|alb_register|alb_deregister|lambda_publish|lambda_traffic|vpc_peering_create|vpc_peering_accept|privatelink_create|egress_audit)"
         required: true
       region:
         description: "Region (e.g., us-east-1)"
@@ -30,10 +30,19 @@ on:
         description: "Type 'yes' to approve execution when required"
         required: false
         default: ""
+      cost_threshold:
+        description: "Max projected daily cost delta (USD) before block"
+        required: false
+        default: "0"
+      override:
+        description: "Override cost gate (yes to proceed)"
+        required: false
+        default: ""
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    environment: cloud-ops
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,8 +83,50 @@ jobs:
             PLAN=$(jq -n --arg action "$ACTION" '{action:$action, details:"standard"}')
           fi
           echo "$PLAN" > plan.json
+          # OPA policy check (cloud plan)
+          curl -L https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/
+          conftest test -p policies/opa/cloud plan.json || true
           echo "risk=$RISK" >> $GITHUB_OUTPUT
           echo "$RISK" > risk.txt
+
+      - name: Cost diff gate
+        id: costgate
+        run: |
+          set -euo pipefail
+          THRESH=${{ github.event.inputs.cost_threshold }}
+          if [ -z "$THRESH" ] || [ "$THRESH" = "0" ]; then echo '{"skipped":true}' > cost_diff.json; exit 0; fi
+          PROVIDER=${{ github.event.inputs.provider }}
+          ACTION=${{ github.event.inputs.action }}
+          PARAMS=$(cat params.json)
+          get_param() { echo "$PARAMS" | jq -r .$1; }
+          PROJ_DELTA=0
+          if [ "$PROVIDER" = "aws" ]; then
+            # Fetch yesterday's total cost as baseline
+            END=$(date -u +%Y-%m-%d)
+            START=$(date -u -d "yesterday" +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)
+            BASE=0
+            if aws ce get-cost-and-usage --time-period Start=$START,End=$END --granularity=DAILY --metrics UnblendedCost >/tmp/ce.json 2>/dev/null; then
+              BASE=$(jq -r '.ResultsByTime[0].Total.UnblendedCost.Amount // "0"' /tmp/ce.json)
+            fi
+            # Naive projection for ASG scale: assume $0.10/hr per instance for 24h
+            if [ "$ACTION" = "asg_scale" ]; then
+              DES=$(get_param desired); INC=$DES
+              PROJ_DELTA=$(python - <<PY
+d=$INC
+print(f"{d*0.10*24:.2f}")
+PY
+)
+            fi
+            echo "{"baseline":$BASE,"projected_delta":$PROJ_DELTA}" | jq . > cost_diff.json
+          else
+            # Placeholder for Azure/GCP; skip
+            echo '{"skipped":true}' > cost_diff.json
+          fi
+          if [ "$THRESH" != "0" ] && jq -e ".projected_delta > ($THRESH|tonumber)" cost_diff.json >/dev/null 2>&1; then
+            echo "Projected cost delta exceeds threshold $THRESH. Re-run with override=yes to proceed." | tee cost_gate.txt
+            if [ "${{ github.event.inputs.override }}" != "yes" ]; then exit 3; fi
+          fi
 
       - name: Approval gate
         if: ${{ github.event.inputs.require_approval == 'true' && github.event.inputs.dry_run != 'true' && github.event.inputs.confirm != 'yes' }}
@@ -136,6 +187,41 @@ JSON
               DIST=$(get_param distribution_id); PATHS=$(get_param paths | jq -c .)
               aws cloudfront create-invalidation --distribution-id "$DIST" --paths $(echo $PATHS | jq -r 'join(" ")') | tee op.txt
               ;;
+            asg_scale)
+              ASG=$(get_param asg_name); DESIRED=$(get_param desired)
+              aws autoscaling set-desired-capacity --auto-scaling-group-name "$ASG" --desired-capacity "$DESIRED" --no-honor-cooldown | tee op.txt
+              ;;
+            rds_snapshot)
+              DB=$(get_param db_instance_id); SNAP=$(get_param snapshot_id)
+              aws rds create-db-snapshot --db-instance-identifier "$DB" --db-snapshot-identifier "$SNAP" | tee op.txt
+              ;;
+            rds_failover)
+              DB=$(get_param db_instance_id)
+              aws rds reboot-db-instance --db-instance-identifier "$DB" --force-failover | tee op.txt
+              ;;
+            alb_register)
+              TG=$(get_param target_group_arn); IDS=$(get_param target_ids | jq -r 'join(" ")')
+              aws elbv2 register-targets --target-group-arn "$TG" --targets $(for id in $IDS; do echo Id=$id; done) | tee op.txt ;;
+            alb_deregister)
+              TG=$(get_param target_group_arn); IDS=$(get_param target_ids | jq -r 'join(" ")')
+              aws elbv2 deregister-targets --target-group-arn "$TG" --targets $(for id in $IDS; do echo Id=$id; done) | tee op.txt ;;
+            lambda_publish)
+              FN=$(get_param function_name); DESC=$(get_param description)
+              aws lambda publish-version --function-name "$FN" --description "$DESC" | tee op.txt ;;
+            lambda_traffic)
+              FN=$(get_param function_name); ALIAS=$(get_param alias); VER=$(get_param version); WEIGHTS=$(get_param weights)
+              if [ "$WEIGHTS" != "null" ]; then echo "$WEIGHTS" > weights.json; aws lambda update-alias --function-name "$FN" --name "$ALIAS" --function-version "$VER" --routing-config fileb://weights.json | tee op.txt; else aws lambda update-alias --function-name "$FN" --name "$ALIAS" --function-version "$VER" | tee op.txt; fi ;;
+            vpc_peering_create)
+              VPC=$(get_param vpc_id); PVPC=$(get_param peer_vpc_id); PREG=$(get_param peer_region)
+              if [ "$PREG" != "null" ]; then aws ec2 create-vpc-peering-connection --vpc-id "$VPC" --peer-vpc-id "$PVPC" --peer-region "$PREG" | tee op.txt; else aws ec2 create-vpc-peering-connection --vpc-id "$VPC" --peer-vpc-id "$PVPC" | tee op.txt; fi ;;
+            vpc_peering_accept)
+              PCX=$(get_param peering_connection_id)
+              aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id "$PCX" | tee op.txt ;;
+            privatelink_create)
+              VPC=$(get_param vpc_id); SVC=$(get_param service_name); SUBS=$(get_param subnet_ids | jq -r 'join(" ")'); SGS=$(get_param sg_ids | jq -r 'join(" ")')
+              aws ec2 create-vpc-endpoint --vpc-id "$VPC" --service-name "$SVC" --vpc-endpoint-type Interface --subnet-ids $SUBS --security-group-ids $SGS | tee op.txt ;;
+            egress_audit)
+              aws ec2 describe-security-groups | jq '[.SecurityGroups[] | {GroupId, Egress: .IpPermissionsEgress}]' > op.txt ;;
             *)
               echo "Unsupported action: $ACTION"; exit 1;
               ;;
@@ -163,6 +249,27 @@ JSON
             instance_stop)
               RG=$(get_param resource_group); NAME=$(get_param vm_name)
               az vm deallocate -g "$RG" -n "$NAME" | tee op.txt ;;
+            vmss_scale)
+              RG=$(get_param resource_group); NAME=$(get_param vmss_name); CAP=$(get_param capacity)
+              az vmss scale -g "$RG" -n "$NAME" --new-capacity "$CAP" | tee op.txt ;;
+            dns_upsert)
+              RG=$(get_param resource_group); ZONE=$(get_param zone_name); RR=$(get_param record_name); RTYPE=$(get_param rtype); TTL=$(get_param ttl); VAL=$(get_param value)
+              az network dns record-set $RTYPE create -g "$RG" -z "$ZONE" -n "$RR" --ttl ${TTL:-60}
+              az network dns record-set $RTYPE add-record -g "$RG" -z "$ZONE" -n "$RR" --record "$VAL" | tee op.txt ;;
+            cdn_purge)
+              PROF=$(get_param profile); ENDPT=$(get_param endpoint); CONTENT=$(get_param content_paths | jq -r 'join(",")')
+              az cdn endpoint purge -g $(get_param resource_group) -n "$ENDPT" --profile-name "$PROF" --content-paths $CONTENT | tee op.txt ;;
+            waf_rule)
+              # Example: enable rule group; expects policy and rule json in params
+              POLICY=$(get_param policy_name); RG=$(get_param resource_group)
+              az network front-door waf-policy update -g "$RG" -n "$POLICY" --mode Prevention | tee op.txt || true ;;
+            storage_lifecycle)
+              ACC=$(get_param account); RG=$(get_param resource_group); POLICY=$(get_param policy_json)
+              echo "$POLICY" > policy.json
+              az storage account management-policy create -g "$RG" -n "$ACC" --policy @policy.json | tee op.txt ;;
+            sql_failover)
+              FG=$(get_param failover_group); RG=$(get_param resource_group); SERVER=$(get_param server)
+              az sql failover-group set-primary -g "$RG" -s "$SERVER" -n "$FG" | tee op.txt ;;
             *) echo "Unsupported azure action: $ACTION"; exit 1;;
           esac
 
@@ -189,6 +296,27 @@ JSON
             instance_stop)
               ZONE=$(get_param zone); NAME=$(get_param instance)
               gcloud compute instances stop "$NAME" --zone "$ZONE" --project "$PROJECT" | tee op.txt ;;
+            mig_scale)
+              ZONE=$(get_param zone); GROUP=$(get_param mig_name); SIZE=$(get_param size)
+              gcloud compute instance-groups managed resize "$GROUP" --size "$SIZE" --zone "$ZONE" --project "$PROJECT" | tee op.txt ;;
+            dns_upsert)
+              ZONE=$(get_param zone_name); RR=$(get_param record_name); RTYPE=$(get_param rtype); VAL=$(get_param value); TTL=$(get_param ttl)
+              gcloud dns record-sets transaction start --zone="$ZONE" --project "$PROJECT"
+              gcloud dns record-sets transaction add "$VAL" --name="$RR" --ttl=${TTL:-60} --type="$RTYPE" --zone="$ZONE" --project "$PROJECT"
+              gcloud dns record-sets transaction execute --zone="$ZONE" --project "$PROJECT" | tee op.txt ;;
+            cdn_invalidate)
+              URLMAP=$(get_param url_map); PATHS=$(get_param content_paths | jq -r 'join(",")')
+              gcloud compute url-maps invalidate-cdn-cache "$URLMAP" --path "$PATHS" --project "$PROJECT" | tee op.txt ;;
+            armor_rule)
+              POLICY=$(get_param policy_name); PRIORITY=$(get_param priority); ACTION=$(get_param rule_action)
+              gcloud compute security-policies rules update "$PRIORITY" --security-policy "$POLICY" --action "$ACTION" --project "$PROJECT" | tee op.txt ;;
+            gcs_lifecycle)
+              BUCKET=$(get_param bucket); POLICY=$(get_param policy_json)
+              echo "$POLICY" > lifecycle.json
+              gsutil lifecycle set lifecycle.json gs://$BUCKET | tee op.txt ;;
+            cloudsql_failover)
+              INST=$(get_param instance)
+              gcloud sql instances failover "$INST" --project "$PROJECT" | tee op.txt ;;
             *) echo "Unsupported gcp action: $ACTION"; exit 1;;
           esac
 
@@ -202,5 +330,7 @@ JSON
             op.txt
             risk.txt
             plan.json
+            change-batch.json
+            cost_diff.json
 
 
