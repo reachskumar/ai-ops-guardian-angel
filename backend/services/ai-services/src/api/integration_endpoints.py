@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from ..utils.secrets_provider import SecretsProvider
 from ..tools.devops.github_app_client import GitHubAppClient
 from ..tools.devops.github_repo_secrets import GitHubRepoSecrets
+from ..tools.devops.github_repo_admin import GitHubRepoAdmin
 
 try:
     from fastapi import APIRouter, HTTPException
@@ -558,6 +559,13 @@ if FASTAPI_AVAILABLE:
         repo: str
         kubeconfig_b64: str
 
+    class ProtectRepoRequest(BaseModel):
+        repo: str
+        branch: str = "main"
+        required_checks: Optional[List[str]] = None
+        require_reviews: bool = True
+        required_approving_review_count: int = 1
+
     @router.post("/{tenant_id}/test")
     async def test_integration_endpoint(tenant_id: str, body: TestRequest):
         try:
@@ -650,6 +658,31 @@ if FASTAPI_AVAILABLE:
             inputs={"kubeconfig_b64": body.kubeconfig_b64},
         )
         return {"success": True, "dispatch": result}
+
+    @router.post("/{tenant_id}/github/protect-repo")
+    async def protect_repo(tenant_id: str, body: ProtectRepoRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        app_id = sp.get(tenant_id, "github_app_id")
+        private_key = sp.get(tenant_id, "github_app_private_key")
+        installation_id = sp.get(tenant_id, "github_installation_id")
+        if not all([app_id, private_key, installation_id]):
+            raise HTTPException(status_code=400, detail="Missing GitHub App credentials for tenant")
+        app = GitHubAppClient(app_id, private_key)
+        token = app.get_installation_token(installation_id)
+        admin = GitHubRepoAdmin(body.repo, token)
+        checks = body.required_checks or [
+            "security-scan",
+            "backend-test",
+            "frontend-test",
+            "build-images",
+        ]
+        admin.protect_branch(
+            branch=body.branch,
+            required_checks=checks,
+            require_reviews=body.require_reviews,
+            required_approving_review_count=body.required_approving_review_count,
+        )
+        return {"success": True, "repo": body.repo, "branch": body.branch}
 
     @router.post("/{tenant_id}/github/repo-secrets")
     async def set_repo_secrets(tenant_id: str, body: RepoSecretRequest):
