@@ -82,7 +82,12 @@ jobs:
           else
             PLAN=$(jq -n --arg action "$ACTION" '{action:$action, details:"standard"}')
           fi
-          echo "$PLAN" > plan.json
+          # Add rollback hint
+          RB="{}"
+          if [ "$ACTION" = "sg_authorize" ]; then RB=$(echo $PLAN | jq '{rollback:{action:"sg_revoke",sg_id:null,protocol:null,from_port:null,to_port:.to_port,cidr:.cidr}}'); fi
+          if [ "$ACTION" = "instance_stop" ]; then RB=$(echo $PLAN | jq '{rollback:{action:"instance_start"}}'); fi
+          if [ "$ACTION" = "instance_start" ]; then RB=$(echo $PLAN | jq '{rollback:{action:"instance_stop"}}'); fi
+          echo $(jq -s '.[0] * .[1]' <(echo $PLAN) <(echo $RB)) > plan.json
           # OPA policy check (cloud plan)
           curl -L https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz | tar xz
           sudo mv conftest /usr/local/bin/
@@ -128,7 +133,7 @@ PY
             if [ "${{ github.event.inputs.override }}" != "yes" ]; then exit 3; fi
           fi
 
-      - name: Approval gate
+      - name: Approval gate (2-person via environment)
         if: ${{ github.event.inputs.require_approval == 'true' && github.event.inputs.dry_run != 'true' && github.event.inputs.confirm != 'yes' }}
         run: |
           echo "Approval required. Risk: ${{ steps.assess.outputs.risk }}. Re-run with confirm: 'yes' to proceed." | tee gate.txt
