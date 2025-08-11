@@ -22,6 +22,7 @@ import {
   BarChart3,
   Zap
 } from 'lucide-react';
+import ClusterOnboarding from './ClusterOnboarding';
 
 interface Integration {
   id: string;
@@ -316,6 +317,7 @@ const IntegrationManager: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Integration List */}
         <div className="lg:col-span-2">
+          <ClusterOnboarding />
           {categories.map(category => {
             const categoryIntegrations = integrations.filter(
               integration => integration.category === category

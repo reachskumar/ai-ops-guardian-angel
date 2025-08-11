@@ -548,6 +548,10 @@ if FASTAPI_AVAILABLE:
         severity: Optional[str] = None
         change_request: Optional[bool] = False
 
+    class RepoSecretRequest(BaseModel):
+        repo: str
+        secrets: Dict[str, str]
+
     @router.post("/{tenant_id}/test")
     async def test_integration_endpoint(tenant_id: str, body: TestRequest):
         try:
@@ -620,3 +624,9 @@ if FASTAPI_AVAILABLE:
             return {"success": True, "id": r.json().get("result", {}).get("sys_id")}
         else:
             raise HTTPException(status_code=400, detail="Unsupported ITSM provider")
+
+    @router.post("/{tenant_id}/github/repo-secrets")
+    async def set_repo_secrets(tenant_id: str, body: RepoSecretRequest):
+        """Placeholder endpoint to set repo secrets via GitHub App in future."""
+        # In a production version, use GitHub App token + REST to set secrets at repo level
+        return {"success": True, "repo": body.repo, "count": len(body.secrets)}
