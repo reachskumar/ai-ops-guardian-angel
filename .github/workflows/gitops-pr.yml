@@ -40,7 +40,7 @@ jobs:
           git checkout -b "$BRANCH"
           DIR="infrastructure/k8s/${ENV}"
           if [ "${ENV}" = "production" ]; then DIR="infrastructure/k8s/production"; fi
-          sed -i "" -e "s|IMAGE_TAG|${TAG}|g" "$DIR/${SERVICE}.yaml"
+          sed -i "s|IMAGE_TAG|${TAG}|g" "$DIR/${SERVICE}.yaml"
           git add "$DIR/${SERVICE}.yaml"
           git commit -m "chore(gitops): ${SERVICE} -> ${TAG} (${ENV})"
           git push origin "$BRANCH"
@@ -50,7 +50,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(gitops): update image tag"
-          branch: ${{ steps.update.outputs.branch || '' }}
+          branch: gitops/update-${{ github.event.inputs.environment }}-${{ github.event.inputs.service }}-${{ github.event.inputs.image_tag }}
           base: ${{ github.ref_name }}
           title: "GitOps: Update ${{ github.event.inputs.service }} to ${{ github.event.inputs.image_tag }} in ${{ github.event.inputs.environment }}"
           body: "Automated PR to update image tag."
