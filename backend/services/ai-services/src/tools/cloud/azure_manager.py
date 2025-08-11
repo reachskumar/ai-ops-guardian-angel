@@ -56,4 +56,20 @@ class AzureManager:
     def remove_nsg_rule(self, resource_group: str, nsg_name: str, rule_name: str) -> Any:
         return self.network.security_rules.begin_delete(resource_group, nsg_name, rule_name).result()
 
+    # Managed Disks snapshot/restore
+    def create_disk_snapshot(self, resource_group: str, disk_name: str, snapshot_name: str, location: str) -> Any:
+        disk = self.compute.disks.get(resource_group, disk_name)
+        snapshot_params = {
+            "location": location,
+            "creation_data": {"create_option": "Copy", "source_resource_id": disk.id},
+        }
+        return self.compute.snapshots.begin_create_or_update(resource_group, snapshot_name, snapshot_params).result()
+
+    def restore_disk_from_snapshot(self, resource_group: str, new_disk_name: str, snapshot_id: str, location: str) -> Any:
+        disk_params = {
+            "location": location,
+            "creation_data": {"create_option": "Copy", "source_resource_id": snapshot_id},
+        }
+        return self.compute.disks.begin_create_or_update(resource_group, new_disk_name, disk_params).result()
+
 
