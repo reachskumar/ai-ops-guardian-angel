@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     context: Optional[str] = None
     user_id: Optional[str] = None
     session_id: Optional[str] = None
+    tenant_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -51,15 +52,26 @@ async def chat_endpoint(request: ChatRequest):
     if not FASTAPI_AVAILABLE:
         return {"error": "FastAPI not available"}
     
-    # This would integrate with the intelligent_ai_service
-    # For now, return a placeholder
-    return ChatResponse(
-        response="Chat endpoint placeholder",
-        timestamp="2025-08-06T23:20:00Z",
-        context=request.context,
-        user_id=request.user_id,
-        session_id=request.session_id
-    )
+    # Route to DevOps Chat Agent so natural language commands can trigger ChatOps
+    try:
+        from ..agents.chat.devops_chat_agent import DevOpsChatAgent
+        agent = DevOpsChatAgent()
+        user_id = request.user_id or "anonymous"
+        # Pass tenant_id via context for downstream dispatch
+        result = await agent.process_message(
+            request.message,
+            user_id=user_id,
+            session_id=request.session_id,
+        )
+        return ChatResponse(
+            response=result.get('message', ''),
+            timestamp=result.get('timestamp', ''),
+            context=request.context,
+            user_id=user_id,
+            session_id=request.session_id
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
 
 @router.get("/health")
 async def chat_health():

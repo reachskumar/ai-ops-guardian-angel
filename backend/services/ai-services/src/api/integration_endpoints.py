@@ -1,6 +1,6 @@
 """
-Integration Management API endpoints
-Handles external tool integrations and configuration testing
+Integration Management API endpoints (FastAPI router)
+Tenant-scoped: configure, test, and manage integrations; secrets stored via SecretsProvider (Vault/env).
 """
 
 import json
@@ -8,6 +8,22 @@ import subprocess
 import requests
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from ..utils.secrets_provider import SecretsProvider
+
+try:
+    from fastapi import APIRouter, HTTPException
+    from pydantic import BaseModel
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FASTAPI_AVAILABLE = False
+    class APIRouter:
+        def __init__(self, *args, **kwargs):
+            pass
+    class BaseModel: ...
+    class HTTPException(Exception):
+        def __init__(self, status_code: int, detail: str):
+            self.status_code = status_code
+            self.detail = detail
 
 @dataclass
 class IntegrationTestResult:
@@ -511,102 +527,106 @@ class IntegrationManager:
                 details={'error': str(e)}
             )
 
-# Global integration manager instance
 integration_manager = IntegrationManager()
 
-class MockRouter:
-    """Mock router for integration endpoints"""
-    
-    def __init__(self):
-        self.routes = {
-            'POST /api/integrations/test': self.test_integration,
-            'POST /api/integrations/{integration_id}/disconnect': self.disconnect_integration,
-            'GET /api/integrations': self.list_integrations,
-            'GET /api/integrations/{integration_id}': self.get_integration
-        }
-    
-    async def test_integration(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Test an integration configuration"""
-        try:
-            integration_id = request_data.get('integration')
-            config = request_data.get('config', {})
-            
-            if not integration_id:
-                return {
-                    'success': False,
-                    'message': 'Integration ID required',
-                    'details': {}
-                }
-            
-            result = await integration_manager.test_integration(integration_id, config)
-            
-            return {
-                'success': result.success,
-                'message': result.message,
-                'details': result.details
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Integration test failed: {str(e)}',
-                'details': {'error': str(e)}
-            }
-    
-    async def disconnect_integration(self, integration_id: str) -> Dict[str, Any]:
-        """Disconnect an integration"""
-        try:
-            # Remove integration from manager
-            if integration_id in integration_manager.integrations:
-                del integration_manager.integrations[integration_id]
-            
-            return {
-                'success': True,
-                'message': f'Integration {integration_id} disconnected',
-                'details': {}
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to disconnect integration: {str(e)}',
-                'details': {'error': str(e)}
-            }
-    
-    async def list_integrations(self) -> Dict[str, Any]:
-        """List all integrations"""
-        try:
-            return {
-                'success': True,
-                'integrations': list(integration_manager.integrations.keys()),
-                'details': {}
-            }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to list integrations: {str(e)}',
-                'details': {'error': str(e)}
-            }
-    
-    async def get_integration(self, integration_id: str) -> Dict[str, Any]:
-        """Get integration details"""
-        try:
-            if integration_id in integration_manager.integrations:
-                return {
-                    'success': True,
-                    'integration': integration_manager.integrations[integration_id],
-                    'details': {}
-                }
-            else:
-                return {
-                    'success': False,
-                    'message': f'Integration {integration_id} not found',
-                    'details': {}
-                }
-        except Exception as e:
-            return {
-                'success': False,
-                'message': f'Failed to get integration: {str(e)}',
-                'details': {'error': str(e)}
-            }
+router = APIRouter(prefix="/integrations", tags=["integrations"]) if FASTAPI_AVAILABLE else None
 
-# Create router instance
-router = MockRouter() 
+class TestRequest(BaseModel):
+    integration: str
+    config: Dict[str, Any] = {}
+
+if FASTAPI_AVAILABLE:
+    class SaveRequest(BaseModel):
+        provider: str
+        secrets: Dict[str, str]
+
+    class TicketRequest(BaseModel):
+        provider: str  # jira or servicenow
+        project_or_table: str
+        summary: str
+        description: str
+        severity: Optional[str] = None
+        change_request: Optional[bool] = False
+
+    class RepoSecretRequest(BaseModel):
+        repo: str
+        secrets: Dict[str, str]
+
+    @router.post("/{tenant_id}/test")
+    async def test_integration_endpoint(tenant_id: str, body: TestRequest):
+        try:
+            result = await integration_manager.test_integration(body.integration, body.config)
+            return {"success": result.success, "message": result.message, "details": result.details}
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Integration test failed: {str(e)}")
+
+    @router.get("/{tenant_id}")
+    async def list_integrations_endpoint(tenant_id: str):
+        return {"success": True, "integrations": list(integration_manager.integrations.keys())}
+
+    @router.post("/{tenant_id}/save")
+    async def save_integration_secrets(tenant_id: str, body: SaveRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        for k, v in body.secrets.items():
+            if not sp.set(tenant_id, f"{body.provider}_{k}", v):
+                raise HTTPException(status_code=500, detail=f"Failed to save secret: {k}")
+        return {"success": True}
+
+    @router.delete("/{tenant_id}/{provider}")
+    async def delete_integration_secrets(tenant_id: str, provider: str):
+        # For simplicity assume fixed keys per provider are known client-side; here we delete common patterns
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        deleted_any = False
+        for suffix in ["token", "api_key", "url", "installation_id", "repo", "kubeconfig", "role_arn"]:
+            if sp.delete(tenant_id, f"{provider}_{suffix}"):
+                deleted_any = True
+        return {"success": True, "deleted": deleted_any}
+
+    @router.post("/{tenant_id}/itsm/ticket")
+    async def create_ticket(tenant_id: str, body: TicketRequest):
+        sp = SecretsProvider(backend="vault" if os.getenv("VAULT_ADDR") else "env")
+        if body.provider == "jira":
+            base = sp.get(tenant_id, "jira_url")
+            user = sp.get(tenant_id, "jira_user")
+            token = sp.get(tenant_id, "jira_token")
+            if not all([base, user, token]):
+                raise HTTPException(status_code=400, detail="Missing Jira credentials")
+            url = f"{base}/rest/api/3/issue"
+            auth = (user, token)
+            payload = {
+                "fields": {
+                    "project": {"key": body.project_or_table},
+                    "summary": body.summary,
+                    "description": body.description,
+                    "issuetype": {"name": "Task" if not body.change_request else "Change"}
+                }
+            }
+            r = requests.post(url, auth=auth, json=payload, timeout=20)
+            if r.status_code >= 300:
+                raise HTTPException(status_code=400, detail=f"Jira error: {r.text}")
+            return {"success": True, "id": r.json().get("key")}
+        elif body.provider == "servicenow":
+            base = sp.get(tenant_id, "snow_url")
+            user = sp.get(tenant_id, "snow_user")
+            token = sp.get(tenant_id, "snow_token")
+            if not all([base, user, token]):
+                raise HTTPException(status_code=400, detail="Missing ServiceNow credentials")
+            table = body.project_or_table
+            url = f"{base}/api/now/table/{table}"
+            headers = {"Accept": "application/json"}
+            r = requests.post(url, auth=(user, token), headers=headers, json={
+                "short_description": body.summary,
+                "description": body.description,
+                "severity": body.severity or "3"
+            }, timeout=20)
+            if r.status_code >= 300:
+                raise HTTPException(status_code=400, detail=f"ServiceNow error: {r.text}")
+            return {"success": True, "id": r.json().get("result", {}).get("sys_id")}
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported ITSM provider")
+
+    @router.post("/{tenant_id}/github/repo-secrets")
+    async def set_repo_secrets(tenant_id: str, body: RepoSecretRequest):
+        """Placeholder endpoint to set repo secrets via GitHub App in future."""
+        # In a production version, use GitHub App token + REST to set secrets at repo level
+        return {"success": True, "repo": body.repo, "count": len(body.secrets)}

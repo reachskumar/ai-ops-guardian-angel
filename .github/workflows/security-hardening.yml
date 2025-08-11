@@ -1,0 +1,36 @@
+name: Security Hardening - DAST and Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "Staging URL to scan"
+        required: true
+
+jobs:
+  dast-zap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ github.event.inputs.target_url }}
+          rules_file_name: .zap/rules.tsv
+          cmd_options: "-a -d"
+
+  kube-bench:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install kube-bench (note: requires cluster access)
+        run: |
+          echo "Provide cluster runner or run in-cluster as CronJob"
+
+  kube-hunter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install kube-hunter (external scan)
+        run: |
+          pip install kube-hunter
+          echo "Run out-of-cluster scan as needed"
+

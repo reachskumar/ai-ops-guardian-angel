@@ -1,0 +1,44 @@
+name: ChatOps - Hotfix and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      type:
+        description: "hotfix or release"
+        required: true
+        type: choice
+        options: [hotfix, release]
+      version:
+        description: "Version number (e.g., 1.2.3)"
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "chatops-bot"
+          git config user.email "chatops@example.com"
+
+      - name: Create hotfix branch and tag
+        if: github.event.inputs.type == 'hotfix'
+        run: |
+          git checkout -b hotfix/${{ github.event.inputs.version }} origin/main
+          git push origin hotfix/${{ github.event.inputs.version }}
+          git tag -a v${{ github.event.inputs.version }} -m "Hotfix v${{ github.event.inputs.version }}"
+          git push origin v${{ github.event.inputs.version }}
+
+      - name: Create release tag and GitHub Release
+        if: github.event.inputs.type == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Release v${{ github.event.inputs.version }}
+          draft: false
+          prerelease: false
+

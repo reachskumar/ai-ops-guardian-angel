@@ -22,6 +22,7 @@ import {
   BarChart3,
   Zap
 } from 'lucide-react';
+import ClusterOnboarding from './ClusterOnboarding';
 
 interface Integration {
   id: string;
@@ -37,6 +38,7 @@ interface Integration {
 
 const IntegrationManager: React.FC = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [tenantId, setTenantId] = useState<string>("default");
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
 
@@ -216,7 +218,7 @@ const IntegrationManager: React.FC = () => {
       }
 
       // Test connection
-      const response = await fetch('/api/integrations/test', {
+      const response = await fetch(`/api/v1/integrations/${tenantId}/test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -228,6 +230,18 @@ const IntegrationManager: React.FC = () => {
       });
 
       if (response.ok) {
+        // Save secrets (only required fields treated as secrets for this UI)
+        await fetch(`/api/v1/integrations/${tenantId}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: selectedIntegration.id,
+            secrets: selectedIntegration.requiredFields.reduce((acc: any, f: string) => {
+              acc[f] = configValues[f];
+              return acc;
+            }, {})
+          })
+        });
         // Update integration status
         setIntegrations(prev => prev.map(integration => 
           integration.id === selectedIntegration.id 
@@ -248,9 +262,7 @@ const IntegrationManager: React.FC = () => {
 
   const handleDisconnect = async (integrationId: string) => {
     try {
-      await fetch(`/api/integrations/${integrationId}/disconnect`, {
-        method: 'POST'
-      });
+      await fetch(`/api/v1/integrations/${tenantId}/${integrationId}`, { method: 'DELETE' });
 
       setIntegrations(prev => prev.map(integration => 
         integration.id === integrationId 
@@ -296,11 +308,16 @@ const IntegrationManager: React.FC = () => {
         <p className="text-gray-600">
           Configure external tools and services to enhance your AI-Ops platform capabilities.
         </p>
+        <div className="mt-4 flex items-center gap-3">
+          <Label htmlFor="tenant" className="text-sm">Tenant</Label>
+          <Input id="tenant" value={tenantId} onChange={(e) => setTenantId(e.target.value)} className="w-64" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Integration List */}
         <div className="lg:col-span-2">
+          <ClusterOnboarding />
           {categories.map(category => {
             const categoryIntegrations = integrations.filter(
               integration => integration.category === category

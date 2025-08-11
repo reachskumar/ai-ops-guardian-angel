@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from ..base_agent import BaseAgent, AgentTask, AgentCapabilities, AgentRecommendation
 from ...config.settings import AgentType, RiskLevel, settings
 from ...orchestrator.agent_orchestrator import AgentOrchestrator
+from ...agents.advanced_devops.chatops_orchestrator import ChatOpsOrchestrator
 
 
 class IntentType(str, Enum):
@@ -119,6 +120,7 @@ class DevOpsChatAgent(BaseAgent):
 
         # Initialize the orchestrator for agent coordination
         self.orchestrator = AgentOrchestrator()
+        self.chatops = ChatOpsOrchestrator()
         
         # Conversation memory for context preservation
         self.conversation_memory = ConversationSummaryBufferMemory(
@@ -317,7 +319,7 @@ class DevOpsChatAgent(BaseAgent):
             'analysis_timestamp': datetime.now().isoformat()
         }
 
-    async def process_message(self, message: str, user_id: str, session_id: str = None) -> Dict[str, Any]:
+    async def process_message(self, message: str, user_id: str, session_id: str = None, tenant_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Main entry point for processing user messages
         """
@@ -334,7 +336,14 @@ class DevOpsChatAgent(BaseAgent):
             if parsed_intent.intent_type == IntentType.GENERAL_QUERY:
                 response = await self._handle_general_query(message, parsed_intent)
             else:
-                response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
+                # For deployment and k8s intents, attempt ChatOps dispatch first
+                if parsed_intent.intent_type in [
+                    IntentType.DEPLOYMENT,
+                    IntentType.KUBERNETES_MANAGEMENT,
+                ]:
+                    response = await self._handle_chatops(message, parsed_intent, tenant_id=tenant_id)
+                else:
+                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
             
             # Add response to memory
             self.conversation_memory.chat_memory.add_ai_message(response['message'])
@@ -360,6 +369,56 @@ class DevOpsChatAgent(BaseAgent):
                 'error': True,
                 'timestamp': datetime.now().isoformat()
             }
+
+    async def _handle_chatops(self, message: str, parsed_intent: ParsedIntent, tenant_id: Optional[str]) -> Dict[str, Any]:
+        entities = parsed_intent.entities
+        env = entities.get('environment', 'staging')
+        service = entities.get('service', 'ai-services')
+        action = entities.get('action')
+        subaction = entities.get('subaction')
+        replicas = entities.get('replicas')
+        node_name = entities.get('node_name')
+        try:
+            self.chatops = ChatOpsOrchestrator(tenant_id=tenant_id) if tenant_id else self.chatops
+            if parsed_intent.intent_type == IntentType.DEPLOYMENT:
+                result = self.chatops.deploy(environment=env, service=service, strategy='rolling')
+                return {
+                    'message': f"Triggered deployment for {service} in {env}. Workflow dispatched.",
+                    'actions': [{'type': 'workflow_dispatch', 'result': result}],
+                }
+            elif parsed_intent.intent_type == IntentType.KUBERNETES_MANAGEMENT:
+                # Route common sub-ops
+                if action == 'scale' and replicas is not None:
+                    result = self.chatops.scale(environment=env, service=service, replicas=int(replicas))
+                elif action == 'restart':
+                    result = self.chatops.restart(environment=env, service=service)
+                elif action == 'rollout' and subaction:
+                    result = self.chatops.rollout(environment=env, service=service, subaction=subaction)
+                elif action == 'logs':
+                    result = self.chatops.logs(environment=env, service=service)
+                elif action == 'events':
+                    result = self.chatops.logs(environment=env, service=service)  # events uploaded alongside logs
+                elif action == 'node' and node_name and subaction:
+                    result = self.chatops.node(node_name=node_name, subaction=subaction, environment=env)
+                elif action == 'gitops_pr':
+                    image_tag = entities.get('image_tag') or 'latest'
+                    result = self.chatops.gitops_pr(environment=env, service=service, image_tag=image_tag)
+                else:
+                    # Default to restart if not specified
+                    result = self.chatops.restart(environment=env, service=service)
+                return {
+                    'message': f"Triggered restart for {service} in {env}. Workflow dispatched.",
+                    'actions': [{'type': 'workflow_dispatch', 'result': result}],
+                }
+        except Exception as e:
+            return {
+                'message': f"Failed to trigger ChatOps action: {str(e)}",
+                'error': True,
+            }
+        return {
+            'message': "No ChatOps action matched.",
+            'actions': []
+        }
 
     async def _parse_intent(self, message: str, user_id: str) -> ParsedIntent:
         """Parse user intent using LLM and pattern matching"""

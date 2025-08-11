@@ -5,6 +5,12 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "Stage to run (security-scan|backend-test|frontend-test|build-images|deploy-staging|deploy-production)"
+        required: true
+        default: "security-scan"
 
 env:
   REGISTRY: ghcr.io
@@ -13,6 +19,7 @@ env:
 jobs:
   # Security and Code Quality
   security-scan:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'security-scan' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -26,6 +33,50 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
 
+      - name: Run Gitleaks (secrets scan)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: "detect --no-banner --verbose --redact --exit-code 1"
+
+      - name: Run Semgrep (SAST)
+        uses: returntocorp/semgrep-action@v1
+        with:
+          generateSarif: true
+          publishToken: ${{ secrets.SEMGREP_APP_TOKEN }}
+        env:
+          SEMGREP_RULES: >-
+            p/ci
+            p/secrets
+            p/docker
+            p/kubernetes
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: semgrep.sarif
+
+      - name: Run tfsec (IaC scan)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          soft_fail: true
+
+      - name: Run Checkov (IaC policy)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          soft_fail: true
+
+      - name: Install conftest
+        run: |
+          curl -L https://github.com/open-policy-agent/conftest/releases/download/v0.52.0/conftest_0.52.0_Linux_x86_64.tar.gz | tar xz
+          sudo mv conftest /usr/local/bin/
+      - name: Conftest policy check (k8s manifests)
+        run: |
+          if [ -d policies/opa/kubernetes ]; then conftest test -p policies/opa/kubernetes infrastructure/k8s/production || exit 1; fi
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
         if: always()
@@ -34,6 +85,7 @@ jobs:
 
   # Backend Testing
   backend-test:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'backend-test' }}
     runs-on: ubuntu-latest
     services:
       mongodb:
@@ -101,6 +153,7 @@ jobs:
 
   # Frontend Testing
   frontend-test:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'frontend-test' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -130,6 +183,7 @@ jobs:
 
   # Build and Push Docker Images
   build-images:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'build-images' }}
     needs: [backend-test, frontend-test]
     runs-on: ubuntu-latest
     permissions:
@@ -138,6 +192,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -158,6 +217,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Sign API Gateway image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }} --yes
+
+      - name: SBOM for API Gateway (syft)
+        uses: anchore/syft-action@v0.16.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}
+          output-file: sbom-api-gateway-${{ github.sha }}.spdx.json
+
+      - name: Grype scan API Gateway image
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-gateway:${{ github.sha }}
+          fail-build: true
+
       - name: Build and push AI Services
         uses: docker/build-push-action@v5
         with:
@@ -166,6 +242,23 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ai-services:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Sign AI Services image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ai-services:${{ github.sha }} --yes
+
+      - name: SBOM for AI Services (syft)
+        uses: anchore/syft-action@v0.16.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ai-services:${{ github.sha }}
+          output-file: sbom-ai-services-${{ github.sha }}.spdx.json
+
+      - name: Grype scan AI Services image
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/ai-services:${{ github.sha }}
+          fail-build: true
 
       - name: Build and push Data Services
         uses: docker/build-push-action@v5
@@ -176,6 +269,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Sign Data Services image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/data-services:${{ github.sha }} --yes
+
+      - name: SBOM for Data Services (syft)
+        uses: anchore/syft-action@v0.16.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/data-services:${{ github.sha }}
+          output-file: sbom-data-services-${{ github.sha }}.spdx.json
+
+      - name: Grype scan Data Services image
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/data-services:${{ github.sha }}
+          fail-build: true
+
       - name: Build and push Frontend
         uses: docker/build-push-action@v5
         with:
@@ -185,8 +295,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Sign Frontend image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ github.sha }} --yes
+
+      - name: SBOM for Frontend (syft)
+        uses: anchore/syft-action@v0.16.0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ github.sha }}
+          output-file: sbom-frontend-${{ github.sha }}.spdx.json
+
+      - name: Grype scan Frontend image
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ github.sha }}
+          fail-build: true
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sboms-${{ github.sha }}
+          path: |
+            sbom-*.spdx.json
+
   # Deploy to Staging
   deploy-staging:
+    if: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'deploy-staging') && github.ref == 'refs/heads/develop' }}
     needs: build-images
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
@@ -205,7 +340,7 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
           export KUBECONFIG=kubeconfig
 
-      - name: Deploy to staging
+      - name: Deploy to staging (rolling)
         run: |
           # Update image tags in Kubernetes manifests
           sed -i "s|IMAGE_TAG|${{ github.sha }}|g" infrastructure/k8s/staging/
@@ -220,6 +355,12 @@ jobs:
 
       - name: Run integration tests
         run: |
+      - name: Enforce SLO gate (staging)
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL_STAGING }}
+          THRESHOLD: "0.01"
+        run: |
+          python3 scripts/ci/slo_gate.py
           # Wait for services to be ready
           sleep 30
           
@@ -228,6 +369,7 @@ jobs:
 
   # Deploy to Production
   deploy-production:
+    if: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.stage == 'deploy-production') && github.ref == 'refs/heads/main' }}
     needs: build-images
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -246,7 +388,7 @@ jobs:
           echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
           export KUBECONFIG=kubeconfig
 
-      - name: Deploy to production
+      - name: Deploy to production (rolling)
         run: |
           # Update image tags in Kubernetes manifests
           sed -i "s|IMAGE_TAG|${{ github.sha }}|g" infrastructure/k8s/production/
@@ -258,6 +400,13 @@ jobs:
           kubectl rollout status deployment/api-gateway -n ai-ops-production
           kubectl rollout status deployment/ai-services -n ai-ops-production
           kubectl rollout status deployment/frontend -n ai-ops-production
+
+      - name: SLO gate (prod)
+        env:
+          PROMETHEUS_URL: ${{ secrets.PROMETHEUS_URL_PRODUCTION }}
+          THRESHOLD: "0.005"
+        run: |
+          python3 scripts/ci/slo_gate.py
 
       - name: Run smoke tests
         run: |
@@ -273,3 +422,18 @@ jobs:
           curl -X POST -H 'Content-type: application/json' \
             --data '{"text":"✅ Production deployment successful! Version: ${{ github.sha }}"}'
             ${{ secrets.SLACK_WEBHOOK_URL }} 
+
+      - name: Page on-call on failure
+        if: failure()
+        run: |
+          curl -X POST 'https://events.pagerduty.com/v2/enqueue' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "routing_key": "${{ secrets.PAGERDUTY_ROUTING_KEY }}",
+              "event_action": "trigger",
+              "payload": {
+                "summary": "Prod deploy failed for ${{ github.sha }}",
+                "severity": "critical",
+                "source": "github-actions"
+              }
+            }'
