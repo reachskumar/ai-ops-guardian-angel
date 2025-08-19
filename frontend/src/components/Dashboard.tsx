@@ -44,7 +44,17 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+  BreadcrumbPage,
+} from '@/components/ui/breadcrumb';
 
 interface SystemMetric {
   name: string;
@@ -387,6 +397,17 @@ const Dashboard = () => {
     }
   };
 
+  const getActivityStatusBadge = (status: string) => {
+    const base = 'text-xs px-2 py-0.5 rounded-full';
+    switch (status) {
+      case 'success': return `${base} bg-green-500/15 text-green-500`;
+      case 'warning': return `${base} bg-yellow-500/15 text-yellow-600`;
+      case 'error': return `${base} bg-red-500/15 text-red-500`;
+      case 'pending': return `${base} bg-blue-500/15 text-blue-500`;
+      default: return `${base} bg-muted text-muted-foreground`;
+    }
+  };
+
   const getActivityTypeIcon = (type: string) => {
     switch (type) {
       case 'workflow': return <Workflow className="w-4 h-4" />;
@@ -403,7 +424,18 @@ const Dashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">InfraMind Dashboard</h1>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Overview</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <h1 className="text-3xl font-bold mt-2">InfraMind Dashboard</h1>
           <p className="text-muted-foreground">Real-time monitoring and control center</p>
         </div>
         <div className="flex items-center space-x-2">
@@ -434,17 +466,18 @@ const Dashboard = () => {
           {systemMetrics.map((metric) => {
             const Icon = metric.icon;
             return (
-              <div key={metric.name} className="bg-card border border-border rounded-lg p-4">
+              <div
+                key={metric.name}
+                className="rounded-xl p-4 border border-border bg-gradient-to-br from-card to-background hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2">
-                    <div className="p-2 bg-primary/10 rounded-lg">
+                    <div className="p-2 bg-primary/10 rounded-lg backdrop-blur">
                       <Icon className="w-5 h-5 text-primary" />
                     </div>
                     <span className="font-medium">{metric.name}</span>
                   </div>
-                  <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(metric.status)}`}>
-                    <span className="capitalize">{metric.status}</span>
-                  </div>
+                  <Badge variant="outline" className={`${getStatusColor(metric.status)} capitalize`}>{metric.status}</Badge>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl font-bold">
@@ -472,36 +505,45 @@ const Dashboard = () => {
       )}
 
       {/* Backend Summary Snapshot */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Environment Summary</h2>
           {loadingSummary && <span className="text-xs text-muted-foreground">Loading…</span>}
         </div>
-        {summaryError && (
-          <div className="text-sm text-red-500 mb-3">{summaryError}</div>
+        {summaryError && (<div className="text-sm text-red-500 mb-3">{summaryError}</div>)}
+        {loadingSummary ? (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[0,1,2,3].map((i) => (
+              <div key={i} className="p-4 bg-secondary/30 rounded-lg">
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-7 w-32" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="p-4 bg-secondary/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">Total Resources</div>
+              <div className="text-2xl font-bold">{summary?.resources_total ?? '—'}</div>
+            </div>
+            <div className="p-4 bg-secondary/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">Open Incidents</div>
+              <div className="text-2xl font-bold">{summary?.incidents_open ?? '—'}</div>
+            </div>
+            <div className="p-4 bg-secondary/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">Providers</div>
+              <div className="text-2xl font-bold">{summary?.by_provider ? Object.keys(summary.by_provider).length : '—'}</div>
+            </div>
+            <div className="p-4 bg-secondary/50 rounded-lg">
+              <div className="text-sm text-muted-foreground">Monthly Cost</div>
+              <div className="text-2xl font-bold">{summary?.costs?.total_cost !== undefined ? `$${Number(summary.costs.total_cost).toFixed(2)}` : '—'}</div>
+            </div>
+          </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="p-4 bg-secondary/50 rounded-lg">
-            <div className="text-sm text-muted-foreground">Total Resources</div>
-            <div className="text-2xl font-bold">{summary?.resources_total ?? '—'}</div>
-          </div>
-          <div className="p-4 bg-secondary/50 rounded-lg">
-            <div className="text-sm text-muted-foreground">Open Incidents</div>
-            <div className="text-2xl font-bold">{summary?.incidents_open ?? '—'}</div>
-          </div>
-          <div className="p-4 bg-secondary/50 rounded-lg">
-            <div className="text-sm text-muted-foreground">Providers</div>
-            <div className="text-2xl font-bold">{summary?.by_provider ? Object.keys(summary.by_provider).length : '—'}</div>
-          </div>
-          <div className="p-4 bg-secondary/50 rounded-lg">
-            <div className="text-sm text-muted-foreground">Monthly Cost</div>
-            <div className="text-2xl font-bold">{summary?.costs?.total_cost !== undefined ? `$${Number(summary.costs.total_cost).toFixed(2)}` : '—'}</div>
-          </div>
-        </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {quickActions.map((action) => {
@@ -512,13 +554,9 @@ const Dashboard = () => {
                 to={action.path}
                 className="group block"
               >
-                <div className="flex items-center space-x-3 p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
-                  <div className={`p-2 rounded-lg ${action.color} text-white`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <span className="font-medium group-hover:text-primary transition-colors">
-                    {action.name}
-                  </span>
+                <div className="flex items-center space-x-3 p-4 rounded-xl border border-border bg-gradient-to-r from-secondary/60 to-secondary/40 hover:to-secondary/60 transition-all duration-200 hover:-translate-y-0.5 hover:shadow">
+                  <div className={`p-2 rounded-lg ${action.color} text-white`}><Icon className="w-5 h-5" /></div>
+                  <span className="font-medium group-hover:text-primary transition-colors">{action.name}</span>
                 </div>
               </Link>
             );
@@ -527,28 +565,28 @@ const Dashboard = () => {
       </div>
 
       {/* Cloud & Infra Tools */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Cloud & Infra Tools</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <button onClick={runAuditNetwork} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
             <div className="font-medium">Audit Network Policies</div>
             <div className="text-xs text-muted-foreground">Detect open ports and risky rules</div>
-            {toolLoading === 'network' && <div className="text-xs mt-2">Running…</div>}
+            {toolLoading === 'network' && <div className="text-xs mt-2"><Skeleton className="h-3 w-24" /></div>}
           </button>
           <button onClick={runBackupPlan} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
             <div className="font-medium">Backup & DR Plan</div>
             <div className="text-xs text-muted-foreground">Define retention and DR drills</div>
-            {toolLoading === 'backup' && <div className="text-xs mt-2">Running…</div>}
+            {toolLoading === 'backup' && <div className="text-xs mt-2"><Skeleton className="h-3 w-20" /></div>}
           </button>
           <button onClick={runCleanupScan} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
             <div className="font-medium">Cleanup Scan (Dry Run)</div>
             <div className="text-xs text-muted-foreground">Find idle/orphaned assets</div>
-            {toolLoading === 'cleanup' && <div className="text-xs mt-2">Running…</div>}
+            {toolLoading === 'cleanup' && <div className="text-xs mt-2"><Skeleton className="h-3 w-28" /></div>}
           </button>
           <button onClick={runMultiRegionPlan} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
             <div className="font-medium">Multi-Region Plan</div>
             <div className="text-xs text-muted-foreground">Plan canary rollout across regions</div>
-            {toolLoading === 'multi' && <div className="text-xs mt-2">Running…</div>}
+            {toolLoading === 'multi' && <div className="text-xs mt-2"><Skeleton className="h-3 w-24" /></div>}
           </button>
           <div className="p-4 bg-secondary/50 rounded-lg text-left">
             <div className="font-medium mb-2">Safe Cutover</div>
@@ -746,13 +784,13 @@ const Dashboard = () => {
       </div>
 
       {/* System Modules Status */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">System Modules Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {systemModules.map((module) => {
             const Icon = module.icon;
             return (
-              <div key={module.name} className="flex items-center space-x-3 p-3 bg-secondary/50 rounded-lg">
+              <div key={module.name} className="flex items-center space-x-3 p-3 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <Icon className="w-5 h-5 text-primary" />
                 </div>
@@ -774,7 +812,7 @@ const Dashboard = () => {
       {/* Agent Status and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Agent Status */}
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">AI Agent Status</h2>
             <Link to="/agents" className="text-primary hover:underline text-sm">
@@ -783,7 +821,7 @@ const Dashboard = () => {
           </div>
           <div className="space-y-3">
             {agentStatuses.map((agent) => (
-              <div key={agent.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+              <div key={agent.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className={`w-2 h-2 rounded-full ${
                     agent.status === 'active' ? 'bg-green-500' :
@@ -805,7 +843,7 @@ const Dashboard = () => {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-card border border-border rounded-lg p-6">
+        <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Recent Activity</h2>
             <button className="text-primary hover:underline text-sm">
@@ -813,34 +851,28 @@ const Dashboard = () => {
             </button>
           </div>
           <div className="space-y-3">
-                         {recentActivities.map((activity) => {
-               return (
-                 <div key={activity.id} className="flex items-start space-x-3 p-3 bg-secondary/50 rounded-lg">
-                   <div className="p-1 bg-primary/10 rounded">
-                     {getActivityTypeIcon(activity.type)}
-                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">{activity.title}</span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${getActivityStatusColor(activity.status).replace('text-', 'bg-')} bg-opacity-10`}>
-                        {activity.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-muted-foreground">{activity.timestamp}</span>
-                      <span className="text-xs text-muted-foreground">{activity.agent}</span>
-                    </div>
+            {recentActivities.map((activity) => (
+              <div key={activity.id} className="flex items-start space-x-3 p-3 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
+                <div className="p-1 bg-primary/10 rounded">{getActivityTypeIcon(activity.type)}</div>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">{activity.title}</span>
+                    <span className={getActivityStatusBadge(activity.status)}>{activity.status}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">{activity.description}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-muted-foreground">{activity.timestamp}</span>
+                    <span className="text-xs text-muted-foreground">{activity.agent}</span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* System Health Overview */}
-      <div className="bg-card border border-border rounded-lg p-6">
+      <div className="bg-card/60 backdrop-blur border border-border rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">System Health Overview</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="text-center p-4 bg-green-500/10 rounded-lg">

@@ -6,6 +6,7 @@ import { Label } from '../ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ShieldCheck, PackageSearch, KeyRound, Scale, ScrollText, Loader2, Play } from 'lucide-react';
 import aiServicesAPI from '../../lib/api';
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '../ui/breadcrumb';
 import { toast } from 'sonner';
 
 const pretty = (v: any) => JSON.stringify(v, null, 2);
@@ -240,7 +241,18 @@ const SecurityComplianceCenter: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Security & Compliance</h1>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Security & Compliance</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <h1 className="text-3xl font-bold mt-2">Security & Compliance</h1>
           <p className="text-muted-foreground">Supply chain, SBOMs, data classification, OPA, and auditor mode</p>
         </div>
       </div>
