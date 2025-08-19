@@ -15,6 +15,13 @@ import Dashboard from './components/Dashboard';
 import CloudConnection from './components/CloudConnection';
 import ResourceList from './components/ResourceList';
 import AIChat from './components/AIChat';
+import LandingHero from './components/LandingHero';
+import ProtectedRoute from './components/ProtectedRoute';
+import SRECenter from './components/sre/SRECenter';
+import FinOpsCenter from './components/finops/FinOpsCenter';
+import SecurityComplianceCenter from './components/security/SecurityComplianceCenter';
+import MLOpsCenter from './components/mlops/MLOpsCenter';
+import IntegrationsRAGCenter from './components/integrations/IntegrationsRAGCenter';
 
 // Styles
 import './styles/globals.css';
@@ -41,13 +48,20 @@ function App() {
                 <Navigation />
                 <main className="flex-1 p-6">
                   <Routes>
-                    {/* Core Routes */}
-                    <Route path="/" element={<Dashboard />} />
+                    {/* Public */}
+                    <Route path="/" element={<LandingHero />} />
                     <Route path="/login" element={<LoginPage />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/cloud-connection" element={<CloudConnection />} />
-                    <Route path="/resources" element={<ResourceList />} />
-                    <Route path="/chat" element={<AIChat />} />
+
+                    {/* Protected */}
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/cloud-connection" element={<ProtectedRoute><CloudConnection /></ProtectedRoute>} />
+                    <Route path="/resources" element={<ProtectedRoute><ResourceList /></ProtectedRoute>} />
+                    <Route path="/chat" element={<ProtectedRoute><AIChat /></ProtectedRoute>} />
+                    <Route path="/sre" element={<ProtectedRoute><SRECenter /></ProtectedRoute>} />
+                    <Route path="/finops" element={<ProtectedRoute><FinOpsCenter /></ProtectedRoute>} />
+                    <Route path="/security" element={<ProtectedRoute><SecurityComplianceCenter /></ProtectedRoute>} />
+                    <Route path="/mlops" element={<ProtectedRoute><MLOpsCenter /></ProtectedRoute>} />
+                    <Route path="/integrations-rag" element={<ProtectedRoute><IntegrationsRAGCenter /></ProtectedRoute>} />
                     
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />

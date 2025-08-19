@@ -128,6 +128,56 @@ const Navigation = () => {
             >
               Integrations
             </Link>
+            <Link 
+              to="/integrations-rag" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/integrations-rag' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Integrations & RAG
+            </Link>
+            <Link 
+              to="/finops" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/finops' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              FinOps
+            </Link>
+            <Link 
+              to="/sre" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/sre' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              SRE Center
+            </Link>
+            <Link 
+              to="/security" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/security' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Security
+            </Link>
+            <Link 
+              to="/mlops" 
+              className={`text-sm font-medium transition-colors ${
+                location.pathname === '/mlops' 
+                  ? 'text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              MLOps
+            </Link>
           </div>
 
           {/* Right Side Actions */}

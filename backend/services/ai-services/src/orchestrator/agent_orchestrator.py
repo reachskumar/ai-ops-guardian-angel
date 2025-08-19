@@ -28,11 +28,19 @@ from ..agents.advanced.architecture_agent import ArchitectureAgent
 from ..agents.mlops.model_training_agent import ModelTrainingAgent
 from ..agents.mlops.data_pipeline_agent import DataPipelineAgent
 from ..agents.mlops.model_monitoring_agent import ModelMonitoringAgent
+from ..agents.mlops.feature_store_ops_agent import FeatureStoreOpsAgent
+from ..agents.mlops.model_rollback_agent import ModelRollbackAgent
+from ..agents.mlops.data_drift_agent import DataDriftAgent
 
 # Security & Compliance Agents
 from ..agents.security.threat_hunting_agent import ThreatHuntingAgent
 from ..agents.security.compliance_automation_agent import ComplianceAutomationAgent
 from ..agents.security.zero_trust_agent import ZeroTrustAgent
+from ..agents.security.sbom_management_agent import SBOMManagementAgent
+from ..agents.security.supply_chain_security_agent import SupplyChainSecurityAgent
+from ..agents.security.data_classification_agent import DataClassificationAgent
+from ..agents.security.opa_enforcer_agent import OPAEnforcerAgent
+from ..agents.security.auditor_mode_agent import AuditorModeAgent
 
 # Human-in-Loop Agents
 from ..agents.human_loop.approval_workflow_agent import ApprovalWorkflowAgent
@@ -62,6 +70,56 @@ from ..config.settings import AgentType, settings
 from ..utils.logging import get_logger
 from ..utils.metrics import system_metrics
 
+# New governance/safety/finops agents
+try:
+    from ..agents.governance.tag_enforcement_agent import TagEnforcementAgent
+    from ..agents.governance.drift_reconciliation_agent import DriftReconciliationAgent
+    from ..agents.governance.iac_import_agent import IaCImportAgent
+    from ..agents.finops.commitments_advisor_agent import CommitmentsAdvisorAgent
+    from ..agents.finops.off_hours_scheduler_agent import OffHoursSchedulerAgent
+    from ..agents.finops.cost_anomaly_agent import CostAnomalyAgent
+    from ..agents.finops.data_lifecycle_agent import DataLifecycleAgent
+    from ..agents.finops.egress_optimizer_agent import EgressOptimizerAgent
+    from ..agents.finops.unit_economics_agent import UnitEconomicsAgent
+    from ..agents.compliance.evidence_packager_agent import EvidencePackagerAgent
+    from ..agents.security.break_glass_agent import BreakGlassAgent
+    from ..agents.security.secrets_rotation_agent import SecretsRotationAgent
+    from ..agents.security.kms_key_rotation_agent import KMSKeyRotationAgent
+    from ..agents.governance.change_impact_simulator_agent import ChangeImpactSimulatorAgent
+    NEW_AGENTS_AVAILABLE = True
+except Exception:
+    NEW_AGENTS_AVAILABLE = False
+
+# Cloud & Infra agents
+try:
+    from ..agents.cloud.network_policy_agent import NetworkPolicyAgent
+    from ..agents.cloud.backup_dr_agent import BackupAndDRAgent
+    from ..agents.cloud.safe_cutover_agent import SafeCutoverAgent
+    from ..agents.cloud.bulk_cleanup_agent import BulkCleanupAgent
+    from ..agents.cloud.multi_region_orchestrator_agent import MultiRegionOrchestratorAgent
+    NEW_CLOUD_AGENTS_AVAILABLE = True
+except Exception:
+    NEW_CLOUD_AGENTS_AVAILABLE = False
+
+# SRE & Observability agents
+try:
+    from ..agents.sre.incident_manager_agent import IncidentManagerAgent
+    from ..agents.sre.slo_manager_agent import SLOManagerAgent
+    from ..agents.sre.change_correlation_agent import ChangeCorrelationAgent
+    from ..agents.sre.runbook_generator_agent import RunbookGeneratorAgent
+    NEW_SRE_AGENTS_AVAILABLE = True
+except Exception:
+    NEW_SRE_AGENTS_AVAILABLE = False
+
+# Integrations & RAG agents
+try:
+    from ..agents.integrations.integration_installer_agent import IntegrationInstallerAgent
+    from ..agents.integrations.webhook_normalizer_agent import WebhookNormalizerAgent
+    from ..agents.rag.knowledge_ingestion_agent import KnowledgeIngestionAgent
+    from ..agents.rag.freshness_guardian_agent import FreshnessGuardianAgent
+    NEW_INTEGRATION_RAG_AGENTS_AVAILABLE = True
+except Exception:
+    NEW_INTEGRATION_RAG_AGENTS_AVAILABLE = False
 
 class OrchestratorStatus(str, Enum):
     INITIALIZING = "initializing"
@@ -126,6 +184,33 @@ class AgentOrchestrator:
         self.agent_conversations: Dict[str, List[Dict[str, Any]]] = {}
         
         self.logger.info("Agent Orchestrator initialized")
+
+    async def get_agent(self, agent_type: AgentType) -> Optional[BaseAgent]:
+        """Return an available agent instance for the requested type.
+        Lazily initializes agents if not yet started.
+        """
+        # Lazy init/start if needed
+        if not self.agents:
+            await self._initialize_core_agents()
+            await self._initialize_advanced_agents()
+            await self._start_all_agents()
+            self.status = OrchestratorStatus.RUNNING
+
+        if agent_type not in self.agent_types:
+            self.logger.warning(f"No agents registered for type {agent_type}")
+            return None
+
+        # Pick the least loaded active agent
+        candidate_id = None
+        min_load = 1e9
+        for agent_id in self.agent_types[agent_type]:
+            ag = self.agents.get(agent_id)
+            if ag and ag.is_active:
+                current_load = len(ag.current_tasks)
+                if current_load < min_load:
+                    candidate_id = agent_id
+                    min_load = current_load
+        return self.agents.get(candidate_id) if candidate_id else None
     
     async def start(self) -> bool:
         """Start the orchestrator and all agents"""
@@ -373,7 +458,12 @@ class AgentOrchestrator:
         security_agents = [
             ThreatHuntingAgent(),
             ComplianceAutomationAgent(),
-            ZeroTrustAgent()
+            ZeroTrustAgent(),
+            SupplyChainSecurityAgent(),
+            SBOMManagementAgent(),
+            DataClassificationAgent(),
+            OPAEnforcerAgent(),
+            AuditorModeAgent(),
         ]
         
         # Human-in-Loop Agents
@@ -402,7 +492,10 @@ class AgentOrchestrator:
         mlops_agents = [
             ModelTrainingAgent(),
             DataPipelineAgent(),
-            ModelMonitoringAgent()
+            ModelMonitoringAgent(),
+            FeatureStoreOpsAgent(),
+            ModelRollbackAgent(),
+            DataDriftAgent(),
         ]
         
         # Advanced DevOps Agents
@@ -417,11 +510,46 @@ class AgentOrchestrator:
             PerformanceTestingAgent(),
             CloudOpsAgent()
         ]
+
+        # Governance/Safety/FinOps Agents (optional if files exist)
+        governance_agents = []
+        if NEW_AGENTS_AVAILABLE:
+            governance_agents = [
+                TagEnforcementAgent(),
+                DriftReconciliationAgent(),
+                IaCImportAgent(),
+                CommitmentsAdvisorAgent(),
+                OffHoursSchedulerAgent(),
+                CostAnomalyAgent(),
+                DataLifecycleAgent(),
+                EgressOptimizerAgent(),
+                UnitEconomicsAgent(),
+                EvidencePackagerAgent(),
+                BreakGlassAgent(),
+                SecretsRotationAgent(),
+                KMSKeyRotationAgent(),
+                ChangeImpactSimulatorAgent(),
+            ]
         
+        # Cloud & Infra
+        cloud_infra_agents = []
+        if NEW_CLOUD_AGENTS_AVAILABLE:
+            cloud_infra_agents = [
+                NetworkPolicyAgent(),
+                BackupAndDRAgent(),
+                SafeCutoverAgent(),
+                BulkCleanupAgent(),
+                MultiRegionOrchestratorAgent(),
+            ]
+
         # Combine all advanced agents
-        all_advanced_agents = (advanced_agents + security_agents + human_loop_agents + 
-                             git_deploy_agents + analytics_agents + mlops_agents + 
-                             advanced_devops_agents + specialized_devops_agents)
+        all_advanced_agents = (advanced_agents + security_agents + human_loop_agents +
+                             git_deploy_agents + analytics_agents + mlops_agents +
+                             advanced_devops_agents + specialized_devops_agents + governance_agents + cloud_infra_agents + (
+                                [IncidentManagerAgent(), SLOManagerAgent(), ChangeCorrelationAgent(), RunbookGeneratorAgent()] if NEW_SRE_AGENTS_AVAILABLE else []
+                             ) + (
+                                [IntegrationInstallerAgent(), WebhookNormalizerAgent(), KnowledgeIngestionAgent(), FreshnessGuardianAgent()] if NEW_INTEGRATION_RAG_AGENTS_AVAILABLE else []
+                             ))
         
         for agent in all_advanced_agents:
             agent_id = f"{agent.agent_type.value}_{agent.id[:8]}"

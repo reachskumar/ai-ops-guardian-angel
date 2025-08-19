@@ -26,6 +26,12 @@ from api.hitl_endpoints import router as hitl_router
 from api.plugin_endpoints import router as plugin_router
 from api.integration_endpoints import router as integration_router
 from api.cloud_endpoints import router as cloud_router
+from api.cloud_infra_endpoints import router as cloud_infra_router
+from api.sre_endpoints import router as sre_router
+from api.finops_endpoints import router as finops_router
+from api.security_compliance_endpoints import router as sec_router
+from api.mlops_endpoints import router as mlops_router
+from api.integrations_rag_endpoints import router as integrations_rag_router
 
 # Import core systems for status checks
 from agents.langgraph.langgraph_orchestrator import langgraph_orchestrator
@@ -70,6 +76,12 @@ app.include_router(hitl_router, prefix="/api/v1")
 app.include_router(plugin_router, prefix="/api/v1")
 app.include_router(integration_router, prefix="/api/v1")
 app.include_router(cloud_router, prefix="/api/v1")
+app.include_router(cloud_infra_router, prefix="/api/v1")
+app.include_router(sre_router, prefix="/api/v1")
+app.include_router(finops_router, prefix="/api/v1")
+app.include_router(sec_router, prefix="/api/v1")
+app.include_router(mlops_router, prefix="/api/v1")
+app.include_router(integrations_rag_router, prefix="/api/v1")
 
 
 async def get_system_status() -> Dict[str, Any]:

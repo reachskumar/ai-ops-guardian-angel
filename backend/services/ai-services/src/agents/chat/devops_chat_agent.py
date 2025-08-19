@@ -69,6 +69,30 @@ class IntentType(str, Enum):
     
     # General
     GENERAL_QUERY = "general_query"
+    
+    # Governance & FinOps & Safety (new)
+    TAG_ENFORCEMENT = "tag_enforcement"
+    DRIFT_RECONCILIATION = "drift_reconciliation"
+    IAC_IMPORT = "iac_import"
+    COMMITMENTS_ADVISOR = "commitments_advisor"
+    OFF_HOURS_SCHEDULER = "off_hours_scheduler"
+    EVIDENCE_PACKAGER = "evidence_packager"
+    BREAK_GLASS = "break_glass"
+    SECRETS_ROTATION = "secrets_rotation"
+    KMS_KEY_ROTATION = "kms_key_rotation"
+    CHANGE_IMPACT_SIMULATOR = "change_impact_simulator"
+
+    # Cloud & Infra (new)
+    NETWORK_POLICY = "network_policy"
+    BACKUP_DR = "backup_dr"
+    SAFE_CUTOVER = "safe_cutover"
+    BULK_CLEANUP = "bulk_cleanup"
+    MULTI_REGION = "multi_region"
+    # SRE & Observability
+    INCIDENT_MANAGER = "incident_manager"
+    SLO_MANAGER = "slo_manager"
+    CHANGE_CORRELATION = "change_correlation"
+    RUNBOOK_GENERATOR = "runbook_generator"
 
 
 @dataclass
@@ -256,6 +280,39 @@ class DevOpsChatAgent(BaseAgent):
                 "performance", "load test", "stress test", "benchmark", "performance testing",
                 "load testing", "stress testing", "performance analysis"
             ]
+            ,
+            # Governance & FinOps & Safety
+            IntentType.TAG_ENFORCEMENT: ["tag", "tags", "retag", "tagging", "canonical tags"],
+            IntentType.DRIFT_RECONCILIATION: ["drift", "reconcile", "state drift", "sync desired"],
+            IntentType.IAC_IMPORT: ["import", "terraformer", "pulumi import", "baseline"],
+            IntentType.COMMITMENTS_ADVISOR: ["commitment", "ri", "savings plan", "rightsizing", "finops"],
+            IntentType.OFF_HOURS_SCHEDULER: ["off hours", "schedule stop", "nightly stop", "start schedule"],
+            IntentType.EVIDENCE_PACKAGER: ["evidence", "audit pack", "evidence pack", "audit"],
+            IntentType.BREAK_GLASS: ["break glass", "emergency access", "elevated"],
+            IntentType.SECRETS_ROTATION: ["rotate secret", "rotate key", "credential rotation"],
+            IntentType.KMS_KEY_ROTATION: ["kms rotation", "rotate key", "cmk"],
+            IntentType.CHANGE_IMPACT_SIMULATOR: ["what if", "simulate", "impact", "cost delta", "slo risk"],
+            # Cloud & Infra
+            IntentType.NETWORK_POLICY: [
+                "network policy", "security group", "nsg", "firewall", "open port", "ingress", "egress"
+            ],
+            IntentType.BACKUP_DR: [
+                "backup", "snapshot", "retention", "dr", "disaster recovery", "restore validation", "drill"
+            ],
+            IntentType.SAFE_CUTOVER: [
+                "cutover", "blue green", "blue/green", "traffic shift", "weighted", "canary", "dns", "ttl", "rollout"
+            ],
+            IntentType.BULK_CLEANUP: [
+                "cleanup", "garbage collect", "orphaned", "unused", "idle", "old snapshots", "unattached disks"
+            ],
+            IntentType.MULTI_REGION: [
+                "multi region", "multi-region", "regional rollout", "regions", "canary across regions", "rollback"
+            ],
+            # SRE & Observability
+            IntentType.INCIDENT_MANAGER: ["incident", "alert", "dedup", "what changed", "chatops", "rca"],
+            IntentType.SLO_MANAGER: ["slo", "error budget", "burn rate", "budget"],
+            IntentType.CHANGE_CORRELATION: ["correlate", "deploy", "config change", "rollback suggestion"],
+            IntentType.RUNBOOK_GENERATOR: ["runbook", "playbook", "guide"],
         }
 
         self.logger.info("DevOps Chat Agent initialized with orchestrator")
@@ -344,9 +401,27 @@ class DevOpsChatAgent(BaseAgent):
                     response = await self._handle_chatops(message, parsed_intent, tenant_id=tenant_id)
                 elif parsed_intent.intent_type == IntentType.INFRASTRUCTURE:
                     # Simple route to CloudOpsAgent for now
-                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
+                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id, tenant_id)
+                elif parsed_intent.intent_type in [
+                    IntentType.TAG_ENFORCEMENT,
+                    IntentType.DRIFT_RECONCILIATION,
+                    IntentType.IAC_IMPORT,
+                    IntentType.COMMITMENTS_ADVISOR,
+                    IntentType.OFF_HOURS_SCHEDULER,
+                    IntentType.EVIDENCE_PACKAGER,
+                    IntentType.BREAK_GLASS,
+                    IntentType.SECRETS_ROTATION,
+                    IntentType.KMS_KEY_ROTATION,
+                    IntentType.CHANGE_IMPACT_SIMULATOR,
+                    IntentType.NETWORK_POLICY,
+                    IntentType.BACKUP_DR,
+                    IntentType.SAFE_CUTOVER,
+                    IntentType.BULK_CLEANUP,
+                    IntentType.MULTI_REGION,
+                ]:
+                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id, tenant_id)
                 else:
-                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id)
+                    response = await self._route_to_specialized_agent(message, parsed_intent, user_id, tenant_id)
             
             # Add response to memory
             self.conversation_memory.chat_memory.add_ai_message(response['message'])
@@ -570,7 +645,7 @@ class DevOpsChatAgent(BaseAgent):
         
         return RiskLevel.LOW
 
-    async def _route_to_specialized_agent(self, message: str, parsed_intent: ParsedIntent, user_id: str) -> Dict[str, Any]:
+    async def _route_to_specialized_agent(self, message: str, parsed_intent: ParsedIntent, user_id: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
         """Route the request to the appropriate specialized agent"""
         
         # Map intent to agent type - complete mapping for all 28 agents
@@ -618,7 +693,29 @@ class DevOpsChatAgent(BaseAgent):
             
             # Specialized DevOps Agents
             IntentType.ARTIFACT_MANAGEMENT: AgentType.ARTIFACT_MANAGEMENT,
-            IntentType.PERFORMANCE_TESTING: AgentType.PERFORMANCE_TESTING
+            IntentType.PERFORMANCE_TESTING: AgentType.PERFORMANCE_TESTING,
+            # Governance & FinOps & Safety
+            IntentType.TAG_ENFORCEMENT: AgentType.TAG_ENFORCEMENT,
+            IntentType.DRIFT_RECONCILIATION: AgentType.DRIFT_RECONCILIATION,
+            IntentType.IAC_IMPORT: AgentType.IAC_IMPORT,
+            IntentType.COMMITMENTS_ADVISOR: AgentType.COMMITMENTS_ADVISOR,
+            IntentType.OFF_HOURS_SCHEDULER: AgentType.OFF_HOURS_SCHEDULER,
+            IntentType.EVIDENCE_PACKAGER: AgentType.EVIDENCE_PACKAGER,
+            IntentType.BREAK_GLASS: AgentType.BREAK_GLASS,
+            IntentType.SECRETS_ROTATION: AgentType.SECRETS_ROTATION,
+            IntentType.KMS_KEY_ROTATION: AgentType.KMS_KEY_ROTATION,
+            IntentType.CHANGE_IMPACT_SIMULATOR: AgentType.CHANGE_IMPACT_SIMULATOR,
+            # Cloud & Infra
+            IntentType.NETWORK_POLICY: AgentType.NETWORK_POLICY,
+            IntentType.BACKUP_DR: AgentType.BACKUP_DR,
+            IntentType.SAFE_CUTOVER: AgentType.SAFE_CUTOVER,
+            IntentType.BULK_CLEANUP: AgentType.BULK_CLEANUP,
+            IntentType.MULTI_REGION: AgentType.MULTI_REGION_ORCHESTRATOR,
+            # SRE & Observability
+            IntentType.INCIDENT_MANAGER: AgentType.INCIDENT_MANAGER,
+            IntentType.SLO_MANAGER: AgentType.SLO_MANAGER,
+            IntentType.CHANGE_CORRELATION: AgentType.CHANGE_CORRELATION,
+            IntentType.RUNBOOK_GENERATOR: AgentType.RUNBOOK_GENERATOR,
         }
         
         target_agent_type = agent_mapping.get(parsed_intent.intent_type)
@@ -644,7 +741,8 @@ class DevOpsChatAgent(BaseAgent):
                     'user_message': message,
                     'entities': parsed_intent.entities,
                     'user_id': user_id,
-                    'requires_approval': parsed_intent.requires_approval
+                    'requires_approval': parsed_intent.requires_approval,
+                    'tenant_id': tenant_id,
                 },
                 priority='high' if parsed_intent.risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL] else 'medium'
             )

@@ -176,14 +176,33 @@ class APIClient {
   }
 
   // AI Services API
-  async sendChatMessage(message: string, agentType?: string): Promise<APIResponse<ChatMessage>> {
+  async sendChatMessage(params: { message: string; tenantId?: string; sessionId?: string; context?: string; }): Promise<APIResponse<any>> {
+    const { message, tenantId, sessionId, context } = params;
     return this.request('/chat', {
       method: 'POST',
       body: JSON.stringify({
         message,
-        agent_type: agentType,
-        user_id: 'demo_user', // TODO: Get from auth context
+        user_id: 'demo_user',
+        session_id: sessionId,
+        tenant_id: tenantId,
+        context,
       }),
+    });
+  }
+
+  async approveChat(params: { tenantId?: string; sessionId?: string; userId?: string; reason?: string; }): Promise<APIResponse<any>> {
+    const { tenantId, sessionId, userId, reason } = params;
+    return this.request('/chat/approve', {
+      method: 'POST',
+      body: JSON.stringify({ tenant_id: tenantId, session_id: sessionId, user_id: userId || 'demo_user', reason })
+    });
+  }
+
+  async cancelChat(params: { tenantId?: string; sessionId?: string; userId?: string; reason?: string; }): Promise<APIResponse<any>> {
+    const { tenantId, sessionId, userId, reason } = params;
+    return this.request('/chat/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ tenant_id: tenantId, session_id: sessionId, user_id: userId || 'demo_user', reason })
     });
   }
 
@@ -356,6 +375,247 @@ class APIClient {
     if (params?.page_size) qs.set('page_size', String(params.page_size));
     const query = qs.toString();
     return this.request(`/dashboard/resources${query ? `?${query}` : ''}`);
+  }
+
+  // Cloud & Infra APIs
+  async auditNetworkPolicy(tenantId: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/cloud/infra/network/policy/audit', {
+      method: 'POST',
+      body: JSON.stringify({ tenant_id: tenantId })
+    });
+  }
+
+  async backupDR(req: { tenant_id: string; action?: 'plan' | 'drill' | 'validate_restore'; env?: string; }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/cloud/infra/backup/dr', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async cutoverExecute(req: { tenant_id: string; name: string; strategy?: string; source_env?: string; target_env?: string; steps: any[]; }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/cloud/infra/cutover/execute', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async cleanupScanExecute(req: { tenant_id: string; provider?: string; policy_id?: string; execute?: boolean; dry_run?: boolean; }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/cloud/infra/cleanup/scan_execute', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async multiRegionPlan(req: { regions: string[]; strategy?: string; batch_size?: number; }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/cloud/infra/multi-region/plan', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  // SRE APIs
+  async sreIncidentManage(req: { tenant_id?: string; service?: string; alerts: any[] }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sre/incident/manage', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async sreSLOEvaluate(slo: any): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sre/slo/evaluate', {
+      method: 'POST',
+      body: JSON.stringify({ slo })
+    });
+  }
+
+  async sreChangeCorrelate(req: { incident_id: string; service?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sre/change/correlate', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async sreRunbookGenerate(req: { tenant_id?: string; incident: any }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sre/runbook/generate', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  // FinOps APIs
+  async finopsCostAnomalyDetect(req?: { window?: string; granularity?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/cost/anomaly/detect', {
+      method: 'POST',
+      body: JSON.stringify(req || {})
+    });
+  }
+
+  async finopsCostAnomalyExplain(anomaly_id: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/cost/anomaly/explain', {
+      method: 'POST',
+      body: JSON.stringify({ anomaly_id })
+    });
+  }
+
+  async finopsDataTieringPlan(req: { bucket?: string; after_days?: number }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/data/tiering/plan', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async finopsRetentionPolicy(req: { dataset?: string; retain_days?: number }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/data/retention/policy', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async finopsCleanupScan(req: { path_prefix?: string; min_size_gb?: number }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/data/cleanup/scan', {
+      method: 'POST',
+      body: JSON.stringify(req)
+    });
+  }
+
+  async finopsEgressHotspots(req?: { window?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/egress/hotspots', {
+      method: 'POST',
+      body: JSON.stringify(req || {})
+    });
+  }
+
+  async finopsEgressSuggest(req?: { service?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/egress/suggest', {
+      method: 'POST',
+      body: JSON.stringify(req || {})
+    });
+  }
+
+  async finopsUnitMap(req?: { basis?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/unit/map', {
+      method: 'POST',
+      body: JSON.stringify(req || {})
+    });
+  }
+
+  async finopsUnitRegressions(req?: { window?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/finops/unit/regressions', {
+      method: 'POST',
+      body: JSON.stringify(req || {})
+    });
+  }
+
+  // Security & Compliance APIs
+  async secCosignSign(image: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/supply/sign', { method: 'POST', body: JSON.stringify({ image }) });
+  }
+
+  async secCosignVerify(image: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/supply/verify', { method: 'POST', body: JSON.stringify({ image }) });
+  }
+
+  async secSlsaProvenance(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/supply/provenance', { method: 'POST' });
+  }
+
+  async secSbomGenerate(req?: { image?: string }): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/sbom/generate', { method: 'POST', body: JSON.stringify(req || {}) });
+  }
+
+  async secSbomScanCorrelate(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/sbom/scan/correlate', { method: 'POST' });
+  }
+
+  async secDataPiiDetect(source?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/data/pii_detect', { method: 'POST', body: JSON.stringify({ source }) });
+  }
+
+  async secDataSecretDetect(source?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/data/secret_detect', { method: 'POST', body: JSON.stringify({ source }) });
+  }
+
+  async secDataResidencyEnforce(scope?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/data/residency_enforce', { method: 'POST', body: JSON.stringify({ scope }) });
+  }
+
+  async secOpaBundle(target?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/opa/bundle', { method: 'POST', body: JSON.stringify({ target }) });
+  }
+
+  async secOpaSimulate(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/opa/simulate', { method: 'POST' });
+  }
+
+  async secAllowlistEnforce(scope?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/opa/allowlist_enforce', { method: 'POST', body: JSON.stringify({ scope }) });
+  }
+
+  async secAuditorSessionStart(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/auditor/session/start', { method: 'POST' });
+  }
+
+  async secAuditorSessionEnd(session_id: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/auditor/session/end', { method: 'POST', body: JSON.stringify({ session_id }) });
+  }
+
+  async secAuditorTrailExport(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/sec/auditor/trail/export', { method: 'POST' });
+  }
+
+  // MLOps APIs
+  async mlFeatureLineage(dataset?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/feature/lineage', { method: 'POST', body: JSON.stringify({ dataset }) });
+  }
+  async mlFeatureDrift(feature?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/feature/drift', { method: 'POST', body: JSON.stringify({ feature }) });
+    }
+  async mlFeatureACL(principal: string, role: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/feature/acl', { method: 'POST', body: JSON.stringify({ principal, role }) });
+  }
+  async mlModelCanary(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/model/canary', { method: 'POST' });
+  }
+  async mlModelRollback(previous_version?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/model/rollback', { method: 'POST', body: JSON.stringify({ previous_version }) });
+  }
+  async mlModelSafetyGate(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/model/safety_gate', { method: 'POST' });
+  }
+  async mlDataDriftDetect(feature?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/data/drift/detect', { method: 'POST', body: JSON.stringify({ feature }) });
+  }
+  async mlDataRetrain(pipeline?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/mlops/data/retrain', { method: 'POST', body: JSON.stringify({ pipeline }) });
+  }
+
+  // Integrations & RAG APIs
+  async irInstall(provider: string, config?: Record<string, any>): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/install', { method: 'POST', body: JSON.stringify({ provider, config }) });
+  }
+  async irOAuthAuthorize(provider: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/oauth/authorize', { method: 'POST', body: JSON.stringify({ provider }) });
+  }
+  async irConfigApply(provider: string, config: Record<string, any>): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/config/apply', { method: 'POST', body: JSON.stringify({ provider, config }) });
+  }
+  async irHealthCheck(provider: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/health/check', { method: 'POST', body: JSON.stringify({ provider }) });
+  }
+  async irWebhookNormalize(provider: string, event: Record<string, any>): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/webhook/normalize', { method: 'POST', body: JSON.stringify({ provider, event }) });
+  }
+  async irKnowledgeIngest(sources: string[], collection?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/knowledge/ingest', { method: 'POST', body: JSON.stringify({ sources, collection }) });
+  }
+  async irKnowledgeChunkEmbed(collection?: string): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/knowledge/chunk_embed', { method: 'POST', body: JSON.stringify({ collection }) });
+  }
+  async irFreshnessScan(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/freshness/scan', { method: 'POST' });
+  }
+  async irFreshnessPrioritize(): Promise<APIResponse<any>> {
+    return this.request('/api/v1/integrations_rag/freshness/prioritize', { method: 'POST' });
   }
 }
 
