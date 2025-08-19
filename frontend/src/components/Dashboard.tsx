@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Bot, 
   Activity, 
@@ -38,6 +38,13 @@ import {
   Filter
 } from 'lucide-react';
 import aiServicesAPI from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import CutoverPlannerModal from './cloud/CutoverPlannerModal';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
 interface SystemMetric {
   name: string;
@@ -183,6 +190,113 @@ const Dashboard = () => {
       agent: 'Compliance Automation Agent'
     }
   ]);
+
+  const { user } = useAuth();
+  const [toolOutput, setToolOutput] = useState<any | null>(null);
+  const [toolLoading, setToolLoading] = useState<string | null>(null);
+  const [cleanupDryRun, setCleanupDryRun] = useState<boolean>(true);
+  const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Initialize filters from URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const sev = params.get('sev');
+    const dry = params.get('dry');
+    if (sev) setSeverityFilter(sev);
+    if (dry !== null) setCleanupDryRun(dry === '1' || dry === 'true');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updateQuery = (key: string, value: string | null) => {
+    const params = new URLSearchParams(location.search);
+    if (value === null) params.delete(key); else params.set(key, value);
+    navigate({ search: params.toString() }, { replace: true });
+  };
+
+  const downloadCsv = (filename: string, rows: Array<Record<string, any>>, headers: Array<{ key: string; label: string }>) => {
+    try {
+      const escape = (val: any) => {
+        if (val === null || val === undefined) return '';
+        const s = String(val).replace(/"/g, '""');
+        return `"${s}"`;
+      };
+      const headerLine = headers.map(h => escape(h.label)).join(',');
+      const lines = rows.map(r => headers.map(h => escape(r[h.key])).join(','));
+      const csv = [headerLine, ...lines].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('CSV export failed', e);
+    }
+  };
+
+  const runAuditNetwork = async () => {
+    if (!user?.tenantId) return;
+    setToolLoading('network');
+    try {
+      const res = await aiServicesAPI.auditNetworkPolicy(user.tenantId);
+      setToolOutput({ title: 'Network Policy Audit', data: res.data || res });
+      toast.success('Network policy audit completed');
+    } finally {
+      setToolLoading(null);
+    }
+  };
+
+  const runBackupPlan = async () => {
+    if (!user?.tenantId) return;
+    setToolLoading('backup');
+    try {
+      const res = await aiServicesAPI.backupDR({ tenant_id: user.tenantId, action: 'plan', env: 'staging' });
+      setToolOutput({ title: 'Backup & DR Plan', data: res.data || res });
+      toast.success('Backup & DR plan generated');
+    } finally {
+      setToolLoading(null);
+    }
+  };
+
+  const runCleanupScan = async () => {
+    if (!user?.tenantId) return;
+    setToolLoading('cleanup');
+    try {
+      const res = await aiServicesAPI.cleanupScanExecute({ tenant_id: user.tenantId, provider: 'aws', execute: false, dry_run: true });
+      setToolOutput({ title: 'Cleanup Scan (Dry Run)', data: res.data || res });
+      toast.success('Cleanup scan completed');
+    } finally {
+      setToolLoading(null);
+    }
+  };
+
+  const executeCleanupNow = async () => {
+    if (!user?.tenantId) return;
+    setToolLoading('cleanup-exec');
+    try {
+      const res = await aiServicesAPI.cleanupScanExecute({ tenant_id: user.tenantId, provider: 'aws', execute: true, dry_run: cleanupDryRun });
+      setToolOutput({ title: cleanupDryRun ? 'Cleanup Execute (Dry Run)' : 'Cleanup Execute', data: res.data || res });
+      toast.success(cleanupDryRun ? 'Cleanup executed (dry run)' : 'Cleanup executed');
+    } finally {
+      setToolLoading(null);
+    }
+  };
+
+  const runMultiRegionPlan = async () => {
+    setToolLoading('multi');
+    try {
+      const res = await aiServicesAPI.multiRegionPlan({ regions: ['us-east-1', 'eu-west-1'], strategy: 'canary', batch_size: 1 });
+      setToolOutput({ title: 'Multi-Region Plan', data: res.data || res });
+      toast.success('Multi-region plan prepared');
+    } finally {
+      setToolLoading(null);
+    }
+  };
 
   const quickActions = [
     { name: 'AI Chat', path: '/chat', icon: Bot, color: 'bg-blue-500' },
@@ -410,6 +524,225 @@ const Dashboard = () => {
             );
           })}
         </div>
+      </div>
+
+      {/* Cloud & Infra Tools */}
+      <div className="bg-card border border-border rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">Cloud & Infra Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <button onClick={runAuditNetwork} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
+            <div className="font-medium">Audit Network Policies</div>
+            <div className="text-xs text-muted-foreground">Detect open ports and risky rules</div>
+            {toolLoading === 'network' && <div className="text-xs mt-2">Running…</div>}
+          </button>
+          <button onClick={runBackupPlan} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
+            <div className="font-medium">Backup & DR Plan</div>
+            <div className="text-xs text-muted-foreground">Define retention and DR drills</div>
+            {toolLoading === 'backup' && <div className="text-xs mt-2">Running…</div>}
+          </button>
+          <button onClick={runCleanupScan} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
+            <div className="font-medium">Cleanup Scan (Dry Run)</div>
+            <div className="text-xs text-muted-foreground">Find idle/orphaned assets</div>
+            {toolLoading === 'cleanup' && <div className="text-xs mt-2">Running…</div>}
+          </button>
+          <button onClick={runMultiRegionPlan} className="p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors text-left">
+            <div className="font-medium">Multi-Region Plan</div>
+            <div className="text-xs text-muted-foreground">Plan canary rollout across regions</div>
+            {toolLoading === 'multi' && <div className="text-xs mt-2">Running…</div>}
+          </button>
+          <div className="p-4 bg-secondary/50 rounded-lg text-left">
+            <div className="font-medium mb-2">Safe Cutover</div>
+            <div className="text-xs text-muted-foreground mb-2">Plan blue/green or weighted cutover</div>
+            <CutoverPlannerModal />
+          </div>
+        </div>
+        {/* Inline trigger for planner */}
+        <div className="mt-3">
+          {/* Render the planner modal trigger */}
+          {/**/}
+        </div>
+        {toolOutput && (
+          <div className="mt-4 p-4 bg-secondary/40 rounded-lg overflow-auto space-y-3">
+            <div className="font-medium">{toolOutput.title}</div>
+            {/* Network Policy Findings Table */}
+            {(() => {
+              const findings = toolOutput?.data?.result?.findings || toolOutput?.data?.findings;
+              if (Array.isArray(findings) && findings.length) {
+                const filtered = findings.filter((f: any) => severityFilter === 'all' || (f.severity || '').toLowerCase() === severityFilter);
+                const onExportFindings = () => {
+                  const rows = filtered.map((f: any) => {
+                    const r = f.rule || {};
+                    const cidr = r.cidr || r.cidr_ip || r.source || '';
+                    const fromp = r.from_port ?? r.port ?? '';
+                    const top = r.to_port ?? r.port ?? '';
+                    const proto = r.protocol ?? r.ip_protocol ?? '';
+                    return {
+                      resource: f.resource,
+                      type: f.type,
+                      issue: f.issue,
+                      severity: f.severity,
+                      rule: `${proto} ${fromp}${top && top !== fromp ? '-' + top : ''} ${cidr}`,
+                      recommendation: f.recommendation,
+                    };
+                  });
+                  downloadCsv('network_findings.csv', rows, [
+                    { key: 'resource', label: 'Resource' },
+                    { key: 'type', label: 'Type' },
+                    { key: 'issue', label: 'Issue' },
+                    { key: 'severity', label: 'Severity' },
+                    { key: 'rule', label: 'Rule' },
+                    { key: 'recommendation', label: 'Recommendation' },
+                  ]);
+                };
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm">{filtered.length} risky rule(s) shown</div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>Severity</span>
+                          <Select value={severityFilter} onValueChange={(v) => { setSeverityFilter(v); updateQuery('sev', v === 'all' ? null : v); }}>
+                            <SelectTrigger className="h-8 w-32">
+                              <SelectValue placeholder="All" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="critical">Critical</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="low">Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button size="sm" onClick={onExportFindings}>Export CSV</Button>
+                      </div>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Resource</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Issue</TableHead>
+                          <TableHead>Severity</TableHead>
+                          <TableHead>Rule</TableHead>
+                          <TableHead>Recommendation</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered.slice(0, 100).map((f: any, idx: number) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-mono text-xs">{f.resource}</TableCell>
+                            <TableCell className="text-xs">{f.type}</TableCell>
+                            <TableCell className="text-xs">{f.issue}</TableCell>
+                            <TableCell className="text-xs capitalize">{f.severity}</TableCell>
+                            <TableCell className="text-xs">
+                              {(() => {
+                                const r = f.rule || {};
+                                const cidr = r.cidr || r.cidr_ip || r.source || '';
+                                const fromp = r.from_port ?? r.port ?? '';
+                                const top = r.to_port ?? r.port ?? '';
+                                const proto = r.protocol ?? r.ip_protocol ?? '';
+                                return `${proto} ${fromp}${top && top !== fromp ? '-' + top : ''} ${cidr}`;
+                              })()}
+                            </TableCell>
+                            <TableCell className="text-xs">{f.recommendation}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Cleanup Candidates Table with Execute Controls */}
+            {(() => {
+              const candidates = toolOutput?.data?.result?.candidates || toolOutput?.data?.candidates;
+              const savings = toolOutput?.data?.result?.savings || toolOutput?.data?.savings;
+              if (Array.isArray(candidates) && candidates.length) {
+                const onExportCleanup = () => {
+                  const rows = candidates.map((c: any) => ({
+                    resource_id: c.resource_id,
+                    resource_name: c.resource_name,
+                    resource_type: c.resource_type,
+                    age_days: c.age_days,
+                    monthly_cost: c.monthly_cost,
+                    reasons: (c.cleanup_reasons || []).join('; '),
+                    owner: c.owner || '',
+                    team: c.team || '',
+                    project: c.project || '',
+                  }));
+                  downloadCsv('cleanup_candidates.csv', rows, [
+                    { key: 'resource_id', label: 'ID' },
+                    { key: 'resource_name', label: 'Name' },
+                    { key: 'resource_type', label: 'Type' },
+                    { key: 'age_days', label: 'Age (days)' },
+                    { key: 'monthly_cost', label: 'Monthly Cost' },
+                    { key: 'reasons', label: 'Reasons' },
+                    { key: 'owner', label: 'Owner' },
+                    { key: 'team', label: 'Team' },
+                    { key: 'project', label: 'Project' },
+                  ]);
+                };
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm">{candidates.length} candidate(s) found</div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>Dry Run</span>
+                          <Switch checked={cleanupDryRun} onCheckedChange={(v) => { setCleanupDryRun(v); updateQuery('dry', v ? '1' : '0'); }} />
+                        </div>
+                        <Button variant="default" onClick={executeCleanupNow} disabled={toolLoading === 'cleanup-exec'}>
+                          {toolLoading === 'cleanup-exec' ? 'Executing…' : (cleanupDryRun ? 'Execute (Dry Run)' : 'Execute Cleanup')}
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={onExportCleanup}>Export CSV</Button>
+                      </div>
+                    </div>
+                    {savings && (
+                      <div className="text-xs text-muted-foreground">
+                        Est. Monthly Savings: ${Number(savings.monthly_cost_savings || 0).toFixed(2)} | Storage Saved: {Number(savings.storage_savings_gb || 0).toFixed(1)} GB
+                      </div>
+                    )}
+                    <div className="overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Age (days)</TableHead>
+                            <TableHead>Monthly Cost</TableHead>
+                            <TableHead>Reasons</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {candidates.slice(0, 200).map((c: any) => (
+                            <TableRow key={c.resource_id}>
+                              <TableCell className="font-mono text-xs">{c.resource_id}</TableCell>
+                              <TableCell className="text-xs">{c.resource_name}</TableCell>
+                              <TableCell className="text-xs">{c.resource_type}</TableCell>
+                              <TableCell className="text-xs">{c.age_days}</TableCell>
+                              <TableCell className="text-xs">${Number(c.monthly_cost || 0).toFixed(2)}</TableCell>
+                              <TableCell className="text-xs">{(c.cleanup_reasons || []).join('; ')}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Fallback raw JSON */}
+            <div className="text-xs whitespace-pre-wrap">
+              <pre>{JSON.stringify(toolOutput.data, null, 2)}</pre>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* System Modules Status */}

@@ -33,6 +33,11 @@ class AgentType(str, Enum):
     THREAT_HUNTING = "threat_hunting"
     COMPLIANCE_AUTOMATION = "compliance_automation"
     ZERO_TRUST_SECURITY = "zero_trust_security"
+    SUPPLY_CHAIN_SECURITY = "supply_chain_security"
+    SBOM_MANAGEMENT = "sbom_management"
+    DATA_CLASSIFICATION = "data_classification"
+    OPA_ENFORCER = "opa_enforcer"
+    AUDITOR_MODE = "auditor_mode"
 
     # Human-in-Loop Agents
     APPROVAL_WORKFLOW = "approval_workflow"
@@ -53,6 +58,9 @@ class AgentType(str, Enum):
     MODEL_TRAINING = "model_training"
     DATA_PIPELINE = "data_pipeline"
     MODEL_MONITORING = "model_monitoring"
+    FEATURE_STORE_OPS = "feature_store_ops"
+    MODEL_ROLLBACK = "model_rollback"
+    DATA_DRIFT = "data_drift"
 
     # Advanced DevOps Agents
     DOCKER = "docker"
@@ -65,6 +73,40 @@ class AgentType(str, Enum):
     # Specialized Workflow Agents
     LANGGRAPH_ORCHESTRATOR = "langgraph_orchestrator"
     AUTO_REMEDIATION = "auto_remediation"
+
+    # Governance & FinOps & Safety Agents (new)
+    TAG_ENFORCEMENT = "tag_enforcement"
+    DRIFT_RECONCILIATION = "drift_reconciliation"
+    IAC_IMPORT = "iac_import"
+    COMMITMENTS_ADVISOR = "commitments_advisor"
+    OFF_HOURS_SCHEDULER = "off_hours_scheduler"
+    COST_ANOMALY = "cost_anomaly"
+    DATA_LIFECYCLE = "data_lifecycle"
+    EGRESS_OPTIMIZER = "egress_optimizer"
+    UNIT_ECONOMICS = "unit_economics"
+    EVIDENCE_PACKAGER = "evidence_packager"
+    BREAK_GLASS = "break_glass"
+    SECRETS_ROTATION = "secrets_rotation"
+    KMS_KEY_ROTATION = "kms_key_rotation"
+    CHANGE_IMPACT_SIMULATOR = "change_impact_simulator"
+
+    # Cloud & Infra Agents (new)
+    NETWORK_POLICY = "network_policy"
+    BACKUP_DR = "backup_dr"
+    SAFE_CUTOVER = "safe_cutover"
+    BULK_CLEANUP = "bulk_cleanup"
+    MULTI_REGION_ORCHESTRATOR = "multi_region_orchestrator"
+
+    # SRE & Observability Agents (new)
+    INCIDENT_MANAGER = "incident_manager"
+    SLO_MANAGER = "slo_manager"
+    CHANGE_CORRELATION = "change_correlation"
+    RUNBOOK_GENERATOR = "runbook_generator"
+    # Integrations & RAG Agents (new)
+    INTEGRATION_INSTALLER = "integration_installer"
+    WEBHOOK_NORMALIZER = "webhook_normalizer"
+    KNOWLEDGE_INGESTION = "knowledge_ingestion"
+    FRESHNESS_GUARDIAN = "freshness_guardian"
 
 
 class Settings(BaseSettings):
@@ -319,6 +361,46 @@ class AgentConfig:
             "priority": "critical",
             "timeout": 180
         },
+        AgentType.SUPPLY_CHAIN_SECURITY: {
+            "name": "Supply Chain Security Agent",
+            "description": "Cosign signing/verification, SLSA provenance, pinned digests",
+            "capabilities": ["Cosign sign", "Cosign verify", "SLSA provenance", "Digest pinning"],
+            "tools": ["cosign", "slsa", "registry_client"],
+            "priority": "critical",
+            "timeout": 300
+        },
+        AgentType.SBOM_MANAGEMENT: {
+            "name": "SBOM Management Agent",
+            "description": "Generate SBOMs, correlate scans, track license/compliance drift",
+            "capabilities": ["SBOM generation", "Scan correlation", "License drift"],
+            "tools": ["syft", "grype", "license_checker"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.DATA_CLASSIFICATION: {
+            "name": "Data Classification Agent",
+            "description": "PII/secret detection in configs/logs; residency policy enforcement",
+            "capabilities": ["PII detection", "Secrets detection", "Residency enforcement"],
+            "tools": ["dlp_scanner", "secrets_scanner", "policy_engine"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.OPA_ENFORCER: {
+            "name": "OPA Enforcer Agent",
+            "description": "Bundle/publish OPA policies, simulate impacts, enforce allow-lists",
+            "capabilities": ["Bundle publish", "Policy simulation", "Allow-list enforcement"],
+            "tools": ["opa_client", "policy_bundler"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.AUDITOR_MODE: {
+            "name": "Auditor Mode Agent",
+            "description": "Read-only, time-boxed access flows with exportable trails",
+            "capabilities": ["Read-only sessions", "Time-boxed access", "Audit export"],
+            "tools": ["identity_provider", "audit_trail"],
+            "priority": "medium",
+            "timeout": 600
+        },
 
         # Human-in-Loop Agents
         AgentType.APPROVAL_WORKFLOW: {
@@ -431,6 +513,30 @@ class AgentConfig:
             "priority": "high",
             "timeout": 120
         },
+        AgentType.FEATURE_STORE_OPS: {
+            "name": "Feature Store Ops Agent",
+            "description": "Dataset/feature lineage, drift monitoring, ACLs",
+            "capabilities": ["Lineage", "Feature drift", "ACL management"],
+            "tools": ["feature_store", "metrics", "identity_provider"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.MODEL_ROLLBACK: {
+            "name": "Model Rollback Agent",
+            "description": "Canary eval and rollback with safety gating on real-time metrics",
+            "capabilities": ["Canary evaluation", "Rollback", "Safety gating"],
+            "tools": ["model_evaluator", "deployment_orchestrator", "metrics"],
+            "priority": "critical",
+            "timeout": 600
+        },
+        AgentType.DATA_DRIFT: {
+            "name": "Data Drift Agent",
+            "description": "Detect distribution drift and trigger retraining workflows",
+            "capabilities": ["Distribution drift", "Retraining triggers"],
+            "tools": ["drift_detector", "pipeline_manager"],
+            "priority": "high",
+            "timeout": 300
+        },
 
         # Advanced DevOps Agents
         AgentType.DOCKER: {
@@ -487,6 +593,234 @@ class AgentConfig:
             "tools": ["approval_manager", "remediation_automator", "rollback_manager"],
             "priority": "critical",
             "timeout": 300
+        }
+        ,
+        # New Governance & FinOps & Safety Agents
+        AgentType.TAG_ENFORCEMENT: {
+            "name": "Tag Enforcement Agent",
+            "description": "Enforces canonical tags, auto-retags non-prod, manages waivers",
+            "capabilities": [
+                "Tag audit",
+                "Auto-retag (non-prod)",
+                "Waiver management",
+                "OPA policy integration"
+            ],
+            "tools": ["opa_client", "cloud_manager", "cmdb"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.DRIFT_RECONCILIATION: {
+            "name": "Drift Reconciliation Agent",
+            "description": "Detects and reconciles drift between live and IaC",
+            "capabilities": ["Drift detection", "PR creation in prod", "Auto-apply in low risk"],
+            "tools": ["gitops", "kubernetes_manager", "cloud_manager"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.IAC_IMPORT: {
+            "name": "IaC Import Agent",
+            "description": "Imports infrastructure from live using Terraformer/Pulumi and baselines",
+            "capabilities": ["Terraformer", "Pulumi import", "Baseline creation"],
+            "tools": ["iac_generator", "git_repo"],
+            "priority": "medium",
+            "timeout": 900
+        },
+        AgentType.COMMITMENTS_ADVISOR: {
+            "name": "Commitments Advisor Agent",
+            "description": "Rightsizing and RI/SP recommendations and execution windows",
+            "capabilities": ["Rightsizing", "Savings plans", "RI planning", "Execution scheduling"],
+            "tools": ["cost_analyzer", "rightsizing_tool"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.OFF_HOURS_SCHEDULER: {
+            "name": "Off-Hours Scheduler Agent",
+            "description": "Schedules start/stop/scale by env/service to cut idle spend",
+            "capabilities": ["Schedules", "Cloud actions", "Approval-aware"],
+            "tools": ["cloud_manager", "chatops_orchestrator"],
+            "priority": "medium",
+            "timeout": 120
+        },
+        AgentType.COST_ANOMALY: {
+            "name": "Cost Anomaly Agent",
+            "description": "Real-time cost anomaly detection with explainers and Slack alerts",
+            "capabilities": ["Real-time anomaly detection", "Explainable alerts", "ChatOps notifications"],
+            "tools": ["cost_analyzer", "chatops_orchestrator"],
+            "priority": "critical",
+            "timeout": 120
+        },
+        AgentType.DATA_LIFECYCLE: {
+            "name": "Data Lifecycle Agent",
+            "description": "Tiering & retention policies (e.g., S3→Glacier) and large-object cleanup",
+            "capabilities": ["Tiering plans", "Retention policies", "Large-object cleanup"],
+            "tools": ["cloud_manager", "cmdb"],
+            "priority": "high",
+            "timeout": 900
+        },
+        AgentType.EGRESS_OPTIMIZER: {
+            "name": "Egress Optimizer Agent",
+            "description": "Detects cross-AZ/region egress hotspots; routing and placement suggestions",
+            "capabilities": ["Hotspot detection", "Routing suggestions", "Placement optimization"],
+            "tools": ["cloud_manager", "metrics"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.UNIT_ECONOMICS: {
+            "name": "Unit Economics Agent",
+            "description": "Maps costs to services/tenants/SLO targets and spots regressions",
+            "capabilities": ["Cost mapping", "SLO linkage", "Regression detection"],
+            "tools": ["cost_analyzer", "metrics"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.EVIDENCE_PACKAGER: {
+            "name": "Evidence Packager Agent",
+            "description": "Builds auditor-grade evidence packs",
+            "capabilities": ["Config capture", "Screenshots", "API dumps", "Approvals", "Logs"],
+            "tools": ["evidence_vault", "cloud_manager", "gitops"],
+            "priority": "medium",
+            "timeout": 600
+        },
+        AgentType.BREAK_GLASS: {
+            "name": "Break-Glass Agent",
+            "description": "Time-boxed elevated access with approver quorum and full audit",
+            "capabilities": ["Quorum approvals", "STS tokens", "Auto-revoke"],
+            "tools": ["secrets_provider", "opa_client"],
+            "priority": "critical",
+            "timeout": 180
+        },
+        AgentType.SECRETS_ROTATION: {
+            "name": "Secrets Rotation Agent",
+            "description": "Rotates keys/tokens across cloud and integrations with Vault/Secrets Manager",
+            "capabilities": ["Key rotation", "Credential updates", "Propagation"],
+            "tools": ["secrets_provider", "github_repo_secrets"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.KMS_KEY_ROTATION: {
+            "name": "KMS Key Rotation Agent",
+            "description": "Plans KMS/CMK rotations with blast-radius checks and staged cutovers",
+            "capabilities": ["Key creation", "Alias switch", "Staged cutover"],
+            "tools": ["cloud_manager", "safe_cutover"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.CHANGE_IMPACT_SIMULATOR: {
+            "name": "Change Impact Simulator Agent",
+            "description": "Simulates impact of infra changes on cost and SLO risk",
+            "capabilities": ["Cost delta", "SLO risk scoring", "Blast radius"],
+            "tools": ["cost_analyzer", "performance_analyzer"],
+            "priority": "high",
+            "timeout": 300
+        }
+        ,
+        # Cloud & Infra Agents
+        AgentType.NETWORK_POLICY: {
+            "name": "Network Policy Agent",
+            "description": "Analyzes SG/NSG/Firewall for open ports and least privilege",
+            "capabilities": ["Guardrails", "Open port detection", "Least privilege advice"],
+            "tools": ["cloud_manager", "cmdb"],
+            "priority": "high",
+            "timeout": 300
+        },
+        AgentType.BACKUP_DR: {
+            "name": "Backup & DR Agent",
+            "description": "Backups, retention policies, DR drills and restore validation",
+            "capabilities": ["Backups", "Retention", "DR drills", "Restore validation"],
+            "tools": ["cloud_manager", "cmdb"],
+            "priority": "high",
+            "timeout": 900
+        },
+        AgentType.SAFE_CUTOVER: {
+            "name": "Safe Cutover Agent",
+            "description": "Blue/green and weighted cutovers with health gates",
+            "capabilities": ["Blue/green", "DNS TTL", "Health gates", "Rollback"],
+            "tools": ["safe_cutover", "cmdb"],
+            "priority": "critical",
+            "timeout": 1800
+        },
+        AgentType.BULK_CLEANUP: {
+            "name": "Bulk Cleanup Agent",
+            "description": "Safe garbage collection of idle/orphaned assets",
+            "capabilities": ["Candidate scan", "Savings estimate", "Batch cleanup"],
+            "tools": ["bulk_cleanup", "cmdb"],
+            "priority": "high",
+            "timeout": 1200
+        },
+        AgentType.MULTI_REGION_ORCHESTRATOR: {
+            "name": "Multi-Region Orchestrator Agent",
+            "description": "Coordinated rollouts/rollbacks across regions with canaries",
+            "capabilities": ["Canary", "Regional sequencing", "Rollback"],
+            "tools": ["cloud_manager", "chatops_orchestrator"],
+            "priority": "high",
+            "timeout": 1800
+        },
+        # SRE & Observability Agents
+        AgentType.INCIDENT_MANAGER: {
+            "name": "Incident Manager Agent",
+            "description": "Correlates alerts, deduplicates, finds changes, kicks off RCA, ChatOps updates",
+            "capabilities": ["Alert correlation", "Dedup", "What changed", "RCA kickoff", "ChatOps"],
+            "tools": ["chatops_orchestrator", "langgraph_orchestrator"],
+            "priority": "critical",
+            "timeout": 600
+        },
+        AgentType.SLO_MANAGER: {
+            "name": "SLO Manager Agent",
+            "description": "Define SLOs, track burn rate, gate auto-remediation by budgets",
+            "capabilities": ["SLO definition", "Burn rate", "Error budgets", "Gating"],
+            "tools": ["metrics", "hitl"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.CHANGE_CORRELATION: {
+            "name": "Change Correlation Agent",
+            "description": "Map incidents to deploys/config changes and suggest rollbacks",
+            "capabilities": ["Deploy correlation", "Config diff", "Rollback suggestions"],
+            "tools": ["chatops_orchestrator"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.RUNBOOK_GENERATOR: {
+            "name": "Runbook Generator Agent",
+            "description": "Generate and maintain runnable, tenant-aware runbooks",
+            "capabilities": ["Runbook generation", "Tenant-aware", "History integration"],
+            "tools": ["rag", "cmdb"],
+            "priority": "medium",
+            "timeout": 300
+        }
+        ,
+        # Integrations & RAG Agents
+        AgentType.INTEGRATION_INSTALLER: {
+            "name": "Integration Installer Agent",
+            "description": "Self-serve marketplace installs, configuration, OAuth, and health checks",
+            "capabilities": ["Marketplace install", "OAuth", "Config apply", "Health checks"],
+            "tools": ["secrets_provider", "oauth_client"],
+            "priority": "high",
+            "timeout": 600
+        },
+        AgentType.WEBHOOK_NORMALIZER: {
+            "name": "Webhook Normalizer Agent",
+            "description": "Unify events from Prometheus, Datadog, Jira, GitHub, etc.",
+            "capabilities": ["Event normalization", "Schema mapping", "Routing"],
+            "tools": ["event_router", "schema_registry"],
+            "priority": "medium",
+            "timeout": 120
+        },
+        AgentType.KNOWLEDGE_INGESTION: {
+            "name": "Knowledge Ingestion Agent",
+            "description": "Pull runbooks/Confluence/Git/Tickets; chunk+embed with lineage/freshness",
+            "capabilities": ["Source pulling", "Chunking", "Embedding", "Lineage"],
+            "tools": ["rag", "qdrant", "git_client"],
+            "priority": "high",
+            "timeout": 1800
+        },
+        AgentType.FRESHNESS_GUARDIAN: {
+            "name": "Freshness Guardian Agent",
+            "description": "Detect stale knowledge and prioritize re-ingestion",
+            "capabilities": ["Freshness scoring", "Recrawl scheduling"],
+            "tools": ["rag", "scheduler"],
+            "priority": "medium",
+            "timeout": 600
         }
     }
 

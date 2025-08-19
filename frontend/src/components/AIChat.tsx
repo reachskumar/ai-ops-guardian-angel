@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import aiServicesAPI from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Message {
   text: string;
@@ -7,11 +9,29 @@ interface Message {
   isLoading?: boolean;
 }
 
+interface ChatMeta {
+  intent?: string;
+  confidence?: number;
+  requiresApproval?: boolean;
+  actions?: Array<Record<string, any>>;
+  suggestions?: string[];
+  agentType?: string;
+}
+
 const AIChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [lastMeta, setLastMeta] = useState<ChatMeta | null>(null);
+  const [sessionId] = useState<string>(() => {
+    const existing = sessionStorage.getItem('chat_session_id');
+    if (existing) return existing;
+    const id = `sess-${Date.now()}`;
+    sessionStorage.setItem('chat_session_id', id);
+    return id;
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,32 +63,31 @@ const AIChat = () => {
     setMessages(prev => [...prev, loadingMessage]);
 
     try {
-      // Connect to real AI service
-      const response = await fetch('http://localhost:8001/chat', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
-        },
-        body: JSON.stringify({ 
-          message: input,
-          context: 'infrastructure_management',
-          user_id: localStorage.getItem('user_id') || 'anonymous'
-        })
+      const resp = await aiServicesAPI.sendChatMessage({
+        message: input,
+        tenantId: user?.tenantId,
+        sessionId,
+        context: 'infrastructure_management',
       });
-      
-      if (response.ok) {
-        const data = await response.json();
+      if (resp.success) {
+        const data: any = (resp as any).data || resp; // request wraps or forwards
+        const text = (data && data.response) || 'AI response received';
         const aiMessage: Message = { 
-          text: data.response || 'AI response received', 
+          text: text, 
           isUser: false, 
           timestamp: new Date() 
         };
-        setMessages(prev => prev.map(msg => 
-          msg.isLoading ? aiMessage : msg
-        ));
+        setMessages(prev => prev.map(msg => msg.isLoading ? aiMessage : msg));
+        setLastMeta({
+          intent: data.intent,
+          confidence: data.confidence,
+          requiresApproval: data.requires_approval ?? data.requiresApproval,
+          actions: data.actions,
+          suggestions: data.suggestions,
+          agentType: data.agent_type ?? data.agentType,
+        });
       } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(resp.error || 'Chat failed');
       }
     } catch (error) {
       console.error('AI Service Error:', error);
@@ -80,6 +99,54 @@ const AIChat = () => {
       setMessages(prev => prev.map(msg => 
         msg.isLoading ? errorMessage : msg
       ));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      const resp = await aiServicesAPI.approveChat({ tenantId: user?.tenantId, sessionId, userId: user?.id });
+      if (resp.success) {
+        const data: any = (resp as any).data || resp;
+        const text = (data && data.response) || 'Approved';
+        const aiMessage: Message = { text, isUser: false, timestamp: new Date() };
+        setMessages(prev => [...prev, aiMessage]);
+        setLastMeta({
+          intent: data.intent,
+          confidence: data.confidence,
+          requiresApproval: data.requires_approval ?? data.requiresApproval,
+          actions: data.actions,
+          suggestions: data.suggestions,
+          agentType: data.agent_type ?? data.agentType,
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      const resp = await aiServicesAPI.cancelChat({ tenantId: user?.tenantId, sessionId, userId: user?.id });
+      if (resp.success) {
+        const data: any = (resp as any).data || resp;
+        const text = (data && data.response) || 'Cancelled';
+        const aiMessage: Message = { text, isUser: false, timestamp: new Date() };
+        setMessages(prev => [...prev, aiMessage]);
+        setLastMeta({
+          intent: data.intent,
+          confidence: data.confidence,
+          requiresApproval: data.requires_approval ?? data.requiresApproval,
+          actions: data.actions,
+          suggestions: data.suggestions,
+          agentType: data.agent_type ?? data.agentType,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -165,6 +232,31 @@ const AIChat = () => {
         
         {/* Input */}
         <div className="p-4 border-t">
+          {lastMeta?.requiresApproval && (
+            <div className="mb-3 p-3 border rounded bg-muted/40">
+              <div className="text-sm mb-2">
+                This action requires approval.
+                {lastMeta.intent && (<span className="ml-1">Intent: <span className="font-medium">{lastMeta.intent}</span></span>)}
+                {typeof lastMeta.confidence === 'number' && (<span className="ml-1">(confidence {Math.round(lastMeta.confidence * 100)}%)</span>)}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleApprove} className="px-3 py-2 bg-primary text-primary-foreground rounded">Approve</button>
+                <button onClick={handleCancel} className="px-3 py-2 border rounded">Cancel</button>
+              </div>
+            </div>
+          )}
+          {lastMeta?.suggestions && lastMeta.suggestions.length > 0 && (
+            <div className="mb-3">
+              <div className="text-xs text-muted-foreground mb-1">Suggestions</div>
+              <div className="flex flex-wrap gap-2">
+                {lastMeta.suggestions.slice(0,4).map((sug, idx) => (
+                  <button key={idx} onClick={() => setInput(sug)} className="px-2 py-1 text-xs border rounded">
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               type="text"
