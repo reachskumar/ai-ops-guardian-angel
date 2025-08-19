@@ -7,6 +7,7 @@ import { Label } from '../ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Activity, Beaker, BookOpen, GitCompare, Loader2, Play, Clipboard, Download } from 'lucide-react';
 import aiServicesAPI from '../../lib/api';
+import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from '../ui/breadcrumb';
 import { toast } from 'sonner';
 
 const pretty = (val: any) => JSON.stringify(val, null, 2);
@@ -159,7 +160,18 @@ const SRECenter: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">SRE Center</h1>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>SRE Center</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <h1 className="text-3xl font-bold mt-2">SRE Center</h1>
           <p className="text-muted-foreground">Alert correlation, SLO evaluation, change analysis, and runbook generation</p>
         </div>
       </div>
@@ -199,11 +211,13 @@ const SRECenter: React.FC = () => {
                   Analyze
                 </Button>
               </div>
-              {imResult && (
+              {imResult ? (
                 <div>
                   <Label>Result</Label>
                   <pre className="mt-2 p-3 bg-muted rounded-md overflow-auto text-sm">{pretty(imResult)}</pre>
                 </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No results yet. Run Analyze to see output.</div>
               )}
             </CardContent>
           </Card>
@@ -236,11 +250,13 @@ const SRECenter: React.FC = () => {
                   Evaluate
                 </Button>
               </div>
-              {sloResult && (
+              {sloResult ? (
                 <div>
                   <Label>Result</Label>
                   <pre className="mt-2 p-3 bg-muted rounded-md overflow-auto text-sm">{pretty(sloResult)}</pre>
                 </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No results yet. Evaluate to see output.</div>
               )}
             </CardContent>
           </Card>
@@ -269,11 +285,13 @@ const SRECenter: React.FC = () => {
                   Correlate
                 </Button>
               </div>
-              {ccResult && (
+              {ccResult ? (
                 <div>
                   <Label>Result</Label>
                   <pre className="mt-2 p-3 bg-muted rounded-md overflow-auto text-sm">{pretty(ccResult)}</pre>
                 </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No results yet. Correlate to see output.</div>
               )}
             </CardContent>
           </Card>
@@ -312,11 +330,13 @@ const SRECenter: React.FC = () => {
                   </>
                 )}
               </div>
-              {rbResult && (
+              {rbResult ? (
                 <div>
                   <Label>Result</Label>
                   <pre className="mt-2 p-3 bg-muted rounded-md overflow-auto text-sm">{rbText}</pre>
                 </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No results yet. Generate to see output.</div>
               )}
             </CardContent>
           </Card>

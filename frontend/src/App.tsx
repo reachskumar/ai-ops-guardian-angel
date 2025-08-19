@@ -9,7 +9,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
 // Core Components
-import Navigation from './components/Navigation';
+import AppShell from './components/AppShell';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
 import CloudConnection from './components/CloudConnection';
@@ -44,10 +44,8 @@ function App() {
         <ThemeProvider>
           <AuthProvider>
             <Router>
-              <div className="min-h-screen bg-background">
-                <Navigation />
-                <main className="flex-1 p-6">
-                  <Routes>
+              <AppShell>
+                <Routes>
                     {/* Public */}
                     <Route path="/" element={<LandingHero />} />
                     <Route path="/login" element={<LoginPage />} />
@@ -65,9 +63,8 @@ function App() {
                     
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </main>
-              </div>
+                </Routes>
+              </AppShell>
               <Toaster />
             </Router>
           </AuthProvider>
